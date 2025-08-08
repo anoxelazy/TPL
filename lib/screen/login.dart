@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/screen/register.dart';
+import 'package:flutter_application_1/page/home.dart'; 
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -15,18 +16,10 @@ class _LoginPageState extends State<LoginPage> {
   bool isPasswordVisible = false;
 
   void _login() {
-    final email = emailController.text.trim();
-    final password = passwordController.text;
-
-    if (email.isNotEmpty && password.isNotEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(' $email')));
-    } else {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('')));
-    }
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => const HomePage()),
+    );
   }
 
   @override
