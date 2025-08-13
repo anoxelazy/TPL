@@ -45,6 +45,7 @@ class _MyHomePageState extends State<MyHomePage> {
     Center(child: Text('หน้าหลัก', style: TextStyle(fontSize: 20))),
     Center(child: Text('ค้นหา', style: TextStyle(fontSize: 20))),
     Center(child: Text('โปรไฟล์', style: TextStyle(fontSize: 20))),
+
   ];
 
   @override
@@ -65,6 +66,7 @@ class _MyHomePageState extends State<MyHomePage> {
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'หน้าหลัก'),
           BottomNavigationBarItem(icon: Icon(Icons.search), label: 'ค้นหา'),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'โปรไฟล์'),
+
         ],
         currentIndex: _selectedIndex,
         selectedItemColor: Colors.green,
