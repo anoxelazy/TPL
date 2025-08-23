@@ -1,6 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/screen/register.dart';
-import 'package:flutter_application_1/page/home.dart'; 
+import 'package:flutter_application_1/page/home.dart';
+import 'package:flutter_application_1/page/profile.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -12,14 +15,71 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
-
   bool isPasswordVisible = false;
+  bool isLoading = false;
 
-  void _login() {
-    Navigator.pushReplacement(
+  Future<void> _login() async {
+    if (emailController.text.isEmpty || passwordController.text.isEmpty) {
+      _showError("กรุณาใส่รหัสพนักงานและรหัสผ่าน");
+      return;
+    }
+
+    setState(() {
+      isLoading = true;
+    });
+
+    final url = Uri.parse("http://61.91.54.130:1159/Login");
+    final body = {
+      "username": emailController.text,
+      "password": passwordController.text,
+      "typeApp": "New",
+    };
+
+    try {
+      final response = await http
+          .post(
+            url,
+            headers: {
+              "Content-Type": "application/json",
+              "Accept": "application/json",
+            },
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final token = data["token"];
+        final fullname = data["fullname"];
+        final driverID = data["driverID"];
+
+        SharedPreferences prefs = await SharedPreferences.getInstance();
+        await prefs.setString("token", token);
+        await prefs.setString("fullname", fullname); 
+        await prefs.setString("driverID", driverID);
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const HomePage()),
+        );
+      } else {
+        _showError(
+          "เข้าสู่ระบบล้มเหลว: ${response.statusCode}\n${response.body}",
+        );
+      }
+    } catch (e) {
+      _showError("เกิดข้อผิดพลาด: $e");
+    }
+
+    setState(() {
+      isLoading = false;
+    });
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(
       context,
-      MaterialPageRoute(builder: (context) => const HomePage()),
-    );
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -34,7 +94,6 @@ class _LoginPageState extends State<LoginPage> {
             children: [
               Image.asset('assets/images/tpicon.png', width: 200, height: 200),
               const SizedBox(height: 20),
-
               TextField(
                 controller: emailController,
                 keyboardType: TextInputType.emailAddress,
@@ -44,7 +103,6 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               ),
               const SizedBox(height: 20),
-
               TextField(
                 controller: passwordController,
                 obscureText: !isPasswordVisible,
@@ -66,31 +124,21 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               ),
               const SizedBox(height: 30),
-
               SizedBox(
                 width: double.infinity,
                 height: 50,
                 child: ElevatedButton(
-                  onPressed: _login,
+                  onPressed: isLoading ? null : _login,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,
                   ),
-                  child: const Text(
-                    'เข้าสู่ระบบ',
-                    style: TextStyle(fontSize: 18, color: Colors.black),
-                  ),
+                  child: isLoading
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text(
+                          'เข้าสู่ระบบ',
+                          style: TextStyle(fontSize: 18, color: Colors.black),
+                        ),
                 ),
-              ),
-              TextButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const RegisterPage(),
-                    ),
-                  );
-                },
-                child: const Text('ยังไม่มีบัญชี? ลงทะเบียนที่นี่'),
               ),
             ],
           ),

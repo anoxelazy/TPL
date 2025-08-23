@@ -1,8 +1,10 @@
 import 'dart:io';
-
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:http/http.dart' as http;
 
 class ClaimPage extends StatefulWidget {
   const ClaimPage({super.key});
@@ -22,14 +24,37 @@ class _ClaimPageState extends State<ClaimPage> {
     });
   }
 
+  Future<void> _scanBarcode(TextEditingController controller) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          appBar: AppBar(title: const Text('สแกนบาร์โค้ด')),
+          body: MobileScanner(
+            onDetect: (BarcodeCapture capture) {
+              final List<Barcode> barcodes = capture.barcodes;
+              if (barcodes.isNotEmpty && barcodes.first.rawValue != null) {
+                Navigator.pop(context, barcodes.first.rawValue);
+              }
+            },
+          ),
+        ),
+      ),
+    );
+
+    if (result != null && result is String) {
+      setState(() {
+        controller.text = result;
+      });
+    }
+  }
+
   Future<void> _showClaimDialog({int? editIndex}) async {
     final TextEditingController docNumberController = TextEditingController();
     String selectedType = 'เสียหาย';
     final TextEditingController carCodeController = TextEditingController();
     DateTime selectedDate = DateTime.now();
-
     List<File> claimImages = [];
-
     final ImagePicker picker = ImagePicker();
 
     if (editIndex != null) {
@@ -41,10 +66,7 @@ class _ClaimPageState extends State<ClaimPage> {
       claimImages = List<File>.from(claim['images'] ?? []);
     }
 
-    Future<void> _selectDate(
-      BuildContext context,
-      StateSetter setStateDialog,
-    ) async {
+    Future<void> _selectDate(BuildContext context, StateSetter setStateDialog) async {
       final DateTime? picked = await showDatePicker(
         context: context,
         initialDate: selectedDate,
@@ -82,10 +104,7 @@ class _ClaimPageState extends State<ClaimPage> {
         return StatefulBuilder(
           builder: (context, setStateDialog) {
             return Dialog(
-              insetPadding: const EdgeInsets.symmetric(
-                horizontal: 20,
-                vertical: 40,
-              ),
+              insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
               child: SizedBox(
                 width: MediaQuery.of(context).size.width * 0.9,
                 height: MediaQuery.of(context).size.height * 0.85,
@@ -94,13 +113,8 @@ class _ClaimPageState extends State<ClaimPage> {
                     Container(
                       padding: const EdgeInsets.all(16),
                       child: Text(
-                        editIndex == null
-                            ? 'สร้างรายการ Claim ใหม่'
-                            : 'แก้ไขรายการ Claim',
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        editIndex == null ? 'สร้างรายการ Claim ใหม่' : 'แก้ไขรายการ Claim',
+                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                       ),
                     ),
                     Expanded(
@@ -113,19 +127,11 @@ class _ClaimPageState extends State<ClaimPage> {
                               children: [
                                 const Text('วันที่: '),
                                 TextButton.icon(
-                                  onPressed: () =>
-                                      _selectDate(context, setStateDialog),
-                                  icon: const Icon(
-                                    Icons.calendar_today,
-                                    color: Colors.blue,
-                                  ),
+                                  onPressed: () => _selectDate(context, setStateDialog),
+                                  icon: const Icon(Icons.calendar_today, color: Colors.blue),
                                   label: Text(
-                                    DateFormat(
-                                      'dd/MM/yyyy',
-                                    ).format(selectedDate),
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                                    DateFormat('dd/MM/yyyy').format(selectedDate),
+                                    style: const TextStyle(fontWeight: FontWeight.bold),
                                   ),
                                 ),
                               ],
@@ -152,10 +158,7 @@ class _ClaimPageState extends State<ClaimPage> {
                                             top: -10,
                                             right: -10,
                                             child: IconButton(
-                                              icon: const Icon(
-                                                Icons.cancel,
-                                                color: Colors.red,
-                                              ),
+                                              icon: const Icon(Icons.cancel, color: Colors.red),
                                               onPressed: () {
                                                 setStateDialog(() {
                                                   claimImages.removeAt(index);
@@ -172,26 +175,21 @@ class _ClaimPageState extends State<ClaimPage> {
                             const SizedBox(height: 8),
                             TextField(
                               controller: docNumberController,
-                              decoration: const InputDecoration(
+                              decoration: InputDecoration(
                                 labelText: 'เลขเอกสาร',
+                                suffixIcon: IconButton(
+                                  icon: const Icon(Icons.qr_code_scanner_outlined),
+                                  onPressed: () => _scanBarcode(docNumberController),
+                                ),
                               ),
                             ),
                             const SizedBox(height: 12),
                             DropdownButtonFormField<String>(
                               value: selectedType,
                               items: const [
-                                DropdownMenuItem(
-                                  value: 'เสียหาย',
-                                  child: Text('เสียหาย'),
-                                ),
-                                DropdownMenuItem(
-                                  value: 'สูญหาย',
-                                  child: Text('สูญหาย'),
-                                ),
-                                DropdownMenuItem(
-                                  value: 'ไม่ครบล็อต',
-                                  child: Text('ไม่ครบล็อต'),
-                                ),
+                                DropdownMenuItem(value: 'เสียหาย', child: Text('เสียหาย')),
+                                DropdownMenuItem(value: 'สูญหาย', child: Text('สูญหาย')),
+                                DropdownMenuItem(value: 'ไม่ครบล็อต', child: Text('ไม่ครบล็อต')),
                               ],
                               onChanged: (value) {
                                 if (value != null) {
@@ -200,15 +198,17 @@ class _ClaimPageState extends State<ClaimPage> {
                                   });
                                 }
                               },
-                              decoration: const InputDecoration(
-                                labelText: 'ประเภทสินค้า',
-                              ),
+                              decoration: const InputDecoration(labelText: 'ประเภทสินค้า'),
                             ),
                             const SizedBox(height: 12),
                             TextField(
                               controller: carCodeController,
-                              decoration: const InputDecoration(
+                              decoration: InputDecoration(
                                 labelText: 'รหัสรถ (เช่น TP XXXX)',
+                                suffixIcon: IconButton(
+                                  icon: const Icon(Icons.qr_code_scanner_outlined),
+                                  onPressed: () => _scanBarcode(carCodeController),
+                                ),
                               ),
                             ),
                             const SizedBox(height: 12),
@@ -216,14 +216,12 @@ class _ClaimPageState extends State<ClaimPage> {
                               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                               children: [
                                 ElevatedButton.icon(
-                                  onPressed: () =>
-                                      _addImageFromCamera(setStateDialog),
+                                  onPressed: () => _addImageFromCamera(setStateDialog),
                                   icon: const Icon(Icons.camera_alt),
                                   label: const Text('ถ่ายรูป'),
                                 ),
                                 ElevatedButton.icon(
-                                  onPressed: () =>
-                                      _addImageFromGallery(setStateDialog),
+                                  onPressed: () => _addImageFromGallery(setStateDialog),
                                   icon: const Icon(Icons.photo_library),
                                   label: const Text('เลือกรูป'),
                                 ),
@@ -234,10 +232,7 @@ class _ClaimPageState extends State<ClaimPage> {
                       ),
                     ),
                     Padding(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 8,
-                        horizontal: 16,
-                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
@@ -252,9 +247,7 @@ class _ClaimPageState extends State<ClaimPage> {
                                   carCodeController.text.trim().isEmpty) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
-                                    content: Text(
-                                      'กรุณากรอกข้อมูลให้ครบทุกช่อง',
-                                    ),
+                                    content: Text('กรุณากรอกข้อมูลให้ครบทุกช่อง'),
                                   ),
                                 );
                                 return;
@@ -291,102 +284,51 @@ class _ClaimPageState extends State<ClaimPage> {
     );
   }
 
-  Future<void> _showClaimDetailDialog(int index) async {
-    final claim = claims[index];
-    List<File> images = List<File>.from(claim['images'] ?? []);
+  // =================== API ส่งรูป ===================
+  Future<void> sendClaimToAPI({
+    required String a1No,
+    required String empId,
+    required String folderName,
+    required String imageName,
+    required File imageFile,
+    required double lat,
+    required double lon,
+    required String bearerToken,
+  }) async {
+    final url = Uri.parse("{{baseUrl}}/api/GETImageLink_Folder");
 
-    final ImagePicker picker = ImagePicker();
+    String base64Image = base64Encode(await imageFile.readAsBytes());
 
-    await showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setStateDialog) {
-            void _addImageFromCamera() async {
-              final XFile? image = await picker.pickImage(
-                source: ImageSource.camera,
-              );
-              if (image != null) {
-                setStateDialog(() {
-                  images.add(File(image.path));
-                });
-              }
-            }
+    final body = {
+      "A1": a1No,
+      "IsStempText": true,
+      "image1": base64Image,
+      "lat": lat,
+      "lon": lon,
+      "refCode": "trackinkcustomer",
+      "EmpID": empId,
+      "FolderName": folderName,
+      "ImageName": imageName,
+    };
 
-            void _addImageFromGallery() async {
-              final XFile? image = await picker.pickImage(
-                source: ImageSource.gallery,
-              );
-              if (image != null) {
-                setStateDialog(() {
-                  images.add(File(image.path));
-                });
-              }
-            }
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $bearerToken",
+        },
+        body: jsonEncode(body),
+      );
 
-            void _saveImages() {
-              setState(() {
-                claims[index]['images'] = images;
-              });
-              Navigator.pop(context);
-            }
-
-            return AlertDialog(
-              title: const Text('รูปภาพ Claim'),
-              content: SizedBox(
-                width: double.maxFinite,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (images.isEmpty) const Text('ไม่มีรูปภาพ'),
-                    if (images.isNotEmpty)
-                      SizedBox(
-                        height: 150,
-                        child: ListView.builder(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: images.length,
-                          itemBuilder: (context, i) {
-                            return Padding(
-                              padding: const EdgeInsets.all(4.0),
-                              child: Image.file(images[i]),
-                            );
-                          },
-                        ),
-                      ),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        ElevatedButton.icon(
-                          onPressed: _addImageFromCamera,
-                          icon: const Icon(Icons.camera_alt),
-                          label: const Text('ถ่ายรูป'),
-                        ),
-                        ElevatedButton.icon(
-                          onPressed: _addImageFromGallery,
-                          icon: const Icon(Icons.photo_library),
-                          label: const Text('เลือกรูป'),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('ยกเลิก'),
-                ),
-                ElevatedButton(
-                  onPressed: _saveImages,
-                  child: const Text('Save'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
+      if (response.statusCode == 200) {
+        print("ส่งรูปสำเร็จ ✅: ${response.body}");
+      } else {
+        print("ส่งรูปล้มเหลว ❌: ${response.statusCode}, ${response.body}");
+      }
+    } catch (e) {
+      print("เกิดข้อผิดพลาดในการส่งรูป: $e");
+    }
   }
 
   @override
@@ -418,17 +360,11 @@ class _ClaimPageState extends State<ClaimPage> {
                         shape: BoxShape.circle,
                         border: Border.all(color: Colors.white, width: 2),
                       ),
-                      constraints: const BoxConstraints(
-                        minWidth: 20,
-                        minHeight: 20,
-                      ),
+                      constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
                       child: Text(
                         '$claimCount',
                         style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
+                            color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
                         textAlign: TextAlign.center,
                       ),
                     ),
@@ -463,7 +399,7 @@ class _ClaimPageState extends State<ClaimPage> {
                       IconButton(
                         icon: const Icon(Icons.photo),
                         tooltip: 'ดู/เพิ่มรูปภาพ',
-                        onPressed: () => _showClaimDetailDialog(index),
+                        onPressed: () => _showClaimDialog(editIndex: index),
                       ),
                       IconButton(
                         icon: const Icon(Icons.edit, color: Colors.blue),

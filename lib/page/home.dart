@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/page/claim.dart';
 import 'package:flutter_application_1/page/pm.dart';
+import 'package:flutter_application_1/page/profile.dart';
 import 'package:flutter_application_1/screen/login.dart';
 
 class HomePage extends StatefulWidget {
@@ -16,6 +17,7 @@ class _HomePageState extends State<HomePage> {
   final List<Widget> _pages = [
     const PMPage(),
     const ClaimPage(),
+    const ProfilePage(),
     Center(child: Text('หน้าหลัก', style: TextStyle(fontSize: 20))),
     Center(child: Text('ค้นหา', style: TextStyle(fontSize: 20))),
     Center(child: Text('โปรไฟล์', style: TextStyle(fontSize: 20))),
@@ -41,11 +43,11 @@ class _HomePageState extends State<HomePage> {
         title: const Text('TP logistics'),
         backgroundColor: Colors.green,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: _logout,
-            tooltip: 'ออกจากระบบ',
-          ),
+          // IconButton(
+          //   icon: const Icon(Icons.logout),
+          //   onPressed: _logout,
+          //   tooltip: 'ออกจากระบบ',
+          // ),
         ],
       ),
       body: _pages[_selectedIndex],
