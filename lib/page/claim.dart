@@ -286,7 +286,7 @@ class _ClaimPageState extends State<ClaimPage> {
   }
 
   // =================== API ส่งรูป ===================
-  Future<void> sendClaimToAPI({
+  Future<String?> sendClaimToAPI({
     required String a1No,
     required String empId,
     required String folderName,
@@ -323,12 +323,58 @@ class _ClaimPageState extends State<ClaimPage> {
       );
 
       if (response.statusCode == 200) {
-        print("ส่งรูปสำเร็จ ✅: ${response.body}");
+        try {
+          final decoded = jsonDecode(response.body);
+          final dynamic urlField = decoded is Map
+              ? (decoded['imageUrl'] ?? decoded['url'] ?? (decoded['data'] != null ? decoded['data']['url'] : null))
+              : null;
+          final String? imageUrl = urlField?.toString();
+          if (imageUrl != null && imageUrl.isNotEmpty) {
+            return imageUrl;
+          }
+        } catch (_) {}
+        return null;
       } else {
-        print("ส่งรูปล้มเหลว ❌: ${response.statusCode}, ${response.body}");
+        return null;
       }
     } catch (e) {
       print("เกิดข้อผิดพลาดในการส่งรูป: $e");
+      return null;
+    }
+  }
+
+  Future<void> sendClaimToGoogleSheet({
+    required String date,
+    required String a1No,
+    required String claimType,
+    required String truckNo,
+    required String userId,
+    required List<String> imageUrls,
+  }) async {
+    final url = Uri.parse('https://script.google.com/macros/s/AKfycbxdGLxrCcnAi2eWhO5s4RHIVWqMRxbX7kfQJKoHWd2Y35RUwzraogdkrfueUmOZ14Jd/exec?key=91d3acfb-0b47-49b4-9667-ed359ecda9e5');
+
+    final data = {
+      "date": date,
+      "a1_no": a1No,
+      "claim_type": claimType,
+      "truck_no": truckNo,
+      "user_id": userId,
+      "images": imageUrls,
+    };
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(data),
+      );
+      if (response.statusCode == 200) {
+        debugPrint('ส่งข้อมูล Google Sheet สำเร็จ: ${response.body}');
+      } else {
+        debugPrint('ส่งข้อมูล Google Sheet ล้มเหลว: ${response.statusCode} - ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('ข้อผิดพลาดในการส่ง Google Sheet: $e');
     }
   }
 
@@ -358,8 +404,13 @@ class _ClaimPageState extends State<ClaimPage> {
     try {
       for (final claim in claims) {
         final String a1No = (claim['docNumber'] ?? '').toString();
+        final String claimType = (claim['type'] ?? '').toString();
+        final String truckNo = (claim['carCode'] ?? '').toString();
+        final DateTime ts = (claim['timestamp'] ?? DateTime.now()) as DateTime;
+        final String dateStr = DateFormat('yyyy-MM-dd').format(ts);
         final List<File> images = List<File>.from(claim['images'] ?? []);
 
+        final List<String> imageUrls = [];
         for (final imageFile in images) {
           final String filePath = imageFile.path;
           final String fileName = filePath.split('/').isNotEmpty
@@ -368,7 +419,7 @@ class _ClaimPageState extends State<ClaimPage> {
           final int dotIndex = fileName.lastIndexOf('.');
           final String imageName = dotIndex > 0 ? fileName.substring(0, dotIndex) : fileName;
 
-          await sendClaimToAPI(
+          final String? uploadedUrl = await sendClaimToAPI(
             a1No: a1No,
             empId: empId,
             folderName: 'Claim',
@@ -378,7 +429,19 @@ class _ClaimPageState extends State<ClaimPage> {
             lon: 0.0,
             bearerToken: token,
           );
+          if (uploadedUrl != null && uploadedUrl.isNotEmpty) {
+            imageUrls.add(uploadedUrl);
+          }
         }
+
+        await sendClaimToGoogleSheet(
+          date: dateStr,
+          a1No: a1No,
+          claimType: claimType,
+          truckNo: truckNo,
+          userId: empId,
+          imageUrls: imageUrls,
+        );
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
