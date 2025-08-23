@@ -376,14 +376,35 @@ class _ClaimPageState extends State<ClaimPage> {
     final uri = Uri.parse('$_sheetEndpoint?key=$_sheetKey');
     try {
       final payload = await _buildSheetPayload(claim);
-      final resp = await http.post(
+      final headers = const {'Content-Type': 'application/json'};
+
+      http.Response resp = await http.post(
         uri,
-        headers: const {'Content-Type': 'application/json'},
+        headers: headers,
         body: jsonEncode(payload),
       );
+
       if (resp.statusCode == 200) {
         return true;
       }
+
+      // Handle redirect (Apps Script often issues 302 to googleusercontent host)
+      if (resp.isRedirect || (resp.statusCode >= 300 && resp.statusCode < 400)) {
+        final loc = resp.headers['location'];
+        if (loc != null && loc.isNotEmpty) {
+          final redirectedUri = Uri.parse(loc);
+          debugPrint('Following redirect to: $redirectedUri');
+          resp = await http.post(
+            redirectedUri,
+            headers: headers,
+            body: jsonEncode(payload),
+          );
+          if (resp.statusCode == 200) {
+            return true;
+          }
+        }
+      }
+
       debugPrint('Sheet POST failed: ${resp.statusCode} ${resp.body}');
       return false;
     } catch (e) {
