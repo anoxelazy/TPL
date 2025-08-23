@@ -342,23 +342,33 @@ class _ClaimPageState extends State<ClaimPage> {
     final DateTime timestamp = claim['timestamp'] ?? DateTime.now();
     final List<File> images = List<File>.from(claim['images'] ?? const []);
 
-    final List<String> imagesBase64 = [];
-    for (final f in images) {
-      try {
-        final bytes = await f.readAsBytes();
-        imagesBase64.add(base64Encode(bytes));
-      } catch (e) {
-        debugPrint('Base64 encode failed for image ${f.path}: $e');
-      }
+    String _basename(String p) {
+      final parts = p.split('/');
+      final lastSlash = parts.isNotEmpty ? parts.last : p;
+      final winParts = lastSlash.split('\\');
+      return winParts.isNotEmpty ? winParts.last : lastSlash;
     }
+
+    final String imageBase = 'https://internal.thaiparcels.com:4433/Tps/Claim';
+    final String folder = (claim['folder'] as String?) ?? (claim['docNumber'] as String?) ?? DateFormat('yyyyMMddHHmmss').format(timestamp);
+
+    final List<String> imageLinks = images.map((f) => '$imageBase/$folder/${_basename(f.path)}').toList();
+
+    final String a1 = claim['docNumber'] ?? '';
+    final String userId = claim['empID'] ?? '';
+    final String dateKey = DateFormat('yyyyMMdd').format(timestamp);
+    final String dedupeKey = '${a1}_${userId}_$dateKey_${imageLinks.length}';
 
     return {
       'date': DateFormat('yyyy-MM-dd').format(timestamp),
-      'a1_no': claim['docNumber'] ?? '',
+      'a1_no': a1,
       'claim_type': claim['type'] ?? '',
       'truck_no': claim['carCode'] ?? '',
-      'user_id': claim['empID'] ?? '',
-      'images': imagesBase64,
+      'user_id': userId,
+      'images': imageLinks,
+      'image_count': imageLinks.length,
+      'created_at': timestamp.toIso8601String(),
+      'dedupe_key': dedupeKey,
     };
   }
 
