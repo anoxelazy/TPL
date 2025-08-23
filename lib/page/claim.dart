@@ -29,6 +29,10 @@ class _ClaimPageState extends State<ClaimPage> {
   bool _isSendingAll = false;
   String? _userId;
 
+  String _resolveClaimFolder(Map<String, dynamic> claim, DateTime timestamp) {
+    return (claim['folder'] as String?) ?? (claim['docNumber'] as String?) ?? DateFormat('yyyyMMddHHmmss').format(timestamp);
+  }
+
   void _resetCount() {
     setState(() {
       claimCount = 0;
@@ -343,7 +347,7 @@ class _ClaimPageState extends State<ClaimPage> {
     );
   }
 
-  Future<void> sendClaimToAPI({
+  Future<bool> sendClaimToAPI({
     required String a1No,
     required String empId,
     required String folderName,
@@ -379,13 +383,16 @@ class _ClaimPageState extends State<ClaimPage> {
         body: jsonEncode(body),
       );
 
-      if (response.statusCode == 200) {
+      if (response.statusCode >= 200 && response.statusCode < 300) {
         print("ส่งรูปสำเร็จ ✅: ${response.body}");
+        return true;
       } else {
         print("ส่งรูปล้มเหลว ❌: ${response.statusCode}, ${response.body}");
+        return false;
       }
     } catch (e) {
       print("เกิดข้อผิดพลาดในการส่งรูป: $e");
+      return false;
     }
   }
 
@@ -403,10 +410,7 @@ class _ClaimPageState extends State<ClaimPage> {
     }
 
     final String imageBase = 'https://internal.thaiparcels.com:4433/Tps/Claim';
-    final String folder =
-        (claim['folder'] as String?) ??
-        (claim['docNumber'] as String?) ??
-        DateFormat('yyyyMMddHHmmss').format(timestamp);
+    final String folder = _resolveClaimFolder(claim, timestamp);
 
     final List<String> imageLinks = images
         .map((f) => '$imageBase/$folder/${_basename(f.path)}')
@@ -435,9 +439,88 @@ class _ClaimPageState extends State<ClaimPage> {
     String jsonBody,
   ) async {
     final HttpClient client = HttpClient();
-    client.followRedirects = false;
+    try {
+      // First POST
+      final HttpClientRequest request = await client.postUrl(uri);
+      request.followRedirects = false;
+      request.headers.set(HttpHeaders.contentTypeHeader, 'application/json');
+      request.add(utf8.encode(jsonBody));
+      final HttpClientResponse response = await request.close();
+
+      // Handle redirect manually: switch to GET for 301/302/303, preserve POST for 307/308
+      if ({301, 302, 303, 307, 308}.contains(response.statusCode)) {
+        final String? location = response.headers.value(HttpHeaders.locationHeader);
+        if (location != null) {
+          final Uri redirectUri = uri.resolve(location);
+          if ({301, 302, 303}.contains(response.statusCode)) {
+            final HttpClientRequest getReq = await client.getUrl(redirectUri);
+            getReq.followRedirects = false;
+            final HttpClientResponse getResp = await getReq.close();
+            final String getBody = await utf8.decoder.bind(getResp).join();
+            return _SimpleHttpResponse(getResp.statusCode, getBody);
+          } else {
+            final HttpClientRequest postReq = await client.postUrl(redirectUri);
+            postReq.followRedirects = false;
+            postReq.headers.set(HttpHeaders.contentTypeHeader, 'application/json');
+            postReq.add(utf8.encode(jsonBody));
+            final HttpClientResponse postResp = await postReq.close();
+            final String postBody = await utf8.decoder.bind(postResp).join();
+            return _SimpleHttpResponse(postResp.statusCode, postBody);
+          }
+        }
+      }
+      final String body = await utf8.decoder.bind(response).join();
+      return _SimpleHttpResponse(response.statusCode, body);
+    } finally {
+      client.close(force: true);
+    }
+  }
+  Future<bool> _uploadImagesForClaim(Map<String, dynamic> claim) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+    final empId = prefs.getString('driverID');
+    if (token == null || empId == null) {
+      debugPrint('Missing auth for upload');
+      return false;
+    }
+
+    final String a1No = (claim['docNumber'] ?? '').toString();
+    final List<File> images = List<File>.from(claim['images'] ?? []);
+    final DateTime ts = claim['timestamp'] ?? DateTime.now();
+    final String folder = _resolveClaimFolder(claim, ts);
+
+    for (final imageFile in images) {
+      final String filePath = imageFile.path;
+      final String fileName = filePath.split('/').isNotEmpty
+          ? filePath.split('/').last
+          : filePath;
+      final String imageName = fileName; // keep extension
+
+      final ok = await sendClaimToAPI(
+        a1No: a1No,
+        empId: empId,
+        folderName: folder,
+        imageName: imageName,
+        imageFile: imageFile,
+        lat: 0.0,
+        lon: 0.0,
+        bearerToken: token,
+      );
+      if (!ok) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  Future<_SimpleHttpResponse> _postJsonPreserveRedirect(
+    Uri uri,
+    String jsonBody,
+  ) async {
+    final HttpClient client = HttpClient();
     try {
       final HttpClientRequest request = await client.postUrl(uri);
+      request.followRedirects = false;
       request.headers.set(HttpHeaders.contentTypeHeader, 'application/json');
       request.add(utf8.encode(jsonBody));
       final HttpClientResponse response = await request.close();
@@ -471,10 +554,15 @@ class _ClaimPageState extends State<ClaimPage> {
   Future<bool> _sendClaimToGoogleSheet(Map<String, dynamic> claim) async {
     final uri = Uri.parse('$_sheetEndpoint?key=$_sheetKey');
     try {
+      final uploaded = await _uploadImagesForClaim(claim);
+      if (!uploaded) {
+        debugPrint('Image upload failed; skip posting sheet');
+        return false;
+      }
       final payload = await _buildSheetPayload(claim);
       final String body = jsonEncode(payload);
       final _SimpleHttpResponse resp = await _postJsonPreserveRedirect(uri, body);
-      debugPrint('Sheet POST failed: ${resp.statusCode} ${resp.body}');
+      if (resp.statusCode >= 200 && resp.statusCode < 300) {
       return false;
     } catch (e) {
       debugPrint('Sheet POST error: $e');
@@ -553,21 +641,21 @@ class _ClaimPageState extends State<ClaimPage> {
       for (final claim in claims) {
         final String a1No = (claim['docNumber'] ?? '').toString();
         final List<File> images = List<File>.from(claim['images'] ?? []);
+        final DateTime ts = claim['timestamp'] ?? DateTime.now();
+
+        final String folder = _resolveClaimFolder(claim, ts);
 
         for (final imageFile in images) {
           final String filePath = imageFile.path;
           final String fileName = filePath.split('/').isNotEmpty
               ? filePath.split('/').last
               : filePath;
-          final int dotIndex = fileName.lastIndexOf('.');
-          final String imageName = dotIndex > 0
-              ? fileName.substring(0, dotIndex)
-              : fileName;
+          final String imageName = fileName; 
 
           await sendClaimToAPI(
             a1No: a1No,
             empId: empId,
-            folderName: 'Claim',
+            folderName: folder,
             imageName: imageName,
             imageFile: imageFile,
             lat: 0.0,
@@ -668,11 +756,11 @@ class _ClaimPageState extends State<ClaimPage> {
                   trailing: Wrap(
                     spacing: 12,
                     children: [
-                      IconButton(
-                        icon: const Icon(Icons.photo),
-                        tooltip: 'ดู/เพิ่มรูปภาพ',
-                        onPressed: () => _showClaimDialog(editIndex: index),
-                      ),
+                      // IconButton(
+                      //   icon: const Icon(Icons.photo),
+                      //   tooltip: 'ดู/เพิ่มรูปภาพ',
+                      //   onPressed: () => _showClaimDialog(editIndex: index),
+                      // ),
                       IconButton(
                         icon: const Icon(Icons.edit, color: Colors.blue),
                         tooltip: 'แก้ไขข้อมูล',
