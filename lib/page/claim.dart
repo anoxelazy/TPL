@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ClaimPage extends StatefulWidget {
   const ClaimPage({super.key});
@@ -331,6 +332,65 @@ class _ClaimPageState extends State<ClaimPage> {
     }
   }
 
+  Future<void> _uploadAllClaims() async {
+    if (claims.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ไม่มีรายการ Claim ให้ส่ง')),
+      );
+      return;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+    final empId = prefs.getString('driverID');
+
+    if (token == null || empId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ไม่พบข้อมูลผู้ใช้ กรุณาเข้าสู่ระบบใหม่')),
+      );
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('กำลังส่งข้อมูล Claim...')),
+    );
+
+    try {
+      for (final claim in claims) {
+        final String a1No = (claim['docNumber'] ?? '').toString();
+        final List<File> images = List<File>.from(claim['images'] ?? []);
+
+        for (final imageFile in images) {
+          final String filePath = imageFile.path;
+          final String fileName = filePath.split('/').isNotEmpty
+              ? filePath.split('/').last
+              : filePath;
+          final int dotIndex = fileName.lastIndexOf('.');
+          final String imageName = dotIndex > 0 ? fileName.substring(0, dotIndex) : fileName;
+
+          await sendClaimToAPI(
+            a1No: a1No,
+            empId: empId,
+            folderName: 'Claim',
+            imageName: imageName,
+            imageFile: imageFile,
+            lat: 0.0,
+            lon: 0.0,
+            bearerToken: token,
+          );
+        }
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ส่ง Claim สำเร็จ')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('เกิดข้อผิดพลาด: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -338,6 +398,11 @@ class _ClaimPageState extends State<ClaimPage> {
         title: const Text('Claim สินค้า'),
         backgroundColor: const Color.fromARGB(255, 255, 255, 255),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.cloud_upload),
+            tooltip: 'ส่ง Claim',
+            onPressed: claims.isNotEmpty ? _uploadAllClaims : null,
+          ),
           Padding(
             padding: const EdgeInsets.only(right: 12),
             child: Stack(
