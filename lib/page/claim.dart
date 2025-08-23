@@ -443,20 +443,18 @@ class _ClaimPageState extends State<ClaimPage> {
       request.add(utf8.encode(jsonBody));
       final HttpClientResponse response = await request.close();
 
-      // Handle redirect manually to preserve POST method
+      // Handle redirect manually: switch to GET for 301/302/303, preserve POST for 307/308
       if ({301, 302, 303, 307, 308}.contains(response.statusCode)) {
         final String? location = response.headers.value(HttpHeaders.locationHeader);
         if (location != null) {
-          final Uri redirectUri = Uri.parse(location);
-          if (response.statusCode == 303) {
-            // 303 should switch to GET per spec
+          final Uri redirectUri = uri.resolve(location);
+          if ({301, 302, 303}.contains(response.statusCode)) {
             final HttpClientRequest getReq = await client.getUrl(redirectUri);
             getReq.followRedirects = false;
             final HttpClientResponse getResp = await getReq.close();
             final String getBody = await utf8.decoder.bind(getResp).join();
             return _SimpleHttpResponse(getResp.statusCode, getBody);
           } else {
-            // Re-POST to the redirected URL
             final HttpClientRequest postReq = await client.postUrl(redirectUri);
             postReq.followRedirects = false;
             postReq.headers.set(HttpHeaders.contentTypeHeader, 'application/json');
