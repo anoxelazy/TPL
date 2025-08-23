@@ -5,7 +5,6 @@ import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 
 class ClaimPage extends StatefulWidget {
   const ClaimPage({super.key});
@@ -17,22 +16,6 @@ class ClaimPage extends StatefulWidget {
 class _ClaimPageState extends State<ClaimPage> {
   int claimCount = 0;
   List<Map<String, dynamic>> claims = [];
-  String? _token;
-  String? _driverId;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadAuth();
-  }
-
-  Future<void> _loadAuth() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _token = prefs.getString("token");
-      _driverId = prefs.getString("driverID");
-    });
-  }
 
   void _resetCount() {
     setState(() {
@@ -318,7 +301,7 @@ class _ClaimPageState extends State<ClaimPage> {
 
     final body = {
       "A1": a1No,
-      "IsStempText": false,
+      "IsStempText": true,
       "image1": base64Image,
       "lat": lat,
       "lon": lon,
@@ -348,43 +331,6 @@ class _ClaimPageState extends State<ClaimPage> {
     }
   }
 
-  Future<void> _sendAllClaims() async {
-    if (_token == null || _driverId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ไม่มีข้อมูลผู้ใช้ กรุณาเข้าสู่ระบบใหม่')),
-      );
-      return;
-    }
-
-    int total = 0;
-    for (final claim in claims) {
-      final String a1 = (claim['docNumber'] ?? '').toString();
-      final List<File> images = List<File>.from(claim['images'] ?? []);
-      for (int i = 0; i < images.length; i++) {
-        final file = images[i];
-        final String fileName = file.path.split('/').last;
-        final String imageName = fileName.contains('.')
-            ? fileName.split('.').first
-            : fileName;
-        await sendClaimToAPI(
-          a1No: a1,
-          empId: _driverId!,
-          folderName: 'Claim',
-          imageName: imageName,
-          imageFile: file,
-          lat: 0.0,
-          lon: 0.0,
-          bearerToken: _token!,
-        );
-        total++;
-      }
-    }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('ส่งรูป $total ไฟล์เรียบร้อย')),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -392,12 +338,6 @@ class _ClaimPageState extends State<ClaimPage> {
         title: const Text('Claim สินค้า'),
         backgroundColor: const Color.fromARGB(255, 255, 255, 255),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.cloud_upload, size: 28),
-            tooltip: 'ส่งทั้งหมด',
-            onPressed: claims.isEmpty ? null : _sendAllClaims,
-            color: claims.isEmpty ? Colors.grey : Colors.green,
-          ),
           Padding(
             padding: const EdgeInsets.only(right: 12),
             child: Stack(
