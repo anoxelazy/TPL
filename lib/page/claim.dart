@@ -357,7 +357,7 @@ class _ClaimPageState extends State<ClaimPage> {
     required double lon,
     required String bearerToken,
   }) async {
-    final url = Uri.parse("{{baseUrl}}/api/GETImageLink_Folder");
+    final url = Uri.parse("http://61.91.54.130:1159/api/GET_TImageLink_Folder");
 
     String base64Image = base64Encode(await imageFile.readAsBytes());
 
