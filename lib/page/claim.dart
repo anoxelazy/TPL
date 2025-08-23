@@ -449,11 +449,11 @@ class _ClaimPageState extends State<ClaimPage> {
       final HttpClientResponse response = await request.close();
 
       // Handle redirect manually: switch to GET for 301/302/303, preserve POST for 307/308
-      if ({301, 302, 303, 307, 308}.contains(response.statusCode)) {
+      if ([301, 302, 303, 307, 308].contains(response.statusCode)) {
         final String? location = response.headers.value(HttpHeaders.locationHeader);
         if (location != null) {
           final Uri redirectUri = uri.resolve(location);
-          if ({301, 302, 303}.contains(response.statusCode)) {
+          if ([301, 302, 303].contains(response.statusCode)) {
             final HttpClientRequest getReq = await client.getUrl(redirectUri);
             getReq.followRedirects = false;
             final HttpClientResponse getResp = await getReq.close();
