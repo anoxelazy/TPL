@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:http/http.dart' as http;
+import 'package:flutter_application_1/config.dart';
 
 class ClaimPage extends StatefulWidget {
   const ClaimPage({super.key});
@@ -295,13 +296,13 @@ class _ClaimPageState extends State<ClaimPage> {
     required double lon,
     required String bearerToken,
   }) async {
-    final url = Uri.parse("{{baseUrl}}/api/GETImageLink_Folder");
+    final url = Uri.parse("${AppConfig.apiBaseUrl}/api/GETImageLink_Folder");
 
     String base64Image = base64Encode(await imageFile.readAsBytes());
 
     final body = {
       "A1": a1No,
-      "IsStempText": true,
+      "IsStempText": false,
       "image1": base64Image,
       "lat": lat,
       "lon": lon,
