@@ -16,6 +16,9 @@ class ClaimPage extends StatefulWidget {
 class _ClaimPageState extends State<ClaimPage> {
   int claimCount = 0;
   List<Map<String, dynamic>> claims = [];
+  final String _sheetEndpoint = 'https://script.google.com/macros/s/AKfycbxdGLxrCcnAi2eWhO5s4RHIVWqMRxbX7kfQJKoHWd2Y35RUwzraogdkrfueUmOZ14Jd/exec';
+  final String _sheetKey = '91d3acfb-0b47-49b4-9667-ed359ecda9e5';
+  bool _isSendingAll = false;
 
   void _resetCount() {
     setState(() {
@@ -331,6 +334,71 @@ class _ClaimPageState extends State<ClaimPage> {
     }
   }
 
+  // =================== ส่งข้อมูลไป Google Sheet ===================
+  Map<String, dynamic> _buildSheetPayload(Map<String, dynamic> claim) {
+    final DateTime timestamp = claim['timestamp'] ?? DateTime.now();
+    final List<File> images = List<File>.from(claim['images'] ?? const []);
+
+    return {
+      'date': DateFormat('yyyy-MM-dd').format(timestamp),
+      'a1_no': claim['docNumber'] ?? '',
+      'claim_type': claim['type'] ?? '',
+      'truck_no': claim['carCode'] ?? '',
+      'user_id': 'mobile_app',
+      // เก็บเส้นทางไฟล์ในเครื่องไว้เป็นสตริง (หากมีระบบอัปโหลดจะเปลี่ยนเป็น URL ที่ได้คืนกลับ)
+      'images': images.map((f) => f.path).toList(),
+    };
+  }
+
+  Future<bool> _sendClaimToGoogleSheet(Map<String, dynamic> claim) async {
+    final uri = Uri.parse('$_sheetEndpoint?key=$_sheetKey');
+    try {
+      final resp = await http.post(
+        uri,
+        headers: const {'Content-Type': 'application/json'},
+        body: jsonEncode(_buildSheetPayload(claim)),
+      );
+      if (resp.statusCode == 200) {
+        return true;
+      }
+      debugPrint('Sheet POST failed: ${resp.statusCode} ${resp.body}');
+      return false;
+    } catch (e) {
+      debugPrint('Sheet POST error: $e');
+      return false;
+    }
+  }
+
+  Future<void> _sendAllClaimsToGoogleSheet() async {
+    if (claims.isEmpty || _isSendingAll) return;
+    setState(() {
+      _isSendingAll = true;
+    });
+
+    int success = 0;
+    for (final c in claims) {
+      final ok = await _sendClaimToGoogleSheet(c);
+      if (ok) success++;
+      await Future.delayed(const Duration(milliseconds: 50));
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _isSendingAll = false;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('ส่งสำเร็จ $success/${claims.length} รายการ')),
+    );
+  }
+
+  Future<void> _sendSingleClaim(int index) async {
+    final ok = await _sendClaimToGoogleSheet(claims[index]);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(ok ? 'ส่งรายการสำเร็จ' : 'ส่งรายการล้มเหลว')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -338,6 +406,17 @@ class _ClaimPageState extends State<ClaimPage> {
         title: const Text('Claim สินค้า'),
         backgroundColor: const Color.fromARGB(255, 255, 255, 255),
         actions: [
+          IconButton(
+            icon: _isSendingAll
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.cloud_upload, size: 28),
+            tooltip: 'ส่งทั้งหมดไป Google Sheet',
+            onPressed: (claims.isNotEmpty && !_isSendingAll) ? _sendAllClaimsToGoogleSheet : null,
+          ),
           Padding(
             padding: const EdgeInsets.only(right: 12),
             child: Stack(
@@ -400,6 +479,11 @@ class _ClaimPageState extends State<ClaimPage> {
                         icon: const Icon(Icons.photo),
                         tooltip: 'ดู/เพิ่มรูปภาพ',
                         onPressed: () => _showClaimDialog(editIndex: index),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.send, color: Colors.green),
+                        tooltip: 'ส่งรายการนี้ไป Google Sheet',
+                        onPressed: () => _sendSingleClaim(index),
                       ),
                       IconButton(
                         icon: const Icon(Icons.edit, color: Colors.blue),
