@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ClaimPage extends StatefulWidget {
   const ClaimPage({super.key});
@@ -19,6 +20,7 @@ class _ClaimPageState extends State<ClaimPage> {
   final String _sheetEndpoint = 'https://script.google.com/macros/s/AKfycbxdGLxrCcnAi2eWhO5s4RHIVWqMRxbX7kfQJKoHWd2Y35RUwzraogdkrfueUmOZ14Jd/exec';
   final String _sheetKey = '91d3acfb-0b47-49b4-9667-ed359ecda9e5';
   bool _isSendingAll = false;
+  String? _userId;
 
   void _resetCount() {
     setState(() {
@@ -262,6 +264,7 @@ class _ClaimPageState extends State<ClaimPage> {
                                   'carCode': carCodeController.text.trim(),
                                   'timestamp': selectedDate,
                                   'images': List<File>.from(claimImages),
+                                  'empID': _userId ?? '',
                                 };
                                 if (editIndex == null) {
                                   claims.add(newClaim);
@@ -335,28 +338,38 @@ class _ClaimPageState extends State<ClaimPage> {
   }
 
   // =================== ส่งข้อมูลไป Google Sheet ===================
-  Map<String, dynamic> _buildSheetPayload(Map<String, dynamic> claim) {
+  Future<Map<String, dynamic>> _buildSheetPayload(Map<String, dynamic> claim) async {
     final DateTime timestamp = claim['timestamp'] ?? DateTime.now();
     final List<File> images = List<File>.from(claim['images'] ?? const []);
+
+    final List<String> imagesBase64 = [];
+    for (final f in images) {
+      try {
+        final bytes = await f.readAsBytes();
+        imagesBase64.add(base64Encode(bytes));
+      } catch (e) {
+        debugPrint('Base64 encode failed for image ${f.path}: $e');
+      }
+    }
 
     return {
       'date': DateFormat('yyyy-MM-dd').format(timestamp),
       'a1_no': claim['docNumber'] ?? '',
       'claim_type': claim['type'] ?? '',
       'truck_no': claim['carCode'] ?? '',
-      'user_id': 'mobile_app',
-      // เก็บเส้นทางไฟล์ในเครื่องไว้เป็นสตริง (หากมีระบบอัปโหลดจะเปลี่ยนเป็น URL ที่ได้คืนกลับ)
-      'images': images.map((f) => f.path).toList(),
+      'user_id': claim['empID'] ?? '',
+      'images': imagesBase64,
     };
   }
 
   Future<bool> _sendClaimToGoogleSheet(Map<String, dynamic> claim) async {
     final uri = Uri.parse('$_sheetEndpoint?key=$_sheetKey');
     try {
+      final payload = await _buildSheetPayload(claim);
       final resp = await http.post(
         uri,
         headers: const {'Content-Type': 'application/json'},
-        body: jsonEncode(_buildSheetPayload(claim)),
+        body: jsonEncode(payload),
       );
       if (resp.statusCode == 200) {
         return true;
@@ -397,6 +410,23 @@ class _ClaimPageState extends State<ClaimPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(ok ? 'ส่งรายการสำเร็จ' : 'ส่งรายการล้มเหลว')),
     );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserId();
+  }
+
+  Future<void> _loadUserId() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      setState(() {
+        _userId = prefs.getString('driverID') ?? '';
+      });
+    } catch (e) {
+      debugPrint('Load user id failed: $e');
+    }
   }
 
   @override
