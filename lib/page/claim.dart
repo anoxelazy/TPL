@@ -7,6 +7,12 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+class _SimpleHttpResponse {
+  final int statusCode;
+  final String body;
+  _SimpleHttpResponse(this.statusCode, this.body);
+}
+
 class ClaimPage extends StatefulWidget {
   const ClaimPage({super.key});
 
@@ -424,15 +430,55 @@ class _ClaimPageState extends State<ClaimPage> {
     };
   }
 
+  Future<_SimpleHttpResponse> _postJsonPreserveRedirect(
+    Uri uri,
+    String jsonBody,
+  ) async {
+    final HttpClient client = HttpClient();
+    client.followRedirects = false;
+    try {
+      // First POST
+      final HttpClientRequest request = await client.postUrl(uri);
+      request.headers.set(HttpHeaders.contentTypeHeader, 'application/json');
+      request.add(utf8.encode(jsonBody));
+      final HttpClientResponse response = await request.close();
+
+      // Handle redirect manually to preserve POST method
+      if ({301, 302, 303, 307, 308}.contains(response.statusCode)) {
+        final String? location = response.headers.value(HttpHeaders.locationHeader);
+        if (location != null) {
+          final Uri redirectUri = Uri.parse(location);
+          if (response.statusCode == 303) {
+            // 303 should switch to GET per spec
+            final HttpClientRequest getReq = await client.getUrl(redirectUri);
+            final HttpClientResponse getResp = await getReq.close();
+            final String getBody = await utf8.decoder.bind(getResp).join();
+            return _SimpleHttpResponse(getResp.statusCode, getBody);
+          } else {
+            // Re-POST to the redirected URL
+            final HttpClientRequest postReq = await client.postUrl(redirectUri);
+            postReq.headers.set(HttpHeaders.contentTypeHeader, 'application/json');
+            postReq.add(utf8.encode(jsonBody));
+            final HttpClientResponse postResp = await postReq.close();
+            final String postBody = await utf8.decoder.bind(postResp).join();
+            return _SimpleHttpResponse(postResp.statusCode, postBody);
+          }
+        }
+      }
+
+      final String body = await utf8.decoder.bind(response).join();
+      return _SimpleHttpResponse(response.statusCode, body);
+    } finally {
+      client.close(force: true);
+    }
+  }
+
   Future<bool> _sendClaimToGoogleSheet(Map<String, dynamic> claim) async {
     final uri = Uri.parse('$_sheetEndpoint?key=$_sheetKey');
     try {
       final payload = await _buildSheetPayload(claim);
-      final resp = await http.post(
-        uri,
-        headers: const {'Content-Type': 'application/json'},
-        body: jsonEncode(payload),
-      );
+      final String body = jsonEncode(payload);
+      final _SimpleHttpResponse resp = await _postJsonPreserveRedirect(uri, body);
       if (resp.statusCode == 200) {
         return true;
       }
