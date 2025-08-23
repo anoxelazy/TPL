@@ -435,10 +435,10 @@ class _ClaimPageState extends State<ClaimPage> {
     String jsonBody,
   ) async {
     final HttpClient client = HttpClient();
-    client.followRedirects = false;
     try {
       // First POST
       final HttpClientRequest request = await client.postUrl(uri);
+      request.followRedirects = false;
       request.headers.set(HttpHeaders.contentTypeHeader, 'application/json');
       request.add(utf8.encode(jsonBody));
       final HttpClientResponse response = await request.close();
@@ -451,12 +451,14 @@ class _ClaimPageState extends State<ClaimPage> {
           if (response.statusCode == 303) {
             // 303 should switch to GET per spec
             final HttpClientRequest getReq = await client.getUrl(redirectUri);
+            getReq.followRedirects = false;
             final HttpClientResponse getResp = await getReq.close();
             final String getBody = await utf8.decoder.bind(getResp).join();
             return _SimpleHttpResponse(getResp.statusCode, getBody);
           } else {
             // Re-POST to the redirected URL
             final HttpClientRequest postReq = await client.postUrl(redirectUri);
+            postReq.followRedirects = false;
             postReq.headers.set(HttpHeaders.contentTypeHeader, 'application/json');
             postReq.add(utf8.encode(jsonBody));
             final HttpClientResponse postResp = await postReq.close();
