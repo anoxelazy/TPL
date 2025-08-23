@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ClaimPage extends StatefulWidget {
   const ClaimPage({super.key});
@@ -16,6 +17,11 @@ class ClaimPage extends StatefulWidget {
 class _ClaimPageState extends State<ClaimPage> {
   int claimCount = 0;
   List<Map<String, dynamic>> claims = [];
+  final String _sheetEndpoint =
+      'https://script.google.com/macros/s/AKfycbxdGLxrCcnAi2eWhO5s4RHIVWqMRxbX7kfQJKoHWd2Y35RUwzraogdkrfueUmOZ14Jd/exec';
+  final String _sheetKey = '91d3acfb-0b47-49b4-9667-ed359ecda9e5';
+  bool _isSendingAll = false;
+  String? _userId;
 
   void _resetCount() {
     setState(() {
@@ -66,7 +72,10 @@ class _ClaimPageState extends State<ClaimPage> {
       claimImages = List<File>.from(claim['images'] ?? []);
     }
 
-    Future<void> _selectDate(BuildContext context, StateSetter setStateDialog) async {
+    Future<void> _selectDate(
+      BuildContext context,
+      StateSetter setStateDialog,
+    ) async {
       final DateTime? picked = await showDatePicker(
         context: context,
         initialDate: selectedDate,
@@ -104,7 +113,10 @@ class _ClaimPageState extends State<ClaimPage> {
         return StatefulBuilder(
           builder: (context, setStateDialog) {
             return Dialog(
-              insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+              insetPadding: const EdgeInsets.symmetric(
+                horizontal: 20,
+                vertical: 40,
+              ),
               child: SizedBox(
                 width: MediaQuery.of(context).size.width * 0.9,
                 height: MediaQuery.of(context).size.height * 0.85,
@@ -113,8 +125,13 @@ class _ClaimPageState extends State<ClaimPage> {
                     Container(
                       padding: const EdgeInsets.all(16),
                       child: Text(
-                        editIndex == null ? 'สร้างรายการ Claim ใหม่' : 'แก้ไขรายการ Claim',
-                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                        editIndex == null
+                            ? 'สร้างรายการ Claim ใหม่'
+                            : 'แก้ไขรายการ Claim',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                     Expanded(
@@ -127,11 +144,19 @@ class _ClaimPageState extends State<ClaimPage> {
                               children: [
                                 const Text('วันที่: '),
                                 TextButton.icon(
-                                  onPressed: () => _selectDate(context, setStateDialog),
-                                  icon: const Icon(Icons.calendar_today, color: Colors.blue),
+                                  onPressed: () =>
+                                      _selectDate(context, setStateDialog),
+                                  icon: const Icon(
+                                    Icons.calendar_today,
+                                    color: Colors.blue,
+                                  ),
                                   label: Text(
-                                    DateFormat('dd/MM/yyyy').format(selectedDate),
-                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                    DateFormat(
+                                      'dd/MM/yyyy',
+                                    ).format(selectedDate),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -158,7 +183,10 @@ class _ClaimPageState extends State<ClaimPage> {
                                             top: -10,
                                             right: -10,
                                             child: IconButton(
-                                              icon: const Icon(Icons.cancel, color: Colors.red),
+                                              icon: const Icon(
+                                                Icons.cancel,
+                                                color: Colors.red,
+                                              ),
                                               onPressed: () {
                                                 setStateDialog(() {
                                                   claimImages.removeAt(index);
@@ -178,8 +206,11 @@ class _ClaimPageState extends State<ClaimPage> {
                               decoration: InputDecoration(
                                 labelText: 'เลขเอกสาร',
                                 suffixIcon: IconButton(
-                                  icon: const Icon(Icons.qr_code_scanner_outlined),
-                                  onPressed: () => _scanBarcode(docNumberController),
+                                  icon: const Icon(
+                                    Icons.qr_code_scanner_outlined,
+                                  ),
+                                  onPressed: () =>
+                                      _scanBarcode(docNumberController),
                                 ),
                               ),
                             ),
@@ -187,9 +218,18 @@ class _ClaimPageState extends State<ClaimPage> {
                             DropdownButtonFormField<String>(
                               value: selectedType,
                               items: const [
-                                DropdownMenuItem(value: 'เสียหาย', child: Text('เสียหาย')),
-                                DropdownMenuItem(value: 'สูญหาย', child: Text('สูญหาย')),
-                                DropdownMenuItem(value: 'ไม่ครบล็อต', child: Text('ไม่ครบล็อต')),
+                                DropdownMenuItem(
+                                  value: 'เสียหาย',
+                                  child: Text('เสียหาย'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'สูญหาย',
+                                  child: Text('สูญหาย'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'ไม่ครบล็อต',
+                                  child: Text('ไม่ครบล็อต'),
+                                ),
                               ],
                               onChanged: (value) {
                                 if (value != null) {
@@ -198,7 +238,9 @@ class _ClaimPageState extends State<ClaimPage> {
                                   });
                                 }
                               },
-                              decoration: const InputDecoration(labelText: 'ประเภทสินค้า'),
+                              decoration: const InputDecoration(
+                                labelText: 'ประเภทสินค้า',
+                              ),
                             ),
                             const SizedBox(height: 12),
                             TextField(
@@ -206,8 +248,11 @@ class _ClaimPageState extends State<ClaimPage> {
                               decoration: InputDecoration(
                                 labelText: 'รหัสรถ (เช่น TP XXXX)',
                                 suffixIcon: IconButton(
-                                  icon: const Icon(Icons.qr_code_scanner_outlined),
-                                  onPressed: () => _scanBarcode(carCodeController),
+                                  icon: const Icon(
+                                    Icons.qr_code_scanner_outlined,
+                                  ),
+                                  onPressed: () =>
+                                      _scanBarcode(carCodeController),
                                 ),
                               ),
                             ),
@@ -216,12 +261,14 @@ class _ClaimPageState extends State<ClaimPage> {
                               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                               children: [
                                 ElevatedButton.icon(
-                                  onPressed: () => _addImageFromCamera(setStateDialog),
+                                  onPressed: () =>
+                                      _addImageFromCamera(setStateDialog),
                                   icon: const Icon(Icons.camera_alt),
                                   label: const Text('ถ่ายรูป'),
                                 ),
                                 ElevatedButton.icon(
-                                  onPressed: () => _addImageFromGallery(setStateDialog),
+                                  onPressed: () =>
+                                      _addImageFromGallery(setStateDialog),
                                   icon: const Icon(Icons.photo_library),
                                   label: const Text('เลือกรูป'),
                                 ),
@@ -232,7 +279,10 @@ class _ClaimPageState extends State<ClaimPage> {
                       ),
                     ),
                     Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 8,
+                        horizontal: 16,
+                      ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
@@ -247,7 +297,9 @@ class _ClaimPageState extends State<ClaimPage> {
                                   carCodeController.text.trim().isEmpty) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
-                                    content: Text('กรุณากรอกข้อมูลให้ครบทุกช่อง'),
+                                    content: Text(
+                                      'กรุณากรอกข้อมูลให้ครบทุกช่อง',
+                                    ),
                                   ),
                                 );
                                 return;
@@ -259,6 +311,7 @@ class _ClaimPageState extends State<ClaimPage> {
                                   'carCode': carCodeController.text.trim(),
                                   'timestamp': selectedDate,
                                   'images': List<File>.from(claimImages),
+                                  'empID': _userId ?? '',
                                 };
                                 if (editIndex == null) {
                                   claims.add(newClaim);
@@ -284,7 +337,6 @@ class _ClaimPageState extends State<ClaimPage> {
     );
   }
 
-  // =================== API ส่งรูป ===================
   Future<void> sendClaimToAPI({
     required String a1No,
     required String empId,
@@ -331,6 +383,156 @@ class _ClaimPageState extends State<ClaimPage> {
     }
   }
 
+  Future<Map<String, dynamic>> _buildSheetPayload(
+    Map<String, dynamic> claim,
+  ) async {
+    final DateTime timestamp = claim['timestamp'] ?? DateTime.now();
+    final List<File> images = List<File>.from(claim['images'] ?? const []);
+
+    final List<String> imagesBase64 = [];
+    for (final f in images) {
+      try {
+        final bytes = await f.readAsBytes();
+        imagesBase64.add(base64Encode(bytes));
+      } catch (e) {
+        debugPrint('Base64 encode failed for image ${f.path}: $e');
+      }
+    }
+
+    return {
+      'date': DateFormat('yyyy-MM-dd').format(timestamp),
+      'a1_no': claim['docNumber'] ?? '',
+      'claim_type': claim['type'] ?? '',
+      'truck_no': claim['carCode'] ?? '',
+      'user_id': claim['empID'] ?? '',
+      'images': imagesBase64,
+    };
+  }
+
+  Future<bool> _sendClaimToGoogleSheet(Map<String, dynamic> claim) async {
+    final uri = Uri.parse('$_sheetEndpoint?key=$_sheetKey');
+    try {
+      final payload = await _buildSheetPayload(claim);
+      final resp = await http.post(
+        uri,
+        headers: const {'Content-Type': 'application/json'},
+        body: jsonEncode(payload),
+      );
+      if (resp.statusCode == 200) {
+        return true;
+      }
+      debugPrint('Sheet POST failed: ${resp.statusCode} ${resp.body}');
+      return false;
+    } catch (e) {
+      debugPrint('Sheet POST error: $e');
+      return false;
+    }
+  }
+
+  Future<void> _sendAllClaimsToGoogleSheet() async {
+    if (claims.isEmpty || _isSendingAll) return;
+    setState(() {
+      _isSendingAll = true;
+    });
+
+    int success = 0;
+    for (final c in claims) {
+      final ok = await _sendClaimToGoogleSheet(c);
+      if (ok) success++;
+      await Future.delayed(const Duration(milliseconds: 50));
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _isSendingAll = false;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('ส่งสำเร็จ $success/${claims.length} รายการ')),
+    );
+  }
+
+  Future<void> _sendSingleClaim(int index) async {
+    final ok = await _sendClaimToGoogleSheet(claims[index]);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(ok ? 'ส่งรายการสำเร็จ' : 'ส่งรายการล้มเหลว')),
+    );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserId();
+  }
+
+  Future<void> _loadUserId() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      setState(() {
+        _userId = prefs.getString('driverID') ?? '';
+      });
+    } catch (e) {
+      debugPrint('Load user id failed: $e');
+    }
+  }
+
+  Future<void> _uploadAllClaims() async {
+    if (claims.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('ไม่มีรายการ Claim ให้ส่ง')));
+      return;
+    }
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+    final empId = prefs.getString('driverID');
+
+    if (token == null || empId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ไม่พบข้อมูลผู้ใช้ กรุณาเข้าสู่ระบบใหม่')),
+      );
+      return;
+    }
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('กำลังส่งข้อมูล Claim...')));
+    try {
+      for (final claim in claims) {
+        final String a1No = (claim['docNumber'] ?? '').toString();
+        final List<File> images = List<File>.from(claim['images'] ?? []);
+
+        for (final imageFile in images) {
+          final String filePath = imageFile.path;
+          final String fileName = filePath.split('/').isNotEmpty
+              ? filePath.split('/').last
+              : filePath;
+          final int dotIndex = fileName.lastIndexOf('.');
+          final String imageName = dotIndex > 0
+              ? fileName.substring(0, dotIndex)
+              : fileName;
+
+          await sendClaimToAPI(
+            a1No: a1No,
+            empId: empId,
+            folderName: 'Claim',
+            imageName: imageName,
+            imageFile: imageFile,
+            lat: 0.0,
+            lon: 0.0,
+            bearerToken: token,
+          );
+        }
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('ส่ง Claim สำเร็จ')));
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('เกิดข้อผิดพลาด: $e')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -338,6 +540,19 @@ class _ClaimPageState extends State<ClaimPage> {
         title: const Text('Claim สินค้า'),
         backgroundColor: const Color.fromARGB(255, 255, 255, 255),
         actions: [
+          IconButton(
+            icon: _isSendingAll
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.cloud_upload, size: 28),
+            tooltip: 'ส่งทั้งหมดไป Google Sheet',
+            onPressed: (claims.isNotEmpty && !_isSendingAll)
+                ? _sendAllClaimsToGoogleSheet
+                : null,
+          ),
           Padding(
             padding: const EdgeInsets.only(right: 12),
             child: Stack(
@@ -360,11 +575,17 @@ class _ClaimPageState extends State<ClaimPage> {
                         shape: BoxShape.circle,
                         border: Border.all(color: Colors.white, width: 2),
                       ),
-                      constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
+                      constraints: const BoxConstraints(
+                        minWidth: 20,
+                        minHeight: 20,
+                      ),
                       child: Text(
                         '$claimCount',
                         style: const TextStyle(
-                            color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
                         textAlign: TextAlign.center,
                       ),
                     ),
@@ -400,6 +621,11 @@ class _ClaimPageState extends State<ClaimPage> {
                         icon: const Icon(Icons.photo),
                         tooltip: 'ดู/เพิ่มรูปภาพ',
                         onPressed: () => _showClaimDialog(editIndex: index),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.send, color: Colors.green),
+                        tooltip: 'ส่งรายการนี้ไป Google Sheet',
+                        onPressed: () => _sendSingleClaim(index),
                       ),
                       IconButton(
                         icon: const Icon(Icons.edit, color: Colors.blue),
