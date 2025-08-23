@@ -357,7 +357,7 @@ class _ClaimPageState extends State<ClaimPage> {
     final String a1 = claim['docNumber'] ?? '';
     final String userId = claim['empID'] ?? '';
     final String dateKey = DateFormat('yyyyMMdd').format(timestamp);
-    final String dedupeKey = '${a1}_${userId}_$dateKey_${imageLinks.length}';
+    final String dedupeKey = '${a1}_${userId}_${dateKey}_${imageLinks.length}';
 
     return {
       'date': DateFormat('yyyy-MM-dd').format(timestamp),
