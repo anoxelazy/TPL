@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/page/claim.dart';
-import 'package:flutter_application_1/page/pm.dart';
-import 'package:flutter_application_1/page/profile.dart';
+import 'package:flutter_application_1/page/claim/claim.dart';
+import 'package:flutter_application_1/page/pm/pm.dart';
+import 'package:flutter_application_1/page/profile/profile.dart';
 import 'package:flutter_application_1/screen/login.dart';
 
 class HomePage extends StatefulWidget {
@@ -29,6 +29,7 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  // ignore: unused_element
   void _logout() {
     Navigator.pushReplacement(
       context,

@@ -1,5 +1,7 @@
 import 'dart:io';
 import 'dart:convert';
+// ignore: unused_import
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
@@ -37,6 +39,8 @@ class _ClaimPageState extends State<ClaimPage> {
   }
 
   Future<void> _scanBarcode(TextEditingController controller) async {
+    bool isScanned = false;
+
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
@@ -44,8 +48,11 @@ class _ClaimPageState extends State<ClaimPage> {
           appBar: AppBar(title: const Text('สแกนบาร์โค้ด')),
           body: MobileScanner(
             onDetect: (BarcodeCapture capture) {
+              if (isScanned) return;
+
               final List<Barcode> barcodes = capture.barcodes;
               if (barcodes.isNotEmpty && barcodes.first.rawValue != null) {
+                isScanned = true;
                 Navigator.pop(context, barcodes.first.rawValue);
               }
             },
@@ -343,7 +350,7 @@ class _ClaimPageState extends State<ClaimPage> {
     );
   }
 
-  Future<void> sendClaimToAPI({
+  Future<String?> sendClaimToAPI({
     required String a1No,
     required String empId,
     required String folderName,
@@ -353,39 +360,42 @@ class _ClaimPageState extends State<ClaimPage> {
     required double lon,
     required String bearerToken,
   }) async {
-    final url = Uri.parse("{{baseUrl}}/api/GETImageLink_Folder");
-
-    String base64Image = base64Encode(await imageFile.readAsBytes());
-
-    final body = {
-      "A1": a1No,
-      "IsStempText": true,
-      "image1": base64Image,
-      "lat": lat,
-      "lon": lon,
-      "refCode": "trackinkcustomer",
-      "EmpID": empId,
-      "FolderName": folderName,
-      "ImageName": imageName,
-    };
+    const String baseUrl = "http://61.91.54.130:1159";
+    final String url = "$baseUrl/api/GETImageLink_Folder";
 
     try {
+      final bytes = await imageFile.readAsBytes();
+      final String base64Image = base64Encode(bytes);
+
       final response = await http.post(
-        url,
+        Uri.parse(url),
         headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer $bearerToken",
+          'Authorization': 'Bearer $bearerToken',
+          'Content-Type': 'application/json',
         },
-        body: jsonEncode(body),
+        body: jsonEncode({
+          "a1No": a1No,
+          "IsStempText": false,
+          "image1": base64Image,
+          "lat": lat,
+          "lon": lon,
+          "empId": empId,
+          "folderName": folderName,
+          "imageName": imageName,
+        }),
       );
 
+      debugPrint("API Response (${response.statusCode}): ${response.body}");
+
       if (response.statusCode == 200) {
-        print("ส่งรูปสำเร็จ ✅: ${response.body}");
+        return response.body.trim();
       } else {
-        print("ส่งรูปล้มเหลว ❌: ${response.statusCode}, ${response.body}");
+        debugPrint("Upload failed: ${response.statusCode} ${response.body}");
+        return null;
       }
     } catch (e) {
-      print("เกิดข้อผิดพลาดในการส่งรูป: $e");
+      debugPrint("sendClaimToAPI error: $e");
+      return null;
     }
   }
 
@@ -393,24 +403,10 @@ class _ClaimPageState extends State<ClaimPage> {
     Map<String, dynamic> claim,
   ) async {
     final DateTime timestamp = claim['timestamp'] ?? DateTime.now();
-    final List<File> images = List<File>.from(claim['images'] ?? const []);
 
-    String _basename(String p) {
-      final parts = p.split('/');
-      final lastSlash = parts.isNotEmpty ? parts.last : p;
-      final winParts = lastSlash.split('\\');
-      return winParts.isNotEmpty ? winParts.last : lastSlash;
-    }
-
-    final String imageBase = 'http://61.91.54.130:1159/api/GET_TImageLink_Folder';
-    final String folder =
-        (claim['folder'] as String?) ??
-        (claim['docNumber'] as String?) ??
-        DateFormat('yyyyMMddHHmmss').format(timestamp);
-
-    final List<String> imageLinks = images
-        .map((f) => '$imageBase/$folder/${_basename(f.path)}')
-        .toList();
+    final List<String> imageLinks = List<String>.from(
+      claim['uploadedLinks'] ?? [],
+    );
 
     final String a1 = claim['docNumber'] ?? '';
     final String userId = claim['empID'] ?? '';
@@ -443,7 +439,9 @@ class _ClaimPageState extends State<ClaimPage> {
       final HttpClientResponse response = await request.close();
 
       if ({301, 302, 303, 307, 308}.contains(response.statusCode)) {
-        final String? location = response.headers.value(HttpHeaders.locationHeader);
+        final String? location = response.headers.value(
+          HttpHeaders.locationHeader,
+        );
         if (location != null) {
           final Uri redirectUri = Uri.parse(location);
           if (response.statusCode == 303) {
@@ -453,7 +451,10 @@ class _ClaimPageState extends State<ClaimPage> {
             return _SimpleHttpResponse(getResp.statusCode, getBody);
           } else {
             final HttpClientRequest postReq = await client.postUrl(redirectUri);
-            postReq.headers.set(HttpHeaders.contentTypeHeader, 'application/json');
+            postReq.headers.set(
+              HttpHeaders.contentTypeHeader,
+              'application/json',
+            );
             postReq.add(utf8.encode(jsonBody));
             final HttpClientResponse postResp = await postReq.close();
             final String postBody = await utf8.decoder.bind(postResp).join();
@@ -471,11 +472,39 @@ class _ClaimPageState extends State<ClaimPage> {
   Future<bool> _sendClaimToGoogleSheet(Map<String, dynamic> claim) async {
     final uri = Uri.parse('$_sheetEndpoint?key=$_sheetKey');
     try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token') ?? '';
+      final empId = prefs.getString('driverID') ?? '';
+
+      final List<File> images = List<File>.from(claim['images'] ?? []);
+      List<String> uploadedLinks = [];
+
+      for (final imageFile in images) {
+        final String fileName = imageFile.path.split('/').last.split('.').first;
+        final String? link = await sendClaimToAPI(
+          a1No: claim['docNumber'] ?? '',
+          empId: empId,
+          folderName: "Tps/Claim/${claim['docNumber'] ?? ''}",
+          imageName: fileName,
+          imageFile: imageFile,
+          lat: 0.0,
+          lon: 0.0,
+          bearerToken: token,
+        );
+        if (link != null) uploadedLinks.add(link);
+      }
+
+      claim['uploadedLinks'] = uploadedLinks;
+
       final payload = await _buildSheetPayload(claim);
       final String body = jsonEncode(payload);
-      final _SimpleHttpResponse resp = await _postJsonPreserveRedirect(uri, body);
-      debugPrint('Sheet POST failed: ${resp.statusCode} ${resp.body}');
-      return false;
+      final _SimpleHttpResponse resp = await _postJsonPreserveRedirect(
+        uri,
+        body,
+      );
+
+      debugPrint('Sheet POST: ${resp.statusCode} ${resp.body}');
+      return resp.statusCode == 200;
     } catch (e) {
       debugPrint('Sheet POST error: $e');
       return false;
@@ -483,32 +512,44 @@ class _ClaimPageState extends State<ClaimPage> {
   }
 
   Future<void> _sendAllClaimsToGoogleSheet() async {
-    if (claims.isEmpty || _isSendingAll) return;
+    if (claims.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('ไม่มีรายการ Claim ให้ส่ง')));
+      return;
+    }
+
     setState(() {
       _isSendingAll = true;
     });
 
-    int success = 0;
-    for (final c in claims) {
-      final ok = await _sendClaimToGoogleSheet(c);
-      if (ok) success++;
-      await Future.delayed(const Duration(milliseconds: 50));
+    try {
+      for (final claim in claims) {
+        await _sendClaimToGoogleSheet(claim);
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _isSendingAll = false;
+      });
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('ส่ง Claim สำเร็จทั้งหมด')));
+    } catch (e) {
+      setState(() {
+        _isSendingAll = false;
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('เกิดข้อผิดพลาด: $e')));
     }
-
-    if (!mounted) return;
-    setState(() {
-      _isSendingAll = false;
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('ส่งสำเร็จ $success/${claims.length} รายการ')),
-    );
   }
 
   Future<void> _sendSingleClaim(int index) async {
     final ok = await _sendClaimToGoogleSheet(claims[index]);
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(ok ? 'ส่งรายการสำเร็จ' : 'ส่งรายการล้มเหลว')),
+      SnackBar(content: Text(ok ? 'ส่งรายการล้มเหลว' : 'ส่งรายการสำเร็จ')),
     );
   }
 
@@ -529,6 +570,7 @@ class _ClaimPageState extends State<ClaimPage> {
     }
   }
 
+  // ignore: unused_element
   Future<void> _uploadAllClaims() async {
     if (claims.isEmpty) {
       ScaffoldMessenger.of(
@@ -546,36 +588,45 @@ class _ClaimPageState extends State<ClaimPage> {
       );
       return;
     }
+
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('กำลังส่งข้อมูล Claim...')));
+
     try {
       for (final claim in claims) {
         final String a1No = (claim['docNumber'] ?? '').toString();
         final List<File> images = List<File>.from(claim['images'] ?? []);
 
+        List<String> uploadedLinks = [];
+
         for (final imageFile in images) {
           final String filePath = imageFile.path;
-          final String fileName = filePath.split('/').isNotEmpty
-              ? filePath.split('/').last
-              : filePath;
+          final String fileName = filePath.split('/').last;
           final int dotIndex = fileName.lastIndexOf('.');
           final String imageName = dotIndex > 0
               ? fileName.substring(0, dotIndex)
               : fileName;
 
-          await sendClaimToAPI(
+          final link = await sendClaimToAPI(
             a1No: a1No,
             empId: empId,
-            folderName: 'Claim',
+            folderName: "Tps/Claim/$a1No",
             imageName: imageName,
             imageFile: imageFile,
             lat: 0.0,
             lon: 0.0,
             bearerToken: token,
           );
+
+          if (link != null) {
+            uploadedLinks.add(link);
+          }
         }
+
+        claim['uploadedLinks'] = uploadedLinks;
       }
+
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('ส่ง Claim สำเร็จ')));
@@ -602,7 +653,9 @@ class _ClaimPageState extends State<ClaimPage> {
                   )
                 : const Icon(Icons.cloud_upload, size: 28),
             tooltip: 'ส่งทั้งหมดไป Google Sheet',
-            onPressed: (claims.isNotEmpty && !_isSendingAll) ? _sendAllClaimsToGoogleSheet : null,
+            onPressed: (claims.isNotEmpty && !_isSendingAll)
+                ? _sendAllClaimsToGoogleSheet
+                : null,
           ),
           Padding(
             padding: const EdgeInsets.only(right: 12),
@@ -683,7 +736,6 @@ class _ClaimPageState extends State<ClaimPage> {
                         tooltip: 'ส่งรายการนี้ไป Google Sheet',
                         onPressed: () => _sendSingleClaim(index),
                       ),
-                      
                     ],
                   ),
                 );
