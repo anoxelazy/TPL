@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:image/image.dart' as img;
 
 class _SimpleHttpResponse {
   final int statusCode;
@@ -20,6 +21,11 @@ class ClaimPage extends StatefulWidget {
 
   @override
   State<ClaimPage> createState() => _ClaimPageState();
+}
+
+String _normalizeUrl(String url) {
+  final cleaned = url.replaceAll(RegExp(r'\/+'), '/');
+  return cleaned.replaceFirst(':/', '://');
 }
 
 class _ClaimPageState extends State<ClaimPage> {
@@ -105,18 +111,24 @@ class _ClaimPageState extends State<ClaimPage> {
     void _addImageFromCamera(StateSetter setStateDialog) async {
       final XFile? image = await picker.pickImage(source: ImageSource.camera);
       if (image != null) {
+        File file = File(image.path);
+        file = await resizeImage(file, maxSize: 1080);
         setStateDialog(() {
-          claimImages.add(File(image.path));
+          claimImages.add(file);
         });
       }
     }
 
     void _addImageFromGallery(StateSetter setStateDialog) async {
-      final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-      if (image != null) {
-        setStateDialog(() {
-          claimImages.add(File(image.path));
-        });
+      final List<XFile>? images = await picker.pickMultiImage();
+      if (images != null && images.isNotEmpty) {
+        for (var xfile in images) {
+          File file = File(xfile.path);
+          file = await resizeImage(file, maxSize: 1080);
+          setStateDialog(() {
+            claimImages.add(file);
+          });
+        }
       }
     }
 
@@ -174,45 +186,6 @@ class _ClaimPageState extends State<ClaimPage> {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 12),
-                            if (claimImages.isNotEmpty)
-                              SizedBox(
-                                height: 80,
-                                child: ListView.builder(
-                                  scrollDirection: Axis.horizontal,
-                                  itemCount: claimImages.length,
-                                  itemBuilder: (context, index) {
-                                    return Padding(
-                                      padding: const EdgeInsets.only(right: 8),
-                                      child: Stack(
-                                        children: [
-                                          Image.file(
-                                            claimImages[index],
-                                            width: 70,
-                                            height: 70,
-                                            fit: BoxFit.cover,
-                                          ),
-                                          Positioned(
-                                            top: -10,
-                                            right: -10,
-                                            child: IconButton(
-                                              icon: const Icon(
-                                                Icons.cancel,
-                                                color: Colors.red,
-                                              ),
-                                              onPressed: () {
-                                                setStateDialog(() {
-                                                  claimImages.removeAt(index);
-                                                });
-                                              },
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
                             const SizedBox(height: 8),
                             TextField(
                               controller: docNumberController,
@@ -269,6 +242,45 @@ class _ClaimPageState extends State<ClaimPage> {
                                 ),
                               ),
                             ),
+                            const SizedBox(height: 12),
+                            if (claimImages.isNotEmpty)
+                              SizedBox(
+                                height: 80,
+                                child: ListView.builder(
+                                  scrollDirection: Axis.horizontal,
+                                  itemCount: claimImages.length,
+                                  itemBuilder: (context, index) {
+                                    return Padding(
+                                      padding: const EdgeInsets.only(right: 8),
+                                      child: Stack(
+                                        children: [
+                                          Image.file(
+                                            claimImages[index],
+                                            width: 70,
+                                            height: 70,
+                                            fit: BoxFit.cover,
+                                          ),
+                                          Positioned(
+                                            top: -10,
+                                            right: -10,
+                                            child: IconButton(
+                                              icon: const Icon(
+                                                Icons.cancel,
+                                                color: Colors.red,
+                                              ),
+                                              onPressed: () {
+                                                setStateDialog(() {
+                                                  claimImages.removeAt(index);
+                                                });
+                                              },
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
                             const SizedBox(height: 12),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -484,20 +496,27 @@ class _ClaimPageState extends State<ClaimPage> {
         final String? link = await sendClaimToAPI(
           a1No: claim['docNumber'] ?? '',
           empId: empId,
-          folderName: "Tps/Claim/${claim['docNumber'] ?? ''}",
+          folderName: "Claim/${claim['docNumber'] ?? ''}",
           imageName: fileName,
           imageFile: imageFile,
           lat: 0.0,
           lon: 0.0,
           bearerToken: token,
         );
-        if (link != null) uploadedLinks.add(link);
+
+        if (link != null) {
+          uploadedLinks.add(_normalizeUrl(link)); 
+        }
       }
 
       claim['uploadedLinks'] = uploadedLinks;
 
       final payload = await _buildSheetPayload(claim);
       final String body = jsonEncode(payload);
+
+      debugPrint('Payload to sheet: $body'); 
+      debugPrint('Sheet endpoint: $uri'); 
+
       final _SimpleHttpResponse resp = await _postJsonPreserveRedirect(
         uri,
         body,
@@ -611,7 +630,7 @@ class _ClaimPageState extends State<ClaimPage> {
           final link = await sendClaimToAPI(
             a1No: a1No,
             empId: empId,
-            folderName: "Tps/Claim/$a1No",
+            folderName: "$a1No",
             imageName: imageName,
             imageFile: imageFile,
             lat: 0.0,
@@ -635,6 +654,22 @@ class _ClaimPageState extends State<ClaimPage> {
         context,
       ).showSnackBar(SnackBar(content: Text('เกิดข้อผิดพลาด: $e')));
     }
+  }
+
+  Future<File> resizeImage(File file, {int maxSize = 1080}) async {
+    final bytes = await file.readAsBytes();
+    final image = img.decodeImage(bytes);
+    if (image == null) return file;
+
+    final resized = img.copyResize(
+      image,
+      width: image.width > image.height ? maxSize : null,
+      height: image.height >= image.width ? maxSize : null,
+    );
+
+    final newBytes = img.encodeJpg(resized, quality: 90);
+    final newFile = await file.writeAsBytes(newBytes, flush: true);
+    return newFile;
   }
 
   @override

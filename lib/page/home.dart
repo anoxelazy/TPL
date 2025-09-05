@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/page/menu/menu.dart';
 import 'package:flutter_application_1/page/claim/claim.dart';
-import 'package:flutter_application_1/page/pm/pm.dart';
 import 'package:flutter_application_1/page/profile/profile.dart';
 import 'package:flutter_application_1/screen/login.dart';
+import 'package:url_launcher/url_launcher.dart'; // เพิ่มตรงนี้
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -15,12 +16,15 @@ class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
 
   final List<Widget> _pages = [
-    const PMPage(),
+    const MenuPage(),
     const ClaimPage(),
     const ProfilePage(),
-    Center(child: Text('หน้าหลัก', style: TextStyle(fontSize: 20))),
-    Center(child: Text('ค้นหา', style: TextStyle(fontSize: 20))),
-    Center(child: Text('โปรไฟล์', style: TextStyle(fontSize: 20))),
+  ];
+
+  final List<String> _titles = [
+    'TP logistics',
+    'Claim',
+    'โปรไฟล์',
   ];
 
   void _onItemTapped(int index) {
@@ -29,7 +33,6 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  // ignore: unused_element
   void _logout() {
     Navigator.pushReplacement(
       context,
@@ -37,26 +40,28 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  void _navigateFromDrawer(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+    Navigator.pop(context);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('TP logistics'),
+        title: Text(_titles[_selectedIndex]),
         backgroundColor: Colors.green,
-        actions: [
-          // IconButton(
-          //   icon: const Icon(Icons.logout),
-          //   onPressed: _logout,
-          //   tooltip: 'ออกจากระบบ',
-          // ),
-        ],
+        centerTitle: true,
       ),
+      drawer: NavigationDrawer(onSelect: _navigateFromDrawer, onLogout: _logout),
       body: _pages[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
         items: const [
           BottomNavigationBarItem(
-            icon: Icon(Icons.computer),
-            label: 'PM',
+            icon: Icon(Icons.home),
+            label: 'Menu',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.archive),
@@ -70,6 +75,64 @@ class _HomePageState extends State<HomePage> {
         currentIndex: _selectedIndex,
         selectedItemColor: Colors.green,
         onTap: _onItemTapped,
+      ),
+    );
+  }
+}
+
+class NavigationDrawer extends StatelessWidget {
+  final Function(int) onSelect;
+  final VoidCallback onLogout;
+
+  const NavigationDrawer({super.key, required this.onSelect, required this.onLogout});
+
+  Future<void> _launchURL(String url) async {
+    final Uri uri = Uri.parse(url);
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      throw 'Could not launch $url';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Drawer(
+      child: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          const DrawerHeader(
+            decoration: BoxDecoration(color: Colors.green),
+            child: Text(
+              'เมนูหลัก',
+              style: TextStyle(color: Colors.white, fontSize: 24),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.home),
+            title: const Text('Menu'),
+            onTap: () => onSelect(0),
+          ),
+          ListTile(
+            leading: const Icon(Icons.archive),
+            title: const Text('Claim'),
+            onTap: () => onSelect(1),
+          ),
+          ListTile(
+            leading: const Icon(Icons.person),
+            title: const Text('โปรไฟล์'),
+            onTap: () => onSelect(2),
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.link),
+            title: const Text('เว็บแจ้งปัญหาไอที'),
+            onTap: () => _launchURL('https://internal.thaiparcels.com:1150/'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.logout),
+            title: const Text('ออกจากระบบ'),
+            onTap: onLogout,
+          ),
+        ],
       ),
     );
   }
