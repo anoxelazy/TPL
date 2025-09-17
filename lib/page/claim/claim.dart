@@ -3,12 +3,14 @@ import 'dart:convert';
 // ignore: unused_import
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/page/claim/claim_history_page.dart';
 import 'package:intl/intl.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:image/image.dart' as img;
+import 'package:flutter_application_1/page/claim/claim_form.dart';
+import 'package:flutter_application_1/page/claim/claim_api.dart' as claim_api;
+import 'package:flutter_application_1/page/claim/claim_dialogs.dart' as claim_dialogs;
+import 'package:flutter_application_1/page/claim/claim_scan.dart';
+import 'package:flutter_application_1/utils/app_logger.dart';
 
 class _SimpleHttpResponse {
   final int statusCode;
@@ -24,8 +26,11 @@ class ClaimPage extends StatefulWidget {
 }
 
 String _normalizeUrl(String url) {
-  final cleaned = url.replaceAll(RegExp(r'\/+'), '/');
-  return cleaned.replaceFirst(':/', '://');
+  final parts = url.split('://');
+  if (parts.length != 2) return url;
+  final protocol = parts[0];
+  final rest = parts[1].replaceAll(RegExp(r'/+'), '/');
+  return '$protocol://$rest';
 }
 
 class _ClaimPageState extends State<ClaimPage> {
@@ -38,328 +43,76 @@ class _ClaimPageState extends State<ClaimPage> {
   String? _userId;
 
   void _resetCount() {
+    AppLogger.I.log('claim_reset_clicked', data: {'count': claimCount});
     setState(() {
       claimCount = 0;
       claims.clear();
     });
   }
 
-  Future<void> _scanBarcode(TextEditingController controller) async {
-    bool isScanned = false;
+  bool _isLoading = false;
 
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => Scaffold(
-          appBar: AppBar(title: const Text('สแกนบาร์โค้ด')),
-          body: MobileScanner(
-            onDetect: (BarcodeCapture capture) {
-              if (isScanned) return;
-
-              final List<Barcode> barcodes = capture.barcodes;
-              if (barcodes.isNotEmpty && barcodes.first.rawValue != null) {
-                isScanned = true;
-                Navigator.pop(context, barcodes.first.rawValue);
-              }
-            },
-          ),
-        ),
-      ),
-    );
-
-    if (result != null && result is String) {
-      setState(() {
-        controller.text = result;
-      });
-    }
+  void _closeAllDialogs() {
+    Navigator.of(context, rootNavigator: true)
+        .popUntil((route) => route is PageRoute);
   }
 
+  Future<void> _scanBarcode(TextEditingController controller) async {
+    final String? value = await openBarcodeScanner(context);
+    if (value != null) setState(() => controller.text = value);
+  }
+
+  Map<String, dynamic> _draftClaim = {
+    'docNumber': '',
+    'type': 'เสียหาย',
+    'carCode': '',
+    'timestamp': DateTime.now(),
+    'images': <File>[],
+    'empID': '',
+    'remark': null,
+  };
+
   Future<void> _showClaimDialog({int? editIndex}) async {
-    final TextEditingController docNumberController = TextEditingController();
-    String selectedType = 'เสียหาย';
-    final TextEditingController carCodeController = TextEditingController();
-    DateTime selectedDate = DateTime.now();
-    List<File> claimImages = [];
-    final ImagePicker picker = ImagePicker();
+    final Map<String, dynamic> initial = editIndex == null
+        ? _draftClaim
+        : claims[editIndex];
 
-    if (editIndex != null) {
-      final claim = claims[editIndex];
-      docNumberController.text = claim['docNumber'] ?? '';
-      selectedType = claim['type'] ?? 'เสียหาย';
-      carCodeController.text = claim['carCode'] ?? '';
-      selectedDate = claim['timestamp'] ?? DateTime.now();
-      claimImages = List<File>.from(claim['images'] ?? []);
-    }
-
-    Future<void> _selectDate(
-      BuildContext context,
-      StateSetter setStateDialog,
-    ) async {
-      final DateTime? picked = await showDatePicker(
-        context: context,
-        initialDate: selectedDate,
-        firstDate: DateTime(2000),
-        lastDate: DateTime(2100),
-      );
-      if (picked != null && picked != selectedDate) {
-        setStateDialog(() {
-          selectedDate = picked;
-        });
-      }
-    }
-
-    void _addImageFromCamera(StateSetter setStateDialog) async {
-      final XFile? image = await picker.pickImage(source: ImageSource.camera);
-      if (image != null) {
-        File file = File(image.path);
-        file = await resizeImage(file, maxSize: 1080);
-        setStateDialog(() {
-          claimImages.add(file);
-        });
-      }
-    }
-
-    void _addImageFromGallery(StateSetter setStateDialog) async {
-      final List<XFile>? images = await picker.pickMultiImage();
-      if (images != null && images.isNotEmpty) {
-        for (var xfile in images) {
-          File file = File(xfile.path);
-          file = await resizeImage(file, maxSize: 1080);
-          setStateDialog(() {
-            claimImages.add(file);
-          });
-        }
-      }
-    }
-
-    await showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setStateDialog) {
-            return Dialog(
-              insetPadding: const EdgeInsets.symmetric(
-                horizontal: 20,
-                vertical: 40,
-              ),
-              child: SizedBox(
-                width: MediaQuery.of(context).size.width * 0.9,
-                height: MediaQuery.of(context).size.height * 0.85,
-                child: Column(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      child: Text(
-                        editIndex == null
-                            ? 'สร้างรายการ Claim ใหม่'
-                            : 'แก้ไขรายการ Claim',
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Row(
-                              children: [
-                                const Text('วันที่: '),
-                                TextButton.icon(
-                                  onPressed: () =>
-                                      _selectDate(context, setStateDialog),
-                                  icon: const Icon(
-                                    Icons.calendar_today,
-                                    color: Colors.blue,
-                                  ),
-                                  label: Text(
-                                    DateFormat(
-                                      'dd/MM/yyyy',
-                                    ).format(selectedDate),
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            TextField(
-                              controller: docNumberController,
-                              decoration: InputDecoration(
-                                labelText: 'เลขเอกสาร',
-                                suffixIcon: IconButton(
-                                  icon: const Icon(
-                                    Icons.qr_code_scanner_outlined,
-                                  ),
-                                  onPressed: () =>
-                                      _scanBarcode(docNumberController),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            DropdownButtonFormField<String>(
-                              value: selectedType,
-                              items: const [
-                                DropdownMenuItem(
-                                  value: 'เสียหาย',
-                                  child: Text('เสียหาย'),
-                                ),
-                                DropdownMenuItem(
-                                  value: 'สูญหาย',
-                                  child: Text('สูญหาย'),
-                                ),
-                                DropdownMenuItem(
-                                  value: 'ไม่ครบล็อต',
-                                  child: Text('ไม่ครบล็อต'),
-                                ),
-                              ],
-                              onChanged: (value) {
-                                if (value != null) {
-                                  setStateDialog(() {
-                                    selectedType = value;
-                                  });
-                                }
-                              },
-                              decoration: const InputDecoration(
-                                labelText: 'ประเภทสินค้า',
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            TextField(
-                              controller: carCodeController,
-                              decoration: InputDecoration(
-                                labelText: 'รหัสรถ (เช่น TP XXXX)',
-                                suffixIcon: IconButton(
-                                  icon: const Icon(
-                                    Icons.qr_code_scanner_outlined,
-                                  ),
-                                  onPressed: () =>
-                                      _scanBarcode(carCodeController),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            if (claimImages.isNotEmpty)
-                              SizedBox(
-                                height: 80,
-                                child: ListView.builder(
-                                  scrollDirection: Axis.horizontal,
-                                  itemCount: claimImages.length,
-                                  itemBuilder: (context, index) {
-                                    return Padding(
-                                      padding: const EdgeInsets.only(right: 8),
-                                      child: Stack(
-                                        children: [
-                                          Image.file(
-                                            claimImages[index],
-                                            width: 70,
-                                            height: 70,
-                                            fit: BoxFit.cover,
-                                          ),
-                                          Positioned(
-                                            top: -10,
-                                            right: -10,
-                                            child: IconButton(
-                                              icon: const Icon(
-                                                Icons.cancel,
-                                                color: Colors.red,
-                                              ),
-                                              onPressed: () {
-                                                setStateDialog(() {
-                                                  claimImages.removeAt(index);
-                                                });
-                                              },
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
-                            const SizedBox(height: 12),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                              children: [
-                                ElevatedButton.icon(
-                                  onPressed: () =>
-                                      _addImageFromCamera(setStateDialog),
-                                  icon: const Icon(Icons.camera_alt),
-                                  label: const Text('ถ่ายรูป'),
-                                ),
-                                ElevatedButton.icon(
-                                  onPressed: () =>
-                                      _addImageFromGallery(setStateDialog),
-                                  icon: const Icon(Icons.photo_library),
-                                  label: const Text('เลือกรูป'),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 8,
-                        horizontal: 16,
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: const Text('ยกเลิก'),
-                          ),
-                          const SizedBox(width: 8),
-                          ElevatedButton(
-                            onPressed: () {
-                              if (docNumberController.text.trim().isEmpty ||
-                                  carCodeController.text.trim().isEmpty) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'กรุณากรอกข้อมูลให้ครบทุกช่อง',
-                                    ),
-                                  ),
-                                );
-                                return;
-                              }
-                              setState(() {
-                                final newClaim = {
-                                  'docNumber': docNumberController.text.trim(),
-                                  'type': selectedType,
-                                  'carCode': carCodeController.text.trim(),
-                                  'timestamp': selectedDate,
-                                  'images': List<File>.from(claimImages),
-                                  'empID': _userId ?? '',
-                                };
-                                if (editIndex == null) {
-                                  claims.add(newClaim);
-                                } else {
-                                  claims[editIndex] = newClaim;
-                                }
-                                claimCount = claims.length;
-                              });
-                              Navigator.pop(context);
-                            },
-                            child: const Text('Save'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
+    final result = await showClaimFormDialog(
+      context,
+      initialDocNumber: (initial['docNumber'] ?? '').toString(),
+      initialType: (initial['type'] ?? 'เสียหาย').toString(),
+      initialCarCode: (initial['carCode'] ?? '').toString(),
+      initialTimestamp: initial['timestamp'] ?? DateTime.now(),
+      initialImages: List<File>.from(initial['images'] ?? []),
+      initialRemark: initial['remark']?.toString(),
+      empId: _userId ?? '',
+      onScanBarcode: (ctx, controller) async {
+        final String? value = await openBarcodeScanner(ctx);
+        if (value != null) controller.text = value;
+        return value;
       },
     );
+
+    if (result == null) return;
+
+    setState(() {
+      final newClaim = {
+        'docNumber': result.docNumber,
+        'type': result.type,
+        'carCode': result.carCode,
+        'timestamp': result.timestamp,
+        'images': List<File>.from(result.images),
+        'empID': result.empId,
+        'remark': result.remark,
+      };
+      if (editIndex == null) {
+        claims.add(newClaim);
+      } else {
+        claims[editIndex] = newClaim;
+      }
+      claimCount = claims.length;
+      _draftClaim = Map<String, dynamic>.from(newClaim);
+    });
   }
 
   Future<String?> sendClaimToAPI({
@@ -372,113 +125,30 @@ class _ClaimPageState extends State<ClaimPage> {
     required double lon,
     required String bearerToken,
   }) async {
-    const String baseUrl = "http://61.91.54.130:1159";
-    final String url = "$baseUrl/api/GETImageLink_Folder";
-
-    try {
-      final bytes = await imageFile.readAsBytes();
-      final String base64Image = base64Encode(bytes);
-
-      final response = await http.post(
-        Uri.parse(url),
-        headers: {
-          'Authorization': 'Bearer $bearerToken',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-          "a1No": a1No,
-          "IsStempText": false,
-          "image1": base64Image,
-          "lat": lat,
-          "lon": lon,
-          "empId": empId,
-          "folderName": folderName,
-          "imageName": imageName,
-        }),
-      );
-
-      debugPrint("API Response (${response.statusCode}): ${response.body}");
-
-      if (response.statusCode == 200) {
-        return response.body.trim();
-      } else {
-        debugPrint("Upload failed: ${response.statusCode} ${response.body}");
-        return null;
-      }
-    } catch (e) {
-      debugPrint("sendClaimToAPI error: $e");
-      return null;
-    }
+    return claim_api.sendClaimToAPI(
+      a1No: a1No,
+      empId: empId,
+      folderName: folderName,
+      imageName: imageName,
+      imageFile: imageFile,
+      lat: lat,
+      lon: lon,
+      bearerToken: bearerToken,
+    );
   }
 
   Future<Map<String, dynamic>> _buildSheetPayload(
     Map<String, dynamic> claim,
   ) async {
-    final DateTime timestamp = claim['timestamp'] ?? DateTime.now();
-
-    final List<String> imageLinks = List<String>.from(
-      claim['uploadedLinks'] ?? [],
-    );
-
-    final String a1 = claim['docNumber'] ?? '';
-    final String userId = claim['empID'] ?? '';
-    final String dateKey = DateFormat('yyyyMMdd').format(timestamp);
-    final String dedupeKey = '${a1}_${userId}_${dateKey}_${imageLinks.length}';
-
-    return {
-      'date': DateFormat('yyyy-MM-dd').format(timestamp),
-      'a1_no': a1,
-      'claim_type': claim['type'] ?? '',
-      'truck_no': claim['carCode'] ?? '',
-      'user_id': userId,
-      'images': imageLinks,
-      'image_count': imageLinks.length,
-      'created_at': timestamp.toIso8601String(),
-      'dedupe_key': dedupeKey,
-    };
+    return claim_api.buildSheetPayload(claim);
   }
 
   Future<_SimpleHttpResponse> _postJsonPreserveRedirect(
     Uri uri,
     String jsonBody,
   ) async {
-    final HttpClient client = HttpClient();
-    try {
-      final HttpClientRequest request = await client.postUrl(uri);
-      request.followRedirects = false;
-      request.headers.set(HttpHeaders.contentTypeHeader, 'application/json');
-      request.add(utf8.encode(jsonBody));
-      final HttpClientResponse response = await request.close();
-
-      if ({301, 302, 303, 307, 308}.contains(response.statusCode)) {
-        final String? location = response.headers.value(
-          HttpHeaders.locationHeader,
-        );
-        if (location != null) {
-          final Uri redirectUri = Uri.parse(location);
-          if (response.statusCode == 303) {
-            final HttpClientRequest getReq = await client.getUrl(redirectUri);
-            final HttpClientResponse getResp = await getReq.close();
-            final String getBody = await utf8.decoder.bind(getResp).join();
-            return _SimpleHttpResponse(getResp.statusCode, getBody);
-          } else {
-            final HttpClientRequest postReq = await client.postUrl(redirectUri);
-            postReq.headers.set(
-              HttpHeaders.contentTypeHeader,
-              'application/json',
-            );
-            postReq.add(utf8.encode(jsonBody));
-            final HttpClientResponse postResp = await postReq.close();
-            final String postBody = await utf8.decoder.bind(postResp).join();
-            return _SimpleHttpResponse(postResp.statusCode, postBody);
-          }
-        }
-      }
-      final String body = await utf8.decoder.bind(response).join();
-      return _SimpleHttpResponse(response.statusCode, body);
-    } finally {
-      client.close(force: true);
-    }
+    final resp = await claim_api.postJsonPreserveRedirect(uri, jsonBody);
+    return _SimpleHttpResponse(resp.statusCode, resp.body);
   }
 
   Future<bool> _sendClaimToGoogleSheet(Map<String, dynamic> claim) async {
@@ -491,8 +161,9 @@ class _ClaimPageState extends State<ClaimPage> {
       final List<File> images = List<File>.from(claim['images'] ?? []);
       List<String> uploadedLinks = [];
 
-      for (final imageFile in images) {
-        final String fileName = imageFile.path.split('/').last.split('.').first;
+      for (int i = 0; i < images.length; i++) {
+        final File imageFile = images[i];
+        final String fileName = 'image${i + 1}';
         final String? link = await sendClaimToAPI(
           a1No: claim['docNumber'] ?? '',
           empId: empId,
@@ -505,17 +176,18 @@ class _ClaimPageState extends State<ClaimPage> {
         );
 
         if (link != null) {
-          uploadedLinks.add(_normalizeUrl(link)); 
+          uploadedLinks.add(_normalizeUrl(link));
         }
       }
 
       claim['uploadedLinks'] = uploadedLinks;
+      // เซ็ตทั้งรูปแบบ empId และ empID เพื่อความเข้ากันได้กับสคริปต์เดิม
+      claim['empId'] = empId;
+      claim['empID'] = empId;
+      claim['created_at'] = DateTime.now().toIso8601String();
 
       final payload = await _buildSheetPayload(claim);
       final String body = jsonEncode(payload);
-
-      debugPrint('Payload to sheet: $body'); 
-      debugPrint('Sheet endpoint: $uri'); 
 
       final _SimpleHttpResponse resp = await _postJsonPreserveRedirect(
         uri,
@@ -523,18 +195,63 @@ class _ClaimPageState extends State<ClaimPage> {
       );
 
       debugPrint('Sheet POST: ${resp.statusCode} ${resp.body}');
-      return resp.statusCode == 200;
+
+      final key = 'claim_history_$empId';
+      List<String> savedClaims = prefs.getStringList(key) ?? [];
+      savedClaims.add(body);
+      await prefs.setStringList(key, savedClaims);
+
+      // บางครั้ง Apps Script อาจตอบ 405 พร้อม HTML แต่บันทึกสำเร็จแล้ว
+      // ถือว่าสำเร็จหากรหัสสถานะอยู่ในช่วง 2xx/3xx หรือเป็น 405
+      return (resp.statusCode >= 200 && resp.statusCode < 400) ||
+          resp.statusCode == 405;
     } catch (e) {
       debugPrint('Sheet POST error: $e');
       return false;
     }
   }
 
+  Future<void> _showLoadingDialog({String message = 'กำลังส่งข้อมูล...'}) async {
+    await claim_dialogs.showLoadingDialog(context, message: message);
+  }
+
+  Future<void> _showResultDialog({
+    String title = 'สำเร็จ',
+    String message = 'ทำรายการสำเร็จ',
+  }) async {
+    await claim_dialogs.showResultDialog(context, title: title, message: message);
+  }
+
+  Future<void> _loadClaimHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    final List<String> savedClaims = prefs.getStringList('claim_history') ?? [];
+
+    final now = DateTime.now();
+    final filteredClaims = savedClaims.where((e) {
+      try {
+        final Map<String, dynamic> claim = jsonDecode(e);
+        final DateTime timestamp =
+            DateTime.tryParse(claim['created_at'] ?? '') ?? now;
+        return now.difference(timestamp).inDays <= 30;
+      } catch (_) {
+        return false;
+      }
+    }).toList();
+
+    await prefs.setStringList('claim_history', filteredClaims);
+
+    setState(() {
+      var claimHistory = filteredClaims
+          .map((e) => jsonDecode(e) as Map<String, dynamic>)
+          .toList();
+    });
+  }
+
   Future<void> _sendAllClaimsToGoogleSheet() async {
+    await AppLogger.I.log('claim_send_all_clicked', data: {'count': claims.length});
     if (claims.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('ไม่มีรายการ Claim ให้ส่ง')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('ไม่มีรายการ Claim ให้ส่ง')));
       return;
     }
 
@@ -543,7 +260,9 @@ class _ClaimPageState extends State<ClaimPage> {
     });
 
     try {
+      _showLoadingDialog(message: 'กำลังส่ง Claim ทั้งหมด...');
       for (final claim in claims) {
+        await AppLogger.I.log('claim_sending_item', data: {'docNumber': claim['docNumber']});
         await _sendClaimToGoogleSheet(claim);
       }
 
@@ -551,25 +270,52 @@ class _ClaimPageState extends State<ClaimPage> {
       setState(() {
         _isSendingAll = false;
       });
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('ส่ง Claim สำเร็จทั้งหมด')));
+      _closeAllDialogs();
+      await _showResultDialog(
+        title: 'สำเร็จ',
+        message: 'ส่ง Claim สำเร็จทั้งหมด',
+      );
+      await AppLogger.I.log('claim_send_all_success');
     } catch (e) {
       setState(() {
         _isSendingAll = false;
       });
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('เกิดข้อผิดพลาด: $e')));
+      _closeAllDialogs();
+      await _showResultDialog(
+        title: 'ผิดพลาด',
+        message: 'เกิดข้อผิดพลาด: $e',
+      );
+      await AppLogger.I.log('claim_send_all_error', data: {'error': e.toString()});
     }
   }
 
   Future<void> _sendSingleClaim(int index) async {
-    final ok = await _sendClaimToGoogleSheet(claims[index]);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(ok ? 'ส่งรายการล้มเหลว' : 'ส่งรายการสำเร็จ')),
-    );
+    try {
+      await AppLogger.I.log('claim_send_one_clicked', data: {'index': index, 'docNumber': claims[index]['docNumber']});
+      _showLoadingDialog(message: 'กำลังส่งรายการ...');
+      final ok = await _sendClaimToGoogleSheet(claims[index]);
+      _closeAllDialogs();
+      if (ok) {
+        await AppLogger.I.log('claim_send_one_success', data: {'index': index});
+        await _showResultDialog(
+          title: 'สำเร็จ',
+          message: 'ส่งรายการสำเร็จ',
+        );
+      } else {
+        await AppLogger.I.log('claim_send_one_failed', data: {'index': index});
+        await _showResultDialog(
+          title: 'ผิดพลาด',
+          message: 'ส่งรายการล้มเหลว',
+        );
+      }
+    } catch (e) {
+      await AppLogger.I.log('claim_send_one_exception', data: {'error': e.toString()});
+      _closeAllDialogs();
+      await _showResultDialog(
+        title: 'ผิดพลาด',
+        message: 'เกิดข้อผิดพลาด: $e',
+      );
+    }
   }
 
   @override
@@ -584,8 +330,10 @@ class _ClaimPageState extends State<ClaimPage> {
       setState(() {
         _userId = prefs.getString('driverID') ?? '';
       });
+      await AppLogger.I.log('claim_loaded_user', data: {'driverID': _userId});
     } catch (e) {
       debugPrint('Load user id failed: $e');
+      await AppLogger.I.log('claim_load_user_error', data: {'error': e.toString()});
     }
   }
 
@@ -619,13 +367,9 @@ class _ClaimPageState extends State<ClaimPage> {
 
         List<String> uploadedLinks = [];
 
-        for (final imageFile in images) {
-          final String filePath = imageFile.path;
-          final String fileName = filePath.split('/').last;
-          final int dotIndex = fileName.lastIndexOf('.');
-          final String imageName = dotIndex > 0
-              ? fileName.substring(0, dotIndex)
-              : fileName;
+        for (int i = 0; i < images.length; i++) {
+          final File imageFile = images[i];
+          final String imageName = 'image${i + 1}';
 
           final link = await sendClaimToAPI(
             a1No: a1No,
@@ -656,28 +400,32 @@ class _ClaimPageState extends State<ClaimPage> {
     }
   }
 
-  Future<File> resizeImage(File file, {int maxSize = 1080}) async {
-    final bytes = await file.readAsBytes();
-    final image = img.decodeImage(bytes);
-    if (image == null) return file;
+  // Future<File> resizeImage(File file, {int maxSize = 1080}) async {
+  //   final bytes = await file.readAsBytes();
+  //   final image = img.decodeImage(bytes);
+  //   if (image == null) return file;
 
-    final resized = img.copyResize(
-      image,
-      width: image.width > image.height ? maxSize : null,
-      height: image.height >= image.width ? maxSize : null,
-    );
+  //   final resized = img.copyResize(
+  //     image,
+  //     width: image.width > image.height ? maxSize : null,
+  //     height: image.height >= image.width ? maxSize : null,
+  //   );
 
-    final newBytes = img.encodeJpg(resized, quality: 90);
-    final newFile = await file.writeAsBytes(newBytes, flush: true);
-    return newFile;
-  }
+  //   final newBytes = img.encodeJpg(resized, quality: 90);
+  //   final newFile = await file.writeAsBytes(newBytes, flush: true);
+  //   return newFile;
+  // }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Claim สินค้า'),
-        backgroundColor: const Color.fromARGB(255, 255, 255, 255),
+        centerTitle: false,
+        titleSpacing: 16,
+        title: Text(
+          'Claim สินค้า',
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
         actions: [
           IconButton(
             icon: _isSendingAll
@@ -692,6 +440,20 @@ class _ClaimPageState extends State<ClaimPage> {
                 ? _sendAllClaimsToGoogleSheet
                 : null,
           ),
+
+          IconButton(
+            icon: const Icon(Icons.history, size: 28),
+            tooltip: 'ดูประวัติการเคลม',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ClaimHistoryPage(userId: _userId ?? ''),
+                ),
+              );
+            },
+          ),
+
           Padding(
             padding: const EdgeInsets.only(right: 12),
             child: Stack(
@@ -701,7 +463,9 @@ class _ClaimPageState extends State<ClaimPage> {
                   icon: const Icon(Icons.refresh, size: 28),
                   tooltip: 'รีเซ็ต',
                   onPressed: claimCount > 0 ? _resetCount : null,
-                  color: claimCount > 0 ? Colors.red : Colors.grey,
+                  color: claimCount > 0
+                      ? Theme.of(context).colorScheme.error
+                      : null,
                 ),
                 if (claimCount > 0)
                   Positioned(
@@ -748,19 +512,49 @@ class _ClaimPageState extends State<ClaimPage> {
                 DateTime timestamp = claim['timestamp'] ?? DateTime.now();
                 return ListTile(
                   leading: const Icon(Icons.local_shipping),
-                  title: Text('เลขเอกสาร: ${claim['docNumber']}'),
-                  subtitle: Text(
-                    'ประเภท: ${claim['type']}\nรหัสรถ: ${claim['carCode']}\nวันที่: ${DateFormat('dd/MM/yyyy').format(timestamp)}',
+                  title: Text(
+                    'เลขเอกสาร: ${claim['docNumber']}',
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'ประเภท: ${claim['type']}',
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodyLarge
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      Text(
+                        'รหัสรถ: ${claim['carCode']}',
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodyLarge
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      if (claim['remark'] != null && claim['remark'].toString().isNotEmpty)
+                        Text(
+                          'หมายเหตุ: ${claim['remark']}',
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodyMedium
+                              ?.copyWith(fontStyle: FontStyle.italic),
+                        ),
+                      Text(
+                        'วันที่: ${DateFormat('dd/MM/yyyy').format(timestamp)}',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ],
                   ),
                   isThreeLine: true,
                   trailing: Wrap(
                     spacing: 12,
                     children: [
-                      // IconButton(
-                      //   icon: const Icon(Icons.photo),
-                      //   tooltip: 'ดู/เพิ่มรูปภาพ',
-                      //   onPressed: () => _showClaimDialog(editIndex: index),
-                      // ),
                       IconButton(
                         icon: const Icon(Icons.edit, color: Colors.blue),
                         tooltip: 'แก้ไขข้อมูล',

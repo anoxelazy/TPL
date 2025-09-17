@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/page/menu/webviewpage.dart';
 import 'package:flutter_application_1/page/pm/pm.dart';
 import 'package:flutter_application_1/page/claim/claim.dart';
+import 'package:flutter_application_1/page/qr_pay.dart/qr.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class MenuPage extends StatefulWidget {
@@ -19,19 +20,20 @@ class _MenuPageState extends State<MenuPage> {
   final TextEditingController _searchController = TextEditingController();
 
   final List<Map<String, dynamic>> menuItems = [
-  {'title': 'PM', 'icon': Icons.computer, 'page': const PMPage()},
-  {'title': 'Claim', 'icon': Icons.receipt_long, 'page': const ClaimPage()},
-  {
-    'title': 'เว็บ',
-    'icon': Icons.public,
-    'page': WebViewPage(url: 'https://internal.thaiparcels.com:1150/'),
-  },
-  {
-    'title': 'Tracking',
-    'icon': Icons.local_shipping,
-    'page': WebViewPage(url: 'https://tptrack.info/ecom/dtrack.php'),
-  },
-];
+    {'title': 'PM', 'icon': Icons.computer, 'page': const PMPage()},
+    {'title': 'Claim', 'icon': Icons.receipt_long, 'page': const ClaimPage()},
+    {
+      'title': 'เว็บ',
+      'icon': Icons.public,
+      'page': WebViewPage(url: 'https://internal.thaiparcels.com:1150/'),
+    },
+    {
+      'title': 'Tracking',
+      'icon': Icons.local_shipping,
+      'page': WebViewPage(url: 'https://tptrack.info/ecom/dtrack.php'),
+    },
+    {'title': 'QR', 'icon': Icons.qr_code, 'page': const QrPage()},
+  ];
 
   List<Map<String, dynamic>> filteredMenuItems = [];
 
@@ -154,34 +156,33 @@ class _MenuPageState extends State<MenuPage> {
     );
   }
 
- Widget _buildMenuCardWithLabel(BuildContext context, {
-  required IconData icon,
-  required String title,
-  required Widget page, required url,
-}) {
-  return InkWell(
-    onTap: () {
-      Navigator.push(context, MaterialPageRoute(builder: (_) => page));
-    },
-    child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(icon, size: 36, color: Colors.black),
-        const SizedBox(height: 4),
-        Text(title, style: const TextStyle(fontSize: 14)),
-      ],
-    ),
-  );
-}
+  Widget _buildMenuCardWithLabel(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required Widget page,
+    String? url,
+  }) {
+    return InkWell(
+      onTap: () {
+        Navigator.push(context, MaterialPageRoute(builder: (_) => page));
+      },
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 36, color: Colors.black),
+          const SizedBox(height: 4),
+          Text(title, style: const TextStyle(fontSize: 14)),
+        ],
+      ),
+    );
+  }
 
   Future<void> openWeb(String url) async {
     final Uri uri = Uri.parse(url);
 
     if (await canLaunchUrl(uri)) {
-      await launchUrl(
-        uri,
-        mode: LaunchMode.externalApplication, 
-      );
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
     } else {
       print('ไม่สามารถเปิดเว็บไซต์ได้');
     }

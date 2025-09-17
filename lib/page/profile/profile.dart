@@ -53,12 +53,13 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("โปรไฟล์ของฉัน"),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0,
+        centerTitle: false,
+        titleSpacing: 16,
+        title: Text(
+          "โปรไฟล์ของฉัน",
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
       ),
-      backgroundColor: Colors.grey[100],
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
@@ -71,15 +72,17 @@ class _ProfilePageState extends State<ProfilePage> {
                         "assets/images/profile.png"), // ใส่รูป default
                   ),
                   const SizedBox(height: 20),
-                  Text(
-                    fullName,
-                    style: const TextStyle(
-                        fontSize: 22, fontWeight: FontWeight.bold),
-                  ),
+                  Text(fullName, style: Theme.of(context).textTheme.titleMedium),
                   const SizedBox(height: 5),
                   Text(
                     "รหัสพนักงาน: $driverID",
-                    style: const TextStyle(fontSize: 16, color: Colors.grey),
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodyMedium
+                        ?.copyWith(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurfaceVariant),
                   ),
                   const SizedBox(height: 30),
                   Card(
@@ -88,10 +91,12 @@ class _ProfilePageState extends State<ProfilePage> {
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12)),
                     child: ListTile(
-                      leading: const Icon(Icons.logout, color: Colors.red),
-                      title: const Text(
+                      leading: Icon(Icons.logout,
+                          color: Theme.of(context).colorScheme.error),
+                      title: Text(
                         "ออกจากระบบ",
-                        style: TextStyle(color: Colors.red),
+                        style: TextStyle(
+                            color: Theme.of(context).colorScheme.error),
                       ),
                       onTap: _logout,
                     ),

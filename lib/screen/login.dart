@@ -5,6 +5,7 @@ import 'package:flutter_application_1/page/home.dart';
 import 'package:flutter_application_1/page/profile/profile.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_application_1/utils/app_logger.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -59,7 +60,11 @@ class _LoginPageState extends State<LoginPage> {
   bool isLoading = false;
 
   Future<void> _login() async {
+    await AppLogger.I.log('login_clicked');
     if (emailController.text.isEmpty || passwordController.text.isEmpty) {
+      await AppLogger.I.log('login_validation_failed', data: {
+        'reason': 'empty_fields',
+      });
       _showError("กรุณาใส่รหัสพนักงานและรหัสผ่าน");
       return;
     }
@@ -86,12 +91,19 @@ class _LoginPageState extends State<LoginPage> {
             body: jsonEncode(body),
           )
           .timeout(const Duration(seconds: 10));
+      await AppLogger.I.log('login_response', data: {
+        'status': response.statusCode,
+      });
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final token = data["token"];
         final fullname = data["fullname"];
         final driverID = data["driverID"];
+        await AppLogger.I.log('login_success', data: {
+          'fullname': fullname,
+          'driverID': driverID,
+        });
 
         SharedPreferences prefs = await SharedPreferences.getInstance();
         await prefs.setString("token", token);
@@ -103,11 +115,18 @@ class _LoginPageState extends State<LoginPage> {
           MaterialPageRoute(builder: (context) => const HomePage()),
         );
       } else {
+        await AppLogger.I.log('login_failed', data: {
+          'status': response.statusCode,
+          'body': response.body,
+        });
         _showError(
           "เข้าสู่ระบบล้มเหลว: ${response.statusCode}\n${response.body}",
         );
       }
     } catch (e) {
+      await AppLogger.I.log('login_exception', data: {
+        'error': e.toString(),
+      });
       _showError("เกิดข้อผิดพลาด: $e");
     }
 
