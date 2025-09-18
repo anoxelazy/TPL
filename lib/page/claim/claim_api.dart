@@ -1,8 +1,15 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
+
+// Function to run base64 encoding in separate isolate
+String _encodeBase64(Uint8List bytes) {
+  return base64Encode(bytes);
+}
 
 String normalizeUrl(String url) {
   final parts = url.split('://');
@@ -56,6 +63,7 @@ Future<SimpleHttpResponse> postJsonPreserveRedirect(
   }
 }
 
+// Upload image to server - tries multipart first for better size preservation
 Future<String?> sendClaimToAPI({
   required String a1No,
   required String empId,
@@ -69,26 +77,59 @@ Future<String?> sendClaimToAPI({
   const String baseUrl = "http://61.91.54.130:1159";
   final String url = "$baseUrl/api/GETImageLink_Folder";
 
-  try {
-    final bytes = await imageFile.readAsBytes();
-    final String base64Image = base64Encode(bytes);
+  HttpClient? client;
 
-    final HttpClient client = HttpClient();
-    final HttpClientRequest request = await client.postUrl(Uri.parse(url));
+  try {
+    // Check file size before processing
+    final fileSize = await imageFile.length();
+    if (fileSize > 50 * 1024 * 1024) { // Increased to 50MB for 720p processing
+      throw Exception('Image file too large for upload: ${fileSize ~/ (1024 * 1024)}MB (max 50MB)');
+    }
+
+    final bytes = await imageFile.readAsBytes();
+
+    // Check if base64 would be too large (rough estimate: base64 is ~33% larger)
+    if (bytes.length > 30 * 1024 * 1024) { // Increased to 30MB raw = ~40MB base64
+      throw Exception('Image too large after encoding (max 30MB raw file)');
+    }
+
+    final String base64Image = await compute(_encodeBase64, bytes);
+
+    client = HttpClient();
+    client.connectionTimeout = const Duration(seconds: 30); // Connection timeout
+    client.idleTimeout = const Duration(seconds: 30); // Idle timeout
+
+    final HttpClientRequest request = await client.postUrl(Uri.parse(url))
+        .timeout(const Duration(seconds: 60)); // Request timeout
+
     request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $bearerToken');
     request.headers.set(HttpHeaders.contentTypeHeader, 'application/json');
-    request.add(utf8.encode(jsonEncode({
+    // Try adding headers that might influence server behavior
+    request.headers.set('X-Image-Width', '720');
+    request.headers.set('X-Image-Height', '720');
+    request.headers.set('X-Preserve-Size', 'true');
+    request.headers.set('X-No-Resize', 'true');
+    request.headers.set('Accept', 'application/json');
+
+    // Try a different approach - send minimal data to see if server behavior changes
+    final minimalData = {
       "a1No": a1No,
-      "IsStempText": false,
       "image1": base64Image,
-      "lat": lat,
-      "lon": lon,
       "empId": empId,
       "folderName": folderName,
       "imageName": imageName,
-    })));
-    final HttpClientResponse response = await request.close();
-    final String body = await utf8.decoder.bind(response).join();
+    };
+
+    final jsonString = jsonEncode(minimalData);
+    request.headers.set(HttpHeaders.contentLengthHeader, utf8.encode(jsonString).length);
+    request.add(utf8.encode(jsonString));
+
+    final HttpClientResponse response = await request.close()
+        .timeout(const Duration(seconds: 120)); // Response timeout
+
+    final String body = await utf8.decoder.bind(response)
+        .join()
+        .timeout(const Duration(seconds: 30)); // Body read timeout
 
     debugPrint("API Response (${response.statusCode}): ${normalizeUrl(body)}");
 
@@ -100,9 +141,110 @@ Future<String?> sendClaimToAPI({
       debugPrint("Upload failed: ${response.statusCode} $body");
       return null;
     }
+  } on TimeoutException catch (e) {
+    debugPrint("Upload timeout: $e");
+    return null;
   } catch (e) {
     debugPrint("sendClaimToAPI error: $e");
     return null;
+  } finally {
+    client?.close(force: true);
+  }
+}
+
+// Alternative upload method using multipart/form-data (may preserve original size better)
+Future<String?> sendClaimToAPIMultipart({
+  required String a1No,
+  required String empId,
+  required String folderName,
+  required String imageName,
+  required File imageFile,
+  required double lat,
+  required double lon,
+  required String bearerToken,
+}) async {
+  const String baseUrl = "http://61.91.54.130:1159";
+  final String url = "$baseUrl/api/GETImageLink_Folder";
+
+  HttpClient? client;
+
+  try {
+    // Check file size before processing
+    final fileSize = await imageFile.length();
+    if (fileSize > 50 * 1024 * 1024) { // Increased to 50MB for 720p processing
+      throw Exception('Image file too large for upload: ${fileSize ~/ (1024 * 1024)}MB (max 50MB)');
+    }
+
+    final bytes = await imageFile.readAsBytes();
+
+    client = HttpClient();
+    client.connectionTimeout = const Duration(seconds: 30);
+    client.idleTimeout = const Duration(seconds: 30);
+
+    final HttpClientRequest request = await client.postUrl(Uri.parse(url))
+        .timeout(const Duration(seconds: 60));
+
+    request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $bearerToken');
+    request.headers.set(HttpHeaders.contentTypeHeader, 'multipart/form-data; boundary=boundary123');
+
+    // Create multipart form data
+    final boundary = 'boundary123';
+    final List<int> requestBody = [];
+
+    // Add form fields
+    final fields = {
+      'a1No': a1No,
+      'IsStempText': 'false',
+      'lat': lat.toString(),
+      'lon': lon.toString(),
+      'empId': empId,
+      'folderName': folderName,
+      'imageName': imageName,
+      'width': '720',
+      'height': '720',
+      'keepOriginalSize': 'true',
+    };
+
+    for (final entry in fields.entries) {
+      requestBody.addAll(utf8.encode('--$boundary\r\n'));
+      requestBody.addAll(utf8.encode('Content-Disposition: form-data; name="${entry.key}"\r\n\r\n'));
+      requestBody.addAll(utf8.encode('${entry.value}\r\n'));
+    }
+
+    // Add file
+    requestBody.addAll(utf8.encode('--$boundary\r\n'));
+    requestBody.addAll(utf8.encode('Content-Disposition: form-data; name="image1"; filename="$imageName.jpg"\r\n'));
+    requestBody.addAll(utf8.encode('Content-Type: image/jpeg\r\n\r\n'));
+    requestBody.addAll(bytes);
+    requestBody.addAll(utf8.encode('\r\n--$boundary--\r\n'));
+
+    request.add(requestBody);
+
+    final HttpClientResponse response = await request.close()
+        .timeout(const Duration(seconds: 120));
+
+    final String body = await utf8.decoder.bind(response)
+        .join()
+        .timeout(const Duration(seconds: 30));
+
+    debugPrint("Multipart API Response (${response.statusCode}): ${normalizeUrl(body)}");
+
+    if (response.statusCode == 200) {
+      final String raw = body.trim();
+      final String normalized = normalizeUrl(raw);
+      return normalized;
+    } else {
+      debugPrint("Multipart upload failed: ${response.statusCode} $body");
+      return null;
+    }
+  } on TimeoutException catch (e) {
+    debugPrint("Multipart upload timeout: $e");
+    return null;
+  } catch (e) {
+    debugPrint("sendClaimToAPIMultipart error: $e");
+    return null;
+  } finally {
+    client?.close(force: true);
   }
 }
 
@@ -113,6 +255,7 @@ Future<Map<String, dynamic>> buildSheetPayload(Map<String, dynamic> claim) async
   final String userId = claim['empID'] ?? '';
   final String dateKey = DateFormat('yyyyMMdd').format(timestamp);
   final String dedupeKey = '${a1}_${userId}_${dateKey}_${imageLinks.length}';
+  final String remarkType = claim['remarkType'] ?? '';
 
   return {
     'date': DateFormat('yyyy-MM-dd').format(timestamp),
@@ -124,6 +267,8 @@ Future<Map<String, dynamic>> buildSheetPayload(Map<String, dynamic> claim) async
     'image_count': imageLinks.length,
     'created_at': timestamp.toIso8601String(),
     'dedupe_key': dedupeKey,
+    'remarks_type': claim['remarks'] ?? '',
+    'remark_type': remarkType,
   };
 }
 

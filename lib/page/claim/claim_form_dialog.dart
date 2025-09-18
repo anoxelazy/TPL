@@ -5,7 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:image/image.dart' as img;
 
-Future<File> _resizeImage(File file, {int maxSize = 1080}) async {
+Future<File> _resizeImage(File file, {int maxSize = 720}) async {
   final bytes = await file.readAsBytes();
   final image = img.decodeImage(bytes);
   if (image == null) return file;
@@ -14,9 +14,10 @@ Future<File> _resizeImage(File file, {int maxSize = 1080}) async {
     image,
     width: image.width > image.height ? maxSize : null,
     height: image.height >= image.width ? maxSize : null,
+    interpolation: img.Interpolation.cubic,
   );
 
-  final newBytes = img.encodeJpg(resized, quality: 90);
+  final newBytes = img.encodeJpg(resized, quality: 78);
   final newFile = await file.writeAsBytes(newBytes, flush: true);
   return newFile;
 }
@@ -43,7 +44,7 @@ Future<Map<String, dynamic>?> openClaimFormDialog(
     text: draft['carCode'],
   );
   final TextEditingController remarkController = TextEditingController(
-    text: initialClaim?['remark'] ?? '',
+    text: initialClaim?['remarkType'] ?? '',
   );
   String selectedType = draft['type'];
   DateTime selectedDate = draft['timestamp'];
@@ -65,7 +66,9 @@ Future<Map<String, dynamic>?> openClaimFormDialog(
   }
 
   Future<void> addImage(File file, StateSetter setStateDialog) async {
-    file = await _resizeImage(file, maxSize: 1080);
+    debugPrint('Processing image in dialog with maxSize: 720');
+    file = await _resizeImage(file, maxSize: 720);
+    debugPrint('Image processed in dialog, ready for upload');
     setStateDialog(() {
       claimImages.add(file);
     });
@@ -331,7 +334,7 @@ Future<Map<String, dynamic>?> openClaimFormDialog(
                               'timestamp': selectedDate,
                               'images': List<File>.from(claimImages),
                               'empID': userId,
-                              'remark': selectedType == 'ไม่ครบล็อต'
+                              'remarkType': selectedType == 'ไม่ครบล็อต'
                                   ? remarkController.text.trim()
                                   : null,
                             };

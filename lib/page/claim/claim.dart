@@ -3,6 +3,7 @@ import 'dart:convert';
 // ignore: unused_import
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_application_1/page/claim/claim_history_page.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -42,12 +43,57 @@ class _ClaimPageState extends State<ClaimPage> {
   bool _isSendingAll = false;
   String? _userId;
 
+  DateTime? _lastOperationTime;
+  static const int _maxConcurrentOperations = 3;
+
   void _resetCount() {
     AppLogger.I.log('claim_reset_clicked', data: {'count': claimCount});
     setState(() {
       claimCount = 0;
       claims.clear();
     });
+  }
+
+  Future<void> _handleError(String operation, dynamic error, {StackTrace? stackTrace}) async {
+    debugPrint('Error in $operation: $error');
+    if (stackTrace != null) {
+      debugPrint('Stack trace: $stackTrace');
+    }
+
+    await AppLogger.I.log('claim_error', data: {
+      'operation': operation,
+      'error': error.toString(),
+      'stackTrace': stackTrace?.toString(),
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('เกิดข้อผิดพลาด: ${error.toString()}'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
+          action: SnackBarAction(
+            label: 'ลองใหม่',
+            textColor: Colors.white,
+            onPressed: () {
+            },
+          ),
+        ),
+      );
+    }
+  }
+
+  void _startOperation(String operation) {
+    _lastOperationTime = DateTime.now();
+    debugPrint('Starting operation: $operation');
+  }
+
+  void _endOperation(String operation) {
+    if (_lastOperationTime != null) {
+      final duration = DateTime.now().difference(_lastOperationTime!);
+      debugPrint('Operation $operation completed in ${duration.inMilliseconds}ms');
+      _lastOperationTime = null;
+    }
   }
 
   bool _isLoading = false;
@@ -69,7 +115,7 @@ class _ClaimPageState extends State<ClaimPage> {
     'timestamp': DateTime.now(),
     'images': <File>[],
     'empID': '',
-    'remark': null,
+    'remarkType': null,
   };
 
   Future<void> _showClaimDialog({int? editIndex}) async {
@@ -103,7 +149,7 @@ class _ClaimPageState extends State<ClaimPage> {
         'timestamp': result.timestamp,
         'images': List<File>.from(result.images),
         'empID': result.empId,
-        'remark': result.remark,
+        'remarkType': result.remarkType,
       };
       if (editIndex == null) {
         claims.add(newClaim);
@@ -125,7 +171,8 @@ class _ClaimPageState extends State<ClaimPage> {
     required double lon,
     required String bearerToken,
   }) async {
-    return claim_api.sendClaimToAPI(
+    debugPrint('Attempting multipart upload for $imageName');
+    final result = await claim_api.sendClaimToAPIMultipart(
       a1No: a1No,
       empId: empId,
       folderName: folderName,
@@ -135,6 +182,68 @@ class _ClaimPageState extends State<ClaimPage> {
       lon: lon,
       bearerToken: bearerToken,
     );
+
+    if (result == null) {
+      debugPrint('Multipart upload failed for $imageName, trying base64 fallback');
+      return claim_api.sendClaimToAPI(
+        a1No: a1No,
+        empId: empId,
+        folderName: folderName,
+        imageName: imageName,
+        imageFile: imageFile,
+        lat: lat,
+        lon: lon,
+        bearerToken: bearerToken,
+      );
+    }
+
+    debugPrint('Multipart upload successful for $imageName');
+    return result;
+  }
+
+  Future<String?> _uploadImageWithRetry({
+    required String a1No,
+    required String empId,
+    required String folderName,
+    required String imageName,
+    required File imageFile,
+    required String token,
+    required int maxRetries,
+  }) async {
+    int attempts = 0;
+    while (attempts < maxRetries) {
+      try {
+        final result = await sendClaimToAPI(
+          a1No: a1No,
+          empId: empId,
+          folderName: folderName,
+          imageName: imageName,
+          imageFile: imageFile,
+          lat: 0.0,
+          lon: 0.0,
+          bearerToken: token,
+        );
+
+        if (result != null) {
+          return result; 
+        }
+
+        attempts++;
+        if (attempts < maxRetries) {
+          await Future.delayed(Duration(seconds: attempts * 2));
+        }
+      } catch (e) {
+        attempts++;
+        debugPrint('Upload attempt ${attempts} failed: $e');
+
+        if (attempts < maxRetries) {
+          await Future.delayed(Duration(seconds: attempts * 2));
+        }
+      }
+    }
+
+    debugPrint('Failed to upload image after $maxRetries attempts');
+    return null;
   }
 
   Future<Map<String, dynamic>> _buildSheetPayload(
@@ -152,8 +261,10 @@ class _ClaimPageState extends State<ClaimPage> {
   }
 
   Future<bool> _sendClaimToGoogleSheet(Map<String, dynamic> claim) async {
-    final uri = Uri.parse('$_sheetEndpoint?key=$_sheetKey');
+    _startOperation('sendClaimToGoogleSheet');
+
     try {
+      final uri = Uri.parse('$_sheetEndpoint?key=$_sheetKey');
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token') ?? '';
       final empId = prefs.getString('driverID') ?? '';
@@ -161,27 +272,67 @@ class _ClaimPageState extends State<ClaimPage> {
       final List<File> images = List<File>.from(claim['images'] ?? []);
       List<String> uploadedLinks = [];
 
-      for (int i = 0; i < images.length; i++) {
-        final File imageFile = images[i];
-        final String fileName = 'image${i + 1}';
-        final String? link = await sendClaimToAPI(
-          a1No: claim['docNumber'] ?? '',
-          empId: empId,
-          folderName: "Claim/${claim['docNumber'] ?? ''}",
-          imageName: fileName,
-          imageFile: imageFile,
-          lat: 0.0,
-          lon: 0.0,
-          bearerToken: token,
+      if (images.isNotEmpty) {
+        final ValueNotifier<int> uploadedCount = ValueNotifier<int>(0);
+        final ValueNotifier<String> currentStatus = ValueNotifier<String>('กำลังเตรียมรูปภาพ...');
+
+        claim_dialogs.showImageUploadDialog(
+          context,
+          totalImages: images.length,
+          uploadedCount: uploadedCount,
+          currentStatus: currentStatus,
         );
 
-        if (link != null) {
-          uploadedLinks.add(_normalizeUrl(link));
+        try {
+          final List<Future<String?>> uploadFutures = [];
+          for (int i = 0; i < images.length; i++) {
+            final File imageFile = images[i];
+            final String fileName = 'image${i + 1}';
+            uploadFutures.add(_uploadImageWithRetry(
+              a1No: claim['docNumber'] ?? '',
+              empId: empId,
+              folderName: "Claim/${claim['docNumber'] ?? ''}",
+              imageName: fileName,
+              imageFile: imageFile,
+              token: token,
+              maxRetries: 3,
+            ));
+          }
+
+          final List<String?> results = await Future.wait(uploadFutures);
+
+          for (int i = 0; i < results.length; i++) {
+            currentStatus.value = 'กำลังอัพโหลดรูปที่ ${i + 1}...';
+            uploadedCount.value = i + 1;
+
+            final link = results[i];
+            if (link != null) {
+              uploadedLinks.add(_normalizeUrl(link));
+            } else {
+              debugPrint('Failed to upload image ${i + 1}');
+            }
+          }
+
+          if (uploadedLinks.length == images.length) {
+            currentStatus.value = 'อัพโหลดสำเร็จทั้งหมด!';
+          } else if (uploadedLinks.isNotEmpty) {
+            currentStatus.value = 'อัพโหลดสำเร็จ ${uploadedLinks.length}/${images.length} รูป';
+          } else {
+            currentStatus.value = 'อัพโหลดล้มเหลวทั้งหมด';
+          }
+
+        } catch (e) {
+          await _handleError('image_upload', e);
+          currentStatus.value = 'เกิดข้อผิดพลาด: $e';
+        } finally {
+          await Future.delayed(const Duration(seconds: 2));
+          if (mounted) {
+            Navigator.of(context, rootNavigator: true).pop();
+          }
         }
       }
 
       claim['uploadedLinks'] = uploadedLinks;
-      // เซ็ตทั้งรูปแบบ empId และ empID เพื่อความเข้ากันได้กับสคริปต์เดิม
       claim['empId'] = empId;
       claim['empID'] = empId;
       claim['created_at'] = DateTime.now().toIso8601String();
@@ -200,13 +351,12 @@ class _ClaimPageState extends State<ClaimPage> {
       List<String> savedClaims = prefs.getStringList(key) ?? [];
       savedClaims.add(body);
       await prefs.setStringList(key, savedClaims);
-
-      // บางครั้ง Apps Script อาจตอบ 405 พร้อม HTML แต่บันทึกสำเร็จแล้ว
-      // ถือว่าสำเร็จหากรหัสสถานะอยู่ในช่วง 2xx/3xx หรือเป็น 405
+      _endOperation('sendClaimToGoogleSheet');
       return (resp.statusCode >= 200 && resp.statusCode < 400) ||
           resp.statusCode == 405;
     } catch (e) {
-      debugPrint('Sheet POST error: $e');
+      await _handleError('sendClaimToGoogleSheet', e);
+      _endOperation('sendClaimToGoogleSheet');
       return false;
     }
   }
@@ -317,6 +467,7 @@ class _ClaimPageState extends State<ClaimPage> {
       );
     }
   }
+
 
   @override
   void initState() {
@@ -537,9 +688,9 @@ class _ClaimPageState extends State<ClaimPage> {
                             .bodyLarge
                             ?.copyWith(fontWeight: FontWeight.w700),
                       ),
-                      if (claim['remark'] != null && claim['remark'].toString().isNotEmpty)
+                      if (claim['type'] == 'ไม่ครบล็อต' && claim['remarkType'] != null && claim['remarkType'].toString().isNotEmpty)
                         Text(
-                          'หมายเหตุ: ${claim['remark']}',
+                          'รายละเอียดเพิ่มเติม: ${claim['remarkType']}',
                           style: Theme.of(context)
                               .textTheme
                               .bodyMedium

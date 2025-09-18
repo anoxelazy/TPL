@@ -4,6 +4,89 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'image_utils.dart';
 
+class FastImagePreview extends StatefulWidget {
+  final File imageFile;
+  final double width;
+  final double height;
+  final BoxFit fit;
+
+  const FastImagePreview({
+    Key? key,
+    required this.imageFile,
+    this.width = 120,
+    this.height = 120,
+    this.fit = BoxFit.cover,
+  }) : super(key: key);
+
+  @override
+  State<FastImagePreview> createState() => _FastImagePreviewState();
+}
+
+class _FastImagePreviewState extends State<FastImagePreview> {
+  File? _thumbnailFile;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadThumbnail();
+  }
+
+  Future<void> _loadThumbnail() async {
+    try {
+      final thumbnail = await generateThumbnail(widget.imageFile, size: 720);
+      if (mounted) {
+        setState(() {
+          _thumbnailFile = thumbnail;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Container(
+        width: widget.width,
+        height: widget.height,
+        color: Colors.grey[200],
+        child: const Center(
+          child: SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: Image.file(
+        _thumbnailFile ?? widget.imageFile,
+        width: widget.width,
+        height: widget.height,
+        fit: widget.fit,
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
+            width: widget.width,
+            height: widget.height,
+            color: Colors.grey[300],
+            child: const Icon(Icons.broken_image, color: Colors.grey),
+          );
+        },
+      ),
+    );
+  }
+}
+
 class ClaimFormResult {
   final String docNumber;
   final String type;
@@ -11,7 +94,7 @@ class ClaimFormResult {
   final DateTime timestamp;
   final List<File> images;
   final String empId;
-  final String? remark;
+  final String? remarkType;
 
   ClaimFormResult({
     required this.docNumber,
@@ -20,7 +103,7 @@ class ClaimFormResult {
     required this.timestamp,
     required this.images,
     required this.empId,
-    this.remark,
+    this.remarkType,
   });
 }
 
@@ -61,11 +144,52 @@ Future<ClaimFormResult?> showClaimFormDialog(
     }
   }
 
-  Future<void> _addImage(File file, StateSetter setStateDialog) async {
-    final resized = await resizeImage(file, maxSize: 1080);
-    setStateDialog(() {
-      claimImages.add(resized);
-    });
+  Future<void> _addImage(File file, StateSetter setStateDialog, BuildContext dialogContext) async {
+    showDialog(
+      context: dialogContext,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return const Dialog(
+          child: Padding(
+            padding: EdgeInsets.all(20),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                SizedBox(width: 16),
+                Text('กำลังประมวลผลรูปภาพกรุณารอสักครู่'),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    try {
+      debugPrint('Processing image with maxSize: 720');
+      final resized = await resizeImage(file, maxSize: 720, useCache: true);
+      debugPrint('Image processed successfully, final size will be determined by aspect ratio');
+      setStateDialog(() {
+        claimImages.add(resized);
+      });
+    } catch (e) {
+      if (dialogContext.mounted) {
+        ScaffoldMessenger.of(dialogContext).showSnackBar(
+          SnackBar(
+            content: Text('เกิดข้อผิดพลาดในการประมวลผลรูปภาพ: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (Navigator.canPop(dialogContext)) {
+        Navigator.of(dialogContext).pop();
+      }
+    }
   }
 
   final result = await showDialog<ClaimFormResult>(
@@ -181,14 +305,11 @@ Future<ClaimFormResult?> showClaimFormDialog(
                                     child: Stack(
                                       clipBehavior: Clip.none,
                                       children: [
-                                        ClipRRect(
-                                          borderRadius: BorderRadius.circular(8),
-                                          child: Image.file(
-                                            claimImages[index],
-                                            width: 120,
-                                            height: 120,
-                                            fit: BoxFit.cover,
-                                          ),
+                                        FastImagePreview(
+                                          imageFile: claimImages[index],
+                                          width: 120,
+                                          height: 120,
+                                          fit: BoxFit.cover,
                                         ),
                                         Positioned(
                                           top: -10,
@@ -216,7 +337,7 @@ Future<ClaimFormResult?> showClaimFormDialog(
                               ElevatedButton.icon(
                                 onPressed: () async {
                                   final XFile? image = await picker.pickImage(source: ImageSource.camera);
-                                  if (image != null) await _addImage(File(image.path), setStateDialog);
+                                  if (image != null) await _addImage(File(image.path), setStateDialog, context);
                                 },
                                 icon: const Icon(Icons.camera_alt),
                                 label: const Text('ถ่ายรูป'),
@@ -224,9 +345,53 @@ Future<ClaimFormResult?> showClaimFormDialog(
                               ElevatedButton.icon(
                                 onPressed: () async {
                                   final List<XFile>? images = await picker.pickMultiImage();
-                                  if (images != null) {
-                                    for (var imgFile in images) {
-                                      await _addImage(File(imgFile.path), setStateDialog);
+                                  if (images != null && images.isNotEmpty) {
+                                    showDialog(
+                                      context: context,
+                                      barrierDismissible: false,
+                                      builder: (BuildContext context) {
+                                        return Dialog(
+                                          child: Padding(
+                                            padding: const EdgeInsets.all(20),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                const SizedBox(
+                                                  width: 24,
+                                                  height: 24,
+                                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                                ),
+                                                const SizedBox(width: 16),
+                                                Text('กำลังประมวลผลรูปภาพ ${images.length} รูป...'),
+                                              ],
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    );
+
+                                    try {
+                                      debugPrint('Batch processing ${images.length} images with maxSize: 720');
+                                      final fileList = images.map((img) => File(img.path)).toList();
+                                      final processedImages = await processImagesBatch(fileList, maxSize: 720);
+                                      debugPrint('Batch processing completed for ${processedImages.length} images');
+
+                                      setStateDialog(() {
+                                        claimImages.addAll(processedImages);
+                                      });
+                                    } catch (e) {
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text('เกิดข้อผิดพลาดในการประมวลผลรูปภาพ: $e'),
+                                            backgroundColor: Colors.red,
+                                          ),
+                                        );
+                                      }
+                                    } finally {
+                                      if (Navigator.canPop(context)) {
+                                        Navigator.of(context).pop();
+                                      }
                                     }
                                   }
                                 },
@@ -276,8 +441,8 @@ Future<ClaimFormResult?> showClaimFormDialog(
                                 timestamp: selectedDate,
                                 images: List<File>.from(claimImages),
                                 empId: empId,
-                                remark: selectedType == 'ไม่ครบล็อต' 
-                                    ? remarkController.text.trim() 
+                                remarkType: selectedType == 'ไม่ครบล็อต'
+                                    ? remarkController.text.trim()
                                     : null,
                               ),
                             );

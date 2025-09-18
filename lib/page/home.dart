@@ -215,19 +215,19 @@ class NavigationDrawer extends StatelessWidget {
                     ?.copyWith(fontWeight: FontWeight.w700)),
             onTap: onOpenClaimHistory,
           ),
-          ListTile(
-            leading: const Icon(Icons.event_note),
-            title: Text('บันทึกการทำงาน',
-                style: Theme.of(context)
-                    .textTheme
-                    .bodyLarge
-                    ?.copyWith(fontWeight: FontWeight.w700)),
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const LogsPage()),
-              );
-            },
-          ),
+          // ListTile(
+          //   leading: const Icon(Icons.event_note),
+          //   title: Text('บันทึกการทำงาน',
+          //       style: Theme.of(context)
+          //           .textTheme
+          //           .bodyLarge
+          //           ?.copyWith(fontWeight: FontWeight.w700)),
+          //   onTap: () {
+          //     Navigator.of(context).push(
+          //       MaterialPageRoute(builder: (_) => const LogsPage()),
+          //     );
+          //   },
+          // ),
           const Divider(),
           ListTile(
             leading: const Icon(Icons.link),
