@@ -119,6 +119,8 @@ Future<ClaimFormResult?> showClaimFormDialog(
   required Future<String?> Function(BuildContext, TextEditingController)
       onScanBarcode,
 }) async {
+  const List<String> commonCarCodes = ['TP 0001', 'TP 0002', 'TP 0003', 'TP 0004', 'TP 0005'];
+
   final TextEditingController docNumberController =
       TextEditingController(text: initialDocNumber);
   final TextEditingController carCodeController =
@@ -161,7 +163,7 @@ Future<ClaimFormResult?> showClaimFormDialog(
                   child: CircularProgressIndicator(strokeWidth: 2),
                 ),
                 SizedBox(width: 16),
-                Text('กำลังประมวลผลรูปภาพกรุณารอสักครู่'),
+                Text('กำลังประมวลผลรูปภาพรอสักครู่'),
               ],
             ),
           ),
@@ -284,9 +286,24 @@ Future<ClaimFormResult?> showClaimFormDialog(
                                 'รหัสรถ (เช่น TP XXXX)',
                                 style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
                               ),
-                              suffixIcon: IconButton(
-                                icon: const Icon(Icons.qr_code_scanner_outlined),
-                                onPressed: () => onScanBarcode(context, carCodeController),
+                              suffixIcon: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  PopupMenuButton<String>(
+                                    icon: const Icon(Icons.arrow_drop_down),
+                                    onSelected: (value) {
+                                      carCodeController.text = value;
+                                    },
+                                    itemBuilder: (context) => commonCarCodes.map((code) => PopupMenuItem<String>(
+                                      value: code,
+                                      child: Text(code),
+                                    )).toList(),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.qr_code_scanner_outlined),
+                                    onPressed: () => onScanBarcode(context, carCodeController),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
