@@ -43,21 +43,6 @@ class _PMPageState extends State<PMPage> {
       'beforeImage': null,
       'afterImage': null,
     },
-    {
-      'no': '3',
-      'name': 'ควย',
-      'asset': 'ควย',
-      'employee': 'ควย',
-      'location': 'ควย',
-      'remark': 'ควย',
-      'performance': 'ควย',
-      'myComputer': 'ควย',
-      'clearTemp': 'ควย',
-      'updateWinAv': 'ควย',
-      'scanVirus': 'OK',
-      'beforeImage': null,
-      'afterImage': null,
-    },
   ];
 
   List<Map<String, dynamic>> filteredList = [];
@@ -235,17 +220,17 @@ class _PMPageState extends State<PMPage> {
                                 : Container(
                                     width: 120,
                                     height: 80,
-                                    color: Colors.grey[200],
-                                    child: const Icon(
+                                    color: Theme.of(context).colorScheme.surfaceVariant,
+                                    child: Icon(
                                       Icons.image,
                                       size: 36,
-                                      color: Colors.grey,
+                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                                     ),
                                   ),
                             IconButton(
-                              icon: const Icon(
+                              icon: Icon(
                                 Icons.add_a_photo,
-                                color: Colors.blue,
+                                color: Theme.of(context).colorScheme.primary,
                               ),
                               onPressed: () => _pickForDialog(true, taskKey),
                             ),
@@ -271,17 +256,17 @@ class _PMPageState extends State<PMPage> {
                                 : Container(
                                     width: 120,
                                     height: 80,
-                                    color: Colors.grey[200],
-                                    child: const Icon(
+                                    color: Theme.of(context).colorScheme.surfaceVariant,
+                                    child: Icon(
                                       Icons.image,
                                       size: 36,
-                                      color: Colors.grey,
+                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                                     ),
                                   ),
                             IconButton(
-                              icon: const Icon(
+                              icon: Icon(
                                 Icons.add_a_photo,
-                                color: Colors.green,
+                                color: Theme.of(context).colorScheme.secondary,
                               ),
                               onPressed: () => _pickForDialog(false, taskKey),
                             ),
@@ -335,7 +320,7 @@ class _PMPageState extends State<PMPage> {
                                 const SizedBox(width: 15),
                                 Text(
                                   'No ${computerList[index]['no']}',
-                                  style: const TextStyle(color: Colors.grey),
+                                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                                 ),
                               ],
                             ),
@@ -394,7 +379,7 @@ class _PMPageState extends State<PMPage> {
                         const SizedBox(width: 8),
                         ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
+                            backgroundColor: Theme.of(context).colorScheme.primary,
                           ),
                           onPressed: () {
                             setState(() {
@@ -513,14 +498,18 @@ class _PMPageState extends State<PMPage> {
 Widget build(BuildContext context) {
   return Scaffold(
     appBar: AppBar(
-      backgroundColor: const Color.fromARGB(255, 255, 255, 255),
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      foregroundColor: Theme.of(context).colorScheme.onSurface,
       title: Row(
         children: [
           Expanded(
             flex: 1,
             child: Text(
               'ตรวจสอบสภาพคอมพิวเตอร์',
-              style: TextStyle(fontSize: 18),
+              style: TextStyle(
+                fontSize: 18,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -534,9 +523,14 @@ Widget build(BuildContext context) {
                   isDense: true,
                   contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 0),
                   hintText: 'ค้นหา',
+                  hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                   filled: true,
-                  fillColor: Colors.white,
-                  prefixIcon: Icon(Icons.search, size: 18),
+                  fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  prefixIcon: Icon(
+                    Icons.search,
+                    size: 18,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                     borderSide: BorderSide.none,
@@ -551,19 +545,20 @@ Widget build(BuildContext context) {
     floatingActionButton: FloatingActionButton(
       onPressed: _showAddComputerDialog,
       tooltip: 'เพิ่มคอมพิวเตอร์',
-      backgroundColor: Colors.green,
+      backgroundColor: Theme.of(context).colorScheme.primary,
+      foregroundColor: Theme.of(context).colorScheme.onPrimary,
       child: Icon(Icons.add),
     ),
     body: SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: DataTable(
-        headingRowColor: MaterialStateProperty.all(Colors.green[100]),
+        headingRowColor: MaterialStateProperty.all(Theme.of(context).colorScheme.primaryContainer),
         columns: [
           DataColumn(
             label: Container(
               decoration: BoxDecoration(
                 border: Border(
-                  right: BorderSide(color: Colors.grey.shade400, width: 1),
+                  right: BorderSide(color: Theme.of(context).colorScheme.outline, width: 1),
                 ),
               ),
               padding: EdgeInsets.symmetric(horizontal: 8),
@@ -574,7 +569,7 @@ Widget build(BuildContext context) {
             label: Container(
               decoration: BoxDecoration(
                 border: Border(
-                  right: BorderSide(color: Colors.grey.shade400, width: 1),
+                  right: BorderSide(color: Theme.of(context).colorScheme.outline, width: 1),
                 ),
               ),
               padding: EdgeInsets.symmetric(horizontal: 8),
@@ -639,7 +634,10 @@ Widget build(BuildContext context) {
             cells: [
               DataCell(
                 IconButton(
-                  icon: Icon(Icons.edit, color: Colors.blue),
+                  icon: Icon(
+                    Icons.edit,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                   onPressed: () {
                     _editComputer(computerList.indexOf(data));
                   },

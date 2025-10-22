@@ -1,8 +1,8 @@
-name: flutter_application_1
-description: "A new Flutter project."
+name: claim
+description: "TP Claim"
 publish_to: 'none'
 
-version: 2.0.3+10
+version: 2.0.5+11
 
 environment:
   sdk: ^3.9.0
@@ -16,6 +16,7 @@ dependencies:
   line_icons: ^2.0.3
   ionicons: ^0.2.2
   image_picker: ^1.0.7
+  camera: ^0.10.5+9
   intl: ^0.18.1
   mobile_scanner: ^7.0.0
   simple_barcode_scanner: ^0.3.0
@@ -44,6 +45,7 @@ flutter:
     - assets/images/TP1.png
     - assets/images/TP2.png
     - assets/images/TP3.png
+    - assets/images/profile.png
 
 flutter_icons:
   android: true

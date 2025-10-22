@@ -80,38 +80,34 @@ Future<String?> sendClaimToAPI({
   HttpClient? client;
 
   try {
-    // Check file size before processing
     final fileSize = await imageFile.length();
-    if (fileSize > 50 * 1024 * 1024) { // Increased to 50MB for 720p processing
+    if (fileSize > 50 * 1024 * 1024) { 
       throw Exception('Image file too large for upload: ${fileSize ~/ (1024 * 1024)}MB (max 50MB)');
     }
 
     final bytes = await imageFile.readAsBytes();
 
-    // Check if base64 would be too large (rough estimate: base64 is ~33% larger)
-    if (bytes.length > 30 * 1024 * 1024) { // Increased to 30MB raw = ~40MB base64
+    if (bytes.length > 30 * 1024 * 1024) { 
       throw Exception('Image too large after encoding (max 30MB raw file)');
     }
 
     final String base64Image = await compute(_encodeBase64, bytes);
 
     client = HttpClient();
-    client.connectionTimeout = const Duration(seconds: 30); // Connection timeout
-    client.idleTimeout = const Duration(seconds: 30); // Idle timeout
+    client.connectionTimeout = const Duration(seconds: 30); 
+    client.idleTimeout = const Duration(seconds: 30); 
 
     final HttpClientRequest request = await client.postUrl(Uri.parse(url))
-        .timeout(const Duration(seconds: 60)); // Request timeout
+        .timeout(const Duration(seconds: 60)); 
 
     request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $bearerToken');
     request.headers.set(HttpHeaders.contentTypeHeader, 'application/json');
-    // Try adding headers that might influence server behavior
     request.headers.set('X-Image-Width', '720');
     request.headers.set('X-Image-Height', '720');
     request.headers.set('X-Preserve-Size', 'true');
     request.headers.set('X-No-Resize', 'true');
     request.headers.set('Accept', 'application/json');
 
-    // Try a different approach - send minimal data to see if server behavior changes
     final minimalData = {
       "a1No": a1No,
       "image1": base64Image,
@@ -152,7 +148,6 @@ Future<String?> sendClaimToAPI({
   }
 }
 
-// Alternative upload method using multipart/form-data (may preserve original size better)
 Future<String?> sendClaimToAPIMultipart({
   required String a1No,
   required String empId,
@@ -169,9 +164,8 @@ Future<String?> sendClaimToAPIMultipart({
   HttpClient? client;
 
   try {
-    // Check file size before processing
     final fileSize = await imageFile.length();
-    if (fileSize > 50 * 1024 * 1024) { // Increased to 50MB for 720p processing
+    if (fileSize > 50 * 1024 * 1024) { 
       throw Exception('Image file too large for upload: ${fileSize ~/ (1024 * 1024)}MB (max 50MB)');
     }
 
@@ -187,11 +181,9 @@ Future<String?> sendClaimToAPIMultipart({
     request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $bearerToken');
     request.headers.set(HttpHeaders.contentTypeHeader, 'multipart/form-data; boundary=boundary123');
 
-    // Create multipart form data
     final boundary = 'boundary123';
     final List<int> requestBody = [];
 
-    // Add form fields
     final fields = {
       'a1No': a1No,
       'IsStempText': 'false',
@@ -211,7 +203,6 @@ Future<String?> sendClaimToAPIMultipart({
       requestBody.addAll(utf8.encode('${entry.value}\r\n'));
     }
 
-    // Add file
     requestBody.addAll(utf8.encode('--$boundary\r\n'));
     requestBody.addAll(utf8.encode('Content-Disposition: form-data; name="image1"; filename="$imageName.jpg"\r\n'));
     requestBody.addAll(utf8.encode('Content-Type: image/jpeg\r\n\r\n'));
@@ -227,21 +218,17 @@ Future<String?> sendClaimToAPIMultipart({
         .join()
         .timeout(const Duration(seconds: 30));
 
-    debugPrint("Multipart API Response (${response.statusCode}): ${normalizeUrl(body)}");
 
     if (response.statusCode == 200) {
       final String raw = body.trim();
       final String normalized = normalizeUrl(raw);
       return normalized;
     } else {
-      debugPrint("Multipart upload failed: ${response.statusCode} $body");
       return null;
     }
   } on TimeoutException catch (e) {
-    debugPrint("Multipart upload timeout: $e");
     return null;
   } catch (e) {
-    debugPrint("sendClaimToAPIMultipart error: $e");
     return null;
   } finally {
     client?.close(force: true);
@@ -269,6 +256,7 @@ Future<Map<String, dynamic>> buildSheetPayload(Map<String, dynamic> claim) async
     'dedupe_key': dedupeKey,
     'remarks_type': claim['remarks'] ?? '',
     'remark_type': remarkType,
+    'special_case': claim['fromFrontStore'] == true ? 'มาจากคลังหน้าบ้าน' : '',
   };
 }
 

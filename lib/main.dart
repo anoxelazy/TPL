@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/screen/login.dart';
+import 'package:claim/screen/login.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 void main() {
@@ -47,7 +47,17 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: lightScheme,
-        textTheme: enhancedTextTheme,
+        textTheme: enhancedTextTheme.copyWith(
+          titleLarge: enhancedTextTheme.titleLarge?.copyWith(color: lightScheme.onSurface),
+          titleMedium: enhancedTextTheme.titleMedium?.copyWith(color: lightScheme.onSurface),
+          titleSmall: enhancedTextTheme.titleSmall?.copyWith(color: lightScheme.onSurface),
+          bodyLarge: enhancedTextTheme.bodyLarge?.copyWith(color: lightScheme.onSurface),
+          bodyMedium: enhancedTextTheme.bodyMedium?.copyWith(color: lightScheme.onSurface),
+          bodySmall: enhancedTextTheme.bodySmall?.copyWith(color: lightScheme.onSurface),
+          labelLarge: enhancedTextTheme.labelLarge?.copyWith(color: lightScheme.onSurface),
+          labelMedium: enhancedTextTheme.labelMedium?.copyWith(color: lightScheme.onSurface),
+          labelSmall: enhancedTextTheme.labelSmall?.copyWith(color: lightScheme.onSurface),
+        ),
         dialogTheme: DialogThemeData(
           titleTextStyle: enhancedTextTheme.titleMedium?.copyWith(
             fontSize: 20,
@@ -65,6 +75,7 @@ class MyApp extends StatelessWidget {
             textStyle: enhancedTextTheme.labelLarge?.copyWith(
               fontWeight: FontWeight.w700,
             ),
+            foregroundColor: lightScheme.onSurface,
           ),
         ),
         appBarTheme: AppBarTheme(
@@ -81,22 +92,42 @@ class MyApp extends StatelessWidget {
             shape: const StadiumBorder(),
           ),
         ),
+        iconTheme: IconThemeData(
+          color: lightScheme.onSurface,
+        ),
+        cardTheme: CardThemeData(
+          color: lightScheme.surface,
+          shadowColor: lightScheme.shadow,
+        ),
         inputDecorationTheme: InputDecorationTheme(
           border: const OutlineInputBorder(),
           focusedBorder: OutlineInputBorder(
             borderSide: BorderSide(color: lightScheme.primary, width: 2),
           ),
+          labelStyle: TextStyle(color: lightScheme.onSurfaceVariant),
         ),
         bottomNavigationBarTheme: BottomNavigationBarThemeData(
           selectedItemColor: lightScheme.primary,
           unselectedItemColor: lightScheme.onSurfaceVariant,
           type: BottomNavigationBarType.fixed,
+          backgroundColor: lightScheme.surface,
         ),
+        scaffoldBackgroundColor: lightScheme.surface,
       ),
       darkTheme: ThemeData(
         useMaterial3: true,
         colorScheme: darkScheme,
-        textTheme: enhancedTextTheme,
+        textTheme: enhancedTextTheme.copyWith(
+          titleLarge: enhancedTextTheme.titleLarge?.copyWith(color: darkScheme.onSurface),
+          titleMedium: enhancedTextTheme.titleMedium?.copyWith(color: darkScheme.onSurface),
+          titleSmall: enhancedTextTheme.titleSmall?.copyWith(color: darkScheme.onSurface),
+          bodyLarge: enhancedTextTheme.bodyLarge?.copyWith(color: darkScheme.onSurface),
+          bodyMedium: enhancedTextTheme.bodyMedium?.copyWith(color: darkScheme.onSurface),
+          bodySmall: enhancedTextTheme.bodySmall?.copyWith(color: darkScheme.onSurface),
+          labelLarge: enhancedTextTheme.labelLarge?.copyWith(color: darkScheme.onSurface),
+          labelMedium: enhancedTextTheme.labelMedium?.copyWith(color: darkScheme.onSurface),
+          labelSmall: enhancedTextTheme.labelSmall?.copyWith(color: darkScheme.onSurface),
+        ),
         dialogTheme: DialogThemeData(
           titleTextStyle: enhancedTextTheme.titleMedium?.copyWith(
             fontSize: 20,
@@ -114,6 +145,7 @@ class MyApp extends StatelessWidget {
             textStyle: enhancedTextTheme.labelLarge?.copyWith(
               fontWeight: FontWeight.w700,
             ),
+            foregroundColor: darkScheme.onSurface,
           ),
         ),
         appBarTheme: AppBarTheme(
@@ -127,12 +159,22 @@ class MyApp extends StatelessWidget {
           focusedBorder: OutlineInputBorder(
             borderSide: BorderSide(color: darkScheme.primary, width: 2),
           ),
+          labelStyle: TextStyle(color: darkScheme.onSurfaceVariant),
         ),
         bottomNavigationBarTheme: BottomNavigationBarThemeData(
           selectedItemColor: darkScheme.primary,
           unselectedItemColor: darkScheme.onSurfaceVariant,
           type: BottomNavigationBarType.fixed,
+          backgroundColor: darkScheme.surface,
         ),
+        iconTheme: IconThemeData(
+          color: darkScheme.onSurface,
+        ),
+        cardTheme: CardThemeData(
+          color: darkScheme.surface,
+          shadowColor: darkScheme.shadow,
+        ),
+        scaffoldBackgroundColor: darkScheme.surface,
       ),
       home: const SplashPage(),
     );

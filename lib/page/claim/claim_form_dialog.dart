@@ -28,6 +28,15 @@ Future<Map<String, dynamic>?> openClaimFormDialog(
   required String userId,
   Future<String?> Function(TextEditingController controller)? onScan,
 }) async {
+  // List of employee IDs that should show "มาจากคลังหน้าบ้าน" option
+  const Set<String> frontStoreEmployeeIds = {
+    '2547', '67057', '67176', '67177', '67217', '68015', '68069', '68089',
+    '68102', '68124', '68145', '68194', '80354', '80412', '80653', '80899',
+    '81725', '81881', '81990', '82005'
+  };
+
+  // Check if current user should see the front store option
+  final bool shouldShowFrontStoreOption = frontStoreEmployeeIds.contains(userId);
   final Map<String, dynamic> draft = {
     'docNumber': initialClaim?['docNumber'] ?? '',
     'type': initialClaim?['type'] ?? 'เสียหาย',
@@ -35,9 +44,8 @@ Future<Map<String, dynamic>?> openClaimFormDialog(
     'timestamp': initialClaim?['timestamp'] ?? DateTime.now(),
     'images': List<File>.from(initialClaim?['images'] ?? <File>[]),
     'empID': userId,
+    'fromFrontStore': initialClaim?['fromFrontStore'] ?? false,
   };
-
-  const List<String> commonCarCodes = ['TP 0001', 'TP 0002', 'TP 0003', 'TP 0004', 'TP 0005'];
 
   final TextEditingController docNumberController = TextEditingController(
     text: draft['docNumber'],
@@ -51,6 +59,7 @@ Future<Map<String, dynamic>?> openClaimFormDialog(
   String selectedType = draft['type'];
   DateTime selectedDate = draft['timestamp'];
   List<File> claimImages = List<File>.from(draft['images']);
+  bool fromFrontStore = draft['fromFrontStore'];
   final ImagePicker picker = ImagePicker();
 
   Future<void> selectDate(StateSetter setStateDialog) async {
@@ -96,8 +105,8 @@ Future<Map<String, dynamic>?> openClaimFormDialog(
                     padding: const EdgeInsets.all(16),
                     child: Text(
                       initialClaim == null
-                          ? 'สร้างรายการ Claim ใหม่'
-                          : 'แก้ไขรายการ Claim',
+                          ? 'สร้างรายการใหม่'
+                          : 'แก้ไขรายการ',
                       style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -115,9 +124,9 @@ Future<Map<String, dynamic>?> openClaimFormDialog(
                               const Text('วันที่: '),
                               TextButton.icon(
                                 onPressed: () => selectDate(setStateDialog),
-                                icon: const Icon(
+                                icon: Icon(
                                   Icons.calendar_today,
-                                  color: Colors.blue,
+                                  color: Theme.of(context).colorScheme.primary,
                                 ),
                                 label: Text(
                                   DateFormat('dd/MM/yyyy').format(selectedDate),
@@ -189,35 +198,72 @@ Future<Map<String, dynamic>?> openClaimFormDialog(
                           TextField(
                             controller: carCodeController,
                             decoration: InputDecoration(
-                              labelText: 'รหัสรถ (เช่น TP XXXX)',
-                              suffixIcon: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  PopupMenuButton<String>(
-                                    icon: const Icon(Icons.arrow_drop_down),
-                                    onSelected: (value) {
-                                      carCodeController.text = value;
-                                    },
-                                    itemBuilder: (context) => commonCarCodes.map((code) => PopupMenuItem<String>(
-                                      value: code,
-                                      child: Text(code),
-                                    )).toList(),
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.qr_code_scanner_outlined,
-                                    ),
-                                    onPressed: onScan == null
-                                        ? null
-                                        : () async {
-                                            await onScan(carCodeController);
-                                          },
-                                  ),
-                                ],
+                              labelText: 'รหัสรถที่บรรทุกสินค้าเสียหาย',
+                              suffixIcon: IconButton(
+                                icon: const Icon(
+                                  Icons.qr_code_scanner_outlined,
+                                ),
+                                onPressed: onScan == null
+                                    ? null
+                                    : () async {
+                                        await onScan(carCodeController);
+                                      },
                               ),
                             ),
                           ),
-                          
+
+                          const SizedBox(height: 12),
+                          if (shouldShowFrontStoreOption) ...[
+                            CheckboxListTile(
+                              title: const Text('มาจากคลังหน้าบ้าน'),
+                              value: fromFrontStore,
+                              onChanged: (bool? value) {
+                                setStateDialog(() {
+                                  fromFrontStore = value ?? false;
+                                });
+                              },
+                              controlAffinity: ListTileControlAffinity.leading,
+                            ),
+                            const SizedBox(height: 12),
+                          ],
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: claimImages.isEmpty
+                                ? Theme.of(context).colorScheme.surface
+                                : Color.lerp(Colors.yellow[100], Colors.green[100], claimImages.length / 6.0),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: claimImages.isEmpty
+                                  ? Theme.of(context).colorScheme.outline
+                                  : Color.lerp(Colors.yellow[300]!, Colors.green[300]!, claimImages.length / 6.0)!,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.info,
+                                  color: claimImages.isEmpty
+                                    ? Theme.of(context).colorScheme.onSurfaceVariant
+                                    : Color.lerp(Colors.orange[600], Colors.green[700], claimImages.length / 6.0),
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'สามารถอัปโหลดรูปภาพได้สูงสุด 6 รูป (${claimImages.length}/6)',
+                                  style: TextStyle(
+                                    color: claimImages.isEmpty
+                                      ? Theme.of(context).colorScheme.onSurfaceVariant
+                                      : Color.lerp(Colors.orange[700], Colors.green[700], claimImages.length / 6.0),
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
                           const SizedBox(height: 12),
                           if (claimImages.isNotEmpty) ...[
                             const Divider(),
@@ -245,19 +291,31 @@ Future<Map<String, dynamic>?> openClaimFormDialog(
                                           ),
                                         ),
                                         Positioned(
-                                          top: -10,
-                                          right: -10,
-                                          child: IconButton(
-                                            icon: const Icon(
-                                              Icons.cancel,
-                                              color: Colors.red,
-                                            ),
-                                            onPressed: () {
+                                          top: 4,
+                                          right: 4,
+                                          child: GestureDetector(
+                                            onTap: () {
                                               setStateDialog(
-                                                () =>
-                                                    claimImages.removeAt(index),
+                                                () => claimImages.removeAt(index),
                                               );
                                             },
+                                            child: Container(
+                                              width: 28,
+                                              height: 28,
+                                              decoration: BoxDecoration(
+                                                color: Colors.red.withOpacity(0.8),
+                                                shape: BoxShape.circle,
+                                                border: Border.all(
+                                                  color: Colors.white,
+                                                  width: 2,
+                                                ),
+                                              ),
+                                              child: const Icon(
+                                                Icons.close,
+                                                color: Colors.white,
+                                                size: 16,
+                                              ),
+                                            ),
                                           ),
                                         ),
                                       ],
@@ -269,37 +327,65 @@ Future<Map<String, dynamic>?> openClaimFormDialog(
                             const SizedBox(height: 12),
                             const Divider(),
                           ],
+
                           const SizedBox(height: 12),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                             children: [
                               ElevatedButton.icon(
-                                onPressed: () async {
-                                  final XFile? image = await picker.pickImage(
-                                    source: ImageSource.camera,
-                                  );
-                                  if (image != null)
-                                    await addImage(
-                                      File(image.path),
-                                      setStateDialog,
-                                    );
-                                },
+                                onPressed: claimImages.length >= 6
+                                    ? null
+                                    : () async {
+                                        final XFile? image = await picker
+                                            .pickImage(
+                                              source: ImageSource.camera,
+                                            );
+                                        if (image != null)
+                                          await addImage(
+                                            File(image.path),
+                                            setStateDialog,
+                                          );
+                                      },
                                 icon: const Icon(Icons.camera_alt),
                                 label: const Text('ถ่ายรูป'),
                               ),
                               ElevatedButton.icon(
-                                onPressed: () async {
-                                  final List<XFile>? images = await picker
-                                      .pickMultiImage();
-                                  if (images != null) {
-                                    for (var imgFile in images) {
-                                      await addImage(
-                                        File(imgFile.path),
-                                        setStateDialog,
-                                      );
-                                    }
-                                  }
-                                },
+                                onPressed: claimImages.length >= 6
+                                    ? null
+                                    : () async {
+                                        final List<XFile>? images = await picker
+                                            .pickMultiImage();
+                                        if (images != null) {
+                                          final int remainingSlots =
+                                              6 - claimImages.length;
+                                          final List<XFile> imagesToProcess =
+                                              images
+                                                  .take(remainingSlots)
+                                                  .toList();
+                                          if (imagesToProcess.isEmpty) {
+                                            if (context.mounted) {
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                const SnackBar(
+                                                  content: Text(
+                                                    'ไม่สามารถเพิ่มรูปภาพได้อีกแล้ว (จำกัด 6 รูป)',
+                                                  ),
+                                                  backgroundColor:
+                                                      Colors.orange,
+                                                ),
+                                              );
+                                            }
+                                            return;
+                                          }
+                                          for (var imgFile in imagesToProcess) {
+                                            await addImage(
+                                              File(imgFile.path),
+                                              setStateDialog,
+                                            );
+                                          }
+                                        }
+                                      },
                                 icon: const Icon(Icons.photo_library),
                                 label: const Text('เลือกรูป'),
                               ),
@@ -343,6 +429,24 @@ Future<Map<String, dynamic>?> openClaimFormDialog(
                               );
                               return;
                             }
+                            if (remarkController.text.trim().isEmpty) {
+                              await showDialog<void>(
+                                context: context,
+                                builder: (ctx) => AlertDialog(
+                                  title: const Text('กรุณากรอกรายละเอียด'),
+                                  content: const Text(
+                                    'กรุณากรอกรายละเอียดในช่อง remark ก่อนทำรายการ',
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(ctx),
+                                      child: const Text('ตกลง'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                              return;
+                            }
 
                             final newClaim = {
                               'docNumber': docNumberController.text.trim(),
@@ -354,6 +458,7 @@ Future<Map<String, dynamic>?> openClaimFormDialog(
                               'remarkType': selectedType == 'ไม่ครบล็อต'
                                   ? remarkController.text.trim()
                                   : null,
+                              'fromFrontStore': fromFrontStore,
                             };
 
                             Navigator.pop(context, newClaim);

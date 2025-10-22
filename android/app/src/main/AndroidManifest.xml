@@ -1,6 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
-        android:label="แอปโอมเองจ้า"
+        android:label="เเอปบันทึกรูปภาพสินค้าเสียหาย/สูญหาย"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true">

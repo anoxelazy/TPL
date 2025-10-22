@@ -4,14 +4,14 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_application_1/page/claim/claim_history_page.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_application_1/page/claim/claim_form.dart';
-import 'package:flutter_application_1/page/claim/claim_api.dart' as claim_api;
-import 'package:flutter_application_1/page/claim/claim_dialogs.dart' as claim_dialogs;
-import 'package:flutter_application_1/page/claim/claim_scan.dart';
-import 'package:flutter_application_1/utils/app_logger.dart';
+import 'package:claim/page/claim/claim_form.dart';
+import 'package:claim/page/claim/claim_api.dart' as claim_api;
+import 'package:claim/page/claim/claim_dialogs.dart' as claim_dialogs;
+import 'package:claim/page/claim/claim_scan.dart';
+import 'package:claim/page/claim/image_utils.dart';
+import 'package:claim/utils/app_logger.dart';
 
 class _SimpleHttpResponse {
   final int statusCode;
@@ -39,7 +39,7 @@ class _ClaimPageState extends State<ClaimPage> {
   List<Map<String, dynamic>> claims = [];
   final String _sheetEndpoint =
       'https://script.google.com/macros/s/AKfycbxdGLxrCcnAi2eWhO5s4RHIVWqMRxbX7kfQJKoHWd2Y35RUwzraogdkrfueUmOZ14Jd/exec';
-  final String _sheetKey = '91d3acfb-0b47-49b4-9667-ed359ecda9e5';
+  final String _sheetKey = '1407f066-e252-49aa-9099-a3f0942f319c';
   bool _isSendingAll = false;
   String? _userId;
 
@@ -54,17 +54,24 @@ class _ClaimPageState extends State<ClaimPage> {
     });
   }
 
-  Future<void> _handleError(String operation, dynamic error, {StackTrace? stackTrace}) async {
+  Future<void> _handleError(
+    String operation,
+    dynamic error, {
+    StackTrace? stackTrace,
+  }) async {
     debugPrint('Error in $operation: $error');
     if (stackTrace != null) {
       debugPrint('Stack trace: $stackTrace');
     }
 
-    await AppLogger.I.log('claim_error', data: {
-      'operation': operation,
-      'error': error.toString(),
-      'stackTrace': stackTrace?.toString(),
-    });
+    await AppLogger.I.log(
+      'claim_error',
+      data: {
+        'operation': operation,
+        'error': error.toString(),
+        'stackTrace': stackTrace?.toString(),
+      },
+    );
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -75,8 +82,7 @@ class _ClaimPageState extends State<ClaimPage> {
           action: SnackBarAction(
             label: 'ลองใหม่',
             textColor: Colors.white,
-            onPressed: () {
-            },
+            onPressed: () {},
           ),
         ),
       );
@@ -91,7 +97,9 @@ class _ClaimPageState extends State<ClaimPage> {
   void _endOperation(String operation) {
     if (_lastOperationTime != null) {
       final duration = DateTime.now().difference(_lastOperationTime!);
-      debugPrint('Operation $operation completed in ${duration.inMilliseconds}ms');
+      debugPrint(
+        'Operation $operation completed in ${duration.inMilliseconds}ms',
+      );
       _lastOperationTime = null;
     }
   }
@@ -99,8 +107,10 @@ class _ClaimPageState extends State<ClaimPage> {
   bool _isLoading = false;
 
   void _closeAllDialogs() {
-    Navigator.of(context, rootNavigator: true)
-        .popUntil((route) => route is PageRoute);
+    Navigator.of(
+      context,
+      rootNavigator: true,
+    ).popUntil((route) => route is PageRoute);
   }
 
   Future<void> _scanBarcode(TextEditingController controller) async {
@@ -116,11 +126,23 @@ class _ClaimPageState extends State<ClaimPage> {
     'images': <File>[],
     'empID': '',
     'remarkType': null,
+    'isSent': false,
+    'fromFrontStore': false,
   };
 
   Future<void> _showClaimDialog({int? editIndex}) async {
     final Map<String, dynamic> initial = editIndex == null
-        ? _draftClaim
+        ? {
+            'docNumber': '',
+            'type': 'เสียหาย',
+            'carCode': '',
+            'timestamp': DateTime.now(),
+            'images': <File>[],
+            'empID': '',
+            'remarkType': null,
+            'isSent': false,
+            'fromFrontStore': false,
+          }
         : claims[editIndex];
 
     final result = await showClaimFormDialog(
@@ -130,7 +152,8 @@ class _ClaimPageState extends State<ClaimPage> {
       initialCarCode: (initial['carCode'] ?? '').toString(),
       initialTimestamp: initial['timestamp'] ?? DateTime.now(),
       initialImages: List<File>.from(initial['images'] ?? []),
-      initialRemark: initial['remark']?.toString(),
+      initialRemark: initial['remarkType']?.toString(),
+      initialFromFrontStore: initial['fromFrontStore'] ?? false,
       empId: _userId ?? '',
       onScanBarcode: (ctx, controller) async {
         final String? value = await openBarcodeScanner(ctx);
@@ -150,6 +173,10 @@ class _ClaimPageState extends State<ClaimPage> {
         'images': List<File>.from(result.images),
         'empID': result.empId,
         'remarkType': result.remarkType,
+        'fromFrontStore': result.fromFrontStore,
+        'isSent': editIndex != null
+            ? claims[editIndex]['isSent'] ?? false
+            : false,
       };
       if (editIndex == null) {
         claims.add(newClaim);
@@ -184,7 +211,9 @@ class _ClaimPageState extends State<ClaimPage> {
     );
 
     if (result == null) {
-      debugPrint('Multipart upload failed for $imageName, trying base64 fallback');
+      debugPrint(
+        'Multipart upload failed for $imageName, trying base64 fallback',
+      );
       return claim_api.sendClaimToAPI(
         a1No: a1No,
         empId: empId,
@@ -225,7 +254,7 @@ class _ClaimPageState extends State<ClaimPage> {
         );
 
         if (result != null) {
-          return result; 
+          return result;
         }
 
         attempts++;
@@ -274,7 +303,9 @@ class _ClaimPageState extends State<ClaimPage> {
 
       if (images.isNotEmpty) {
         final ValueNotifier<int> uploadedCount = ValueNotifier<int>(0);
-        final ValueNotifier<String> currentStatus = ValueNotifier<String>('กำลังเตรียมรูปภาพ...');
+        final ValueNotifier<String> currentStatus = ValueNotifier<String>(
+          'กำลังเตรียมรูปภาพ...',
+        );
 
         claim_dialogs.showImageUploadDialog(
           context,
@@ -288,15 +319,17 @@ class _ClaimPageState extends State<ClaimPage> {
           for (int i = 0; i < images.length; i++) {
             final File imageFile = images[i];
             final String fileName = 'image${i + 1}';
-            uploadFutures.add(_uploadImageWithRetry(
-              a1No: claim['docNumber'] ?? '',
-              empId: empId,
-              folderName: "Claim/${claim['docNumber'] ?? ''}",
-              imageName: fileName,
-              imageFile: imageFile,
-              token: token,
-              maxRetries: 3,
-            ));
+            uploadFutures.add(
+              _uploadImageWithRetry(
+                a1No: claim['docNumber'] ?? '',
+                empId: empId,
+                folderName: "Claim/${claim['docNumber'] ?? ''}",
+                imageName: fileName,
+                imageFile: imageFile,
+                token: token,
+                maxRetries: 3,
+              ),
+            );
           }
 
           final List<String?> results = await Future.wait(uploadFutures);
@@ -316,11 +349,11 @@ class _ClaimPageState extends State<ClaimPage> {
           if (uploadedLinks.length == images.length) {
             currentStatus.value = 'อัพโหลดสำเร็จทั้งหมด!';
           } else if (uploadedLinks.isNotEmpty) {
-            currentStatus.value = 'อัพโหลดสำเร็จ ${uploadedLinks.length}/${images.length} รูป';
+            currentStatus.value =
+                'อัพโหลดสำเร็จ ${uploadedLinks.length}/${images.length} รูป';
           } else {
             currentStatus.value = 'อัพโหลดล้มเหลวทั้งหมด';
           }
-
         } catch (e) {
           await _handleError('image_upload', e);
           currentStatus.value = 'เกิดข้อผิดพลาด: $e';
@@ -335,7 +368,6 @@ class _ClaimPageState extends State<ClaimPage> {
       claim['uploadedLinks'] = uploadedLinks;
       claim['empId'] = empId;
       claim['empID'] = empId;
-      claim['created_at'] = DateTime.now().toIso8601String();
 
       final payload = await _buildSheetPayload(claim);
       final String body = jsonEncode(payload);
@@ -347,10 +379,6 @@ class _ClaimPageState extends State<ClaimPage> {
 
       debugPrint('Sheet POST: ${resp.statusCode} ${resp.body}');
 
-      final key = 'claim_history_$empId';
-      List<String> savedClaims = prefs.getStringList(key) ?? [];
-      savedClaims.add(body);
-      await prefs.setStringList(key, savedClaims);
       _endOperation('sendClaimToGoogleSheet');
       return (resp.statusCode >= 200 && resp.statusCode < 400) ||
           resp.statusCode == 405;
@@ -361,7 +389,9 @@ class _ClaimPageState extends State<ClaimPage> {
     }
   }
 
-  Future<void> _showLoadingDialog({String message = 'กำลังส่งข้อมูล...'}) async {
+  Future<void> _showLoadingDialog({
+    String message = 'กำลังส่งข้อมูล...',
+  }) async {
     await claim_dialogs.showLoadingDialog(context, message: message);
   }
 
@@ -369,39 +399,23 @@ class _ClaimPageState extends State<ClaimPage> {
     String title = 'สำเร็จ',
     String message = 'ทำรายการสำเร็จ',
   }) async {
-    await claim_dialogs.showResultDialog(context, title: title, message: message);
+    await claim_dialogs.showResultDialog(
+      context,
+      title: title,
+      message: message,
+    );
   }
 
-  Future<void> _loadClaimHistory() async {
-    final prefs = await SharedPreferences.getInstance();
-    final List<String> savedClaims = prefs.getStringList('claim_history') ?? [];
-
-    final now = DateTime.now();
-    final filteredClaims = savedClaims.where((e) {
-      try {
-        final Map<String, dynamic> claim = jsonDecode(e);
-        final DateTime timestamp =
-            DateTime.tryParse(claim['created_at'] ?? '') ?? now;
-        return now.difference(timestamp).inDays <= 30;
-      } catch (_) {
-        return false;
-      }
-    }).toList();
-
-    await prefs.setStringList('claim_history', filteredClaims);
-
-    setState(() {
-      var claimHistory = filteredClaims
-          .map((e) => jsonDecode(e) as Map<String, dynamic>)
-          .toList();
-    });
-  }
 
   Future<void> _sendAllClaimsToGoogleSheet() async {
-    await AppLogger.I.log('claim_send_all_clicked', data: {'count': claims.length});
+    await AppLogger.I.log(
+      'claim_send_all_clicked',
+      data: {'count': claims.length},
+    );
     if (claims.isEmpty) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('ไม่มีรายการ Claim ให้ส่ง')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('ไม่มีรายการข้อมูลให้ส่ง')));
       return;
     }
 
@@ -410,20 +424,27 @@ class _ClaimPageState extends State<ClaimPage> {
     });
 
     try {
-      _showLoadingDialog(message: 'กำลังส่ง Claim ทั้งหมด...');
+      _showLoadingDialog(message: 'กำลังส่งข้อมูลทั้งหมด...');
       for (final claim in claims) {
-        await AppLogger.I.log('claim_sending_item', data: {'docNumber': claim['docNumber']});
+        await AppLogger.I.log(
+          'claim_sending_item',
+          data: {'docNumber': claim['docNumber']},
+        );
         await _sendClaimToGoogleSheet(claim);
       }
 
       if (!mounted) return;
       setState(() {
         _isSendingAll = false;
+        // Mark all claims as sent
+        for (var claim in claims) {
+          claim['isSent'] = true;
+        }
       });
       _closeAllDialogs();
       await _showResultDialog(
         title: 'สำเร็จ',
-        message: 'ส่ง Claim สำเร็จทั้งหมด',
+        message: 'ส่งข้อมูลสำเร็จทั้งหมด',
       );
       await AppLogger.I.log('claim_send_all_success');
     } catch (e) {
@@ -431,48 +452,49 @@ class _ClaimPageState extends State<ClaimPage> {
         _isSendingAll = false;
       });
       _closeAllDialogs();
-      await _showResultDialog(
-        title: 'ผิดพลาด',
-        message: 'เกิดข้อผิดพลาด: $e',
+      await _showResultDialog(title: 'ผิดพลาด', message: 'เกิดข้อผิดพลาด: $e');
+      await AppLogger.I.log(
+        'claim_send_all_error',
+        data: {'error': e.toString()},
       );
-      await AppLogger.I.log('claim_send_all_error', data: {'error': e.toString()});
     }
   }
 
   Future<void> _sendSingleClaim(int index) async {
     try {
-      await AppLogger.I.log('claim_send_one_clicked', data: {'index': index, 'docNumber': claims[index]['docNumber']});
+      await AppLogger.I.log(
+        'claim_send_one_clicked',
+        data: {'index': index, 'docNumber': claims[index]['docNumber']},
+      );
       _showLoadingDialog(message: 'กำลังส่งรายการ...');
       final ok = await _sendClaimToGoogleSheet(claims[index]);
       _closeAllDialogs();
       if (ok) {
+        setState(() {
+          claims[index]['isSent'] = true;
+        });
         await AppLogger.I.log('claim_send_one_success', data: {'index': index});
-        await _showResultDialog(
-          title: 'สำเร็จ',
-          message: 'ส่งรายการสำเร็จ',
-        );
+        await _showResultDialog(title: 'สำเร็จ', message: 'ส่งรายการสำเร็จ');
       } else {
         await AppLogger.I.log('claim_send_one_failed', data: {'index': index});
-        await _showResultDialog(
-          title: 'ผิดพลาด',
-          message: 'ส่งรายการล้มเหลว',
-        );
+        await _showResultDialog(title: 'ผิดพลาด', message: 'ส่งรายการล้มเหลว');
       }
     } catch (e) {
-      await AppLogger.I.log('claim_send_one_exception', data: {'error': e.toString()});
-      _closeAllDialogs();
-      await _showResultDialog(
-        title: 'ผิดพลาด',
-        message: 'เกิดข้อผิดพลาด: $e',
+      await AppLogger.I.log(
+        'claim_send_one_exception',
+        data: {'error': e.toString()},
       );
+      _closeAllDialogs();
+      await _showResultDialog(title: 'ผิดพลาด', message: 'เกิดข้อผิดพลาด: $e');
     }
   }
-
 
   @override
   void initState() {
     super.initState();
     _loadUserId();
+    // Clear old image cache on app start
+    clearOldImageCache();
   }
 
   Future<void> _loadUserId() async {
@@ -484,7 +506,10 @@ class _ClaimPageState extends State<ClaimPage> {
       await AppLogger.I.log('claim_loaded_user', data: {'driverID': _userId});
     } catch (e) {
       debugPrint('Load user id failed: $e');
-      await AppLogger.I.log('claim_load_user_error', data: {'error': e.toString()});
+      await AppLogger.I.log(
+        'claim_load_user_error',
+        data: {'error': e.toString()},
+      );
     }
   }
 
@@ -570,90 +595,93 @@ class _ClaimPageState extends State<ClaimPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        centerTitle: false,
-        titleSpacing: 16,
-        title: Text(
-          'Claim สินค้า',
-          style: Theme.of(context).textTheme.titleLarge,
-        ),
-        actions: [
-          IconButton(
-            icon: _isSendingAll
-                ? const SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.cloud_upload, size: 28),
-            tooltip: 'ส่งทั้งหมดไป Google Sheet',
-            onPressed: (claims.isNotEmpty && !_isSendingAll)
-                ? _sendAllClaimsToGoogleSheet
-                : null,
-          ),
+      // appBar: AppBar(
+      //   centerTitle: false,
+      //   titleSpacing: 8,
+      //   title: Text(
+      //     'สินค้าเสียหาย/สูญหาย',
+      //     style: Theme.of(context).textTheme.titleLarge,
+      //   ),
+      //   actions: [
+      //     IconButton(
+      //       icon: const Icon(Icons.history, size: 28),
+      //       tooltip: 'ดูประวัติการเคลม',
+      //       onPressed: () {
+      //         Navigator.push(
+      //           context,
+      //           MaterialPageRoute(
+      //             builder: (_) => ClaimHistoryPage(userId: _userId ?? ''),
+      //           ),
+      //         );
+      //       },
+      //     ),
 
-          IconButton(
-            icon: const Icon(Icons.history, size: 28),
-            tooltip: 'ดูประวัติการเคลม',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => ClaimHistoryPage(userId: _userId ?? ''),
-                ),
-              );
-            },
-          ),
+      //     IconButton(
+      //       icon: _isSendingAll
+      //           ? const SizedBox(
+      //               width: 24,
+      //               height: 24,
+      //               child: CircularProgressIndicator(strokeWidth: 2),
+      //             )
+      //           : const Icon(Icons.cloud_upload, size: 28),
+      //       tooltip: 'ส่งทั้งหมดไป Google Sheet',
+      //       onPressed: (claims.isNotEmpty && !_isSendingAll)
+      //           ? _sendAllClaimsToGoogleSheet
+      //           : null,
+      //     ),
 
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.refresh, size: 28),
-                  tooltip: 'รีเซ็ต',
-                  onPressed: claimCount > 0 ? _resetCount : null,
-                  color: claimCount > 0
-                      ? Theme.of(context).colorScheme.error
-                      : null,
-                ),
-                if (claimCount > 0)
-                  Positioned(
-                    right: 6,
-                    top: 6,
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
-                      ),
-                      constraints: const BoxConstraints(
-                        minWidth: 20,
-                        minHeight: 20,
-                      ),
-                      child: Text(
-                        '$claimCount',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
+      //     Padding(
+      //       padding: const EdgeInsets.only(right: 12),
+      //       child: Stack(
+      //         clipBehavior: Clip.none,
+      //         children: [
+      //           IconButton(
+      //             icon: const Icon(Icons.refresh, size: 28),
+      //             tooltip: 'รีเซ็ต',
+      //             onPressed: claimCount > 0 ? _resetCount : null,
+      //             color: claimCount > 0
+      //                 ? Theme.of(context).colorScheme.error
+      //                 : null,
+      //           ),
+      //           if (claimCount > 0)
+      //             Positioned(
+      //               right: 6,
+      //               top: 6,
+      //               child: Container(
+      //                 padding: const EdgeInsets.all(4),
+      //                 decoration: BoxDecoration(
+      //                   color: Colors.red,
+      //                   shape: BoxShape.circle,
+      //                   border: Border.all(color: Colors.white, width: 2),
+      //                 ),
+      //                 constraints: const BoxConstraints(
+      //                   minWidth: 20,
+      //                   minHeight: 20,
+      //                 ),
+      //                 child: Text(
+      //                   '$claimCount',
+      //                   style: const TextStyle(
+      //                     color: Colors.white,
+      //                     fontSize: 12,
+      //                     fontWeight: FontWeight.bold,
+      //                   ),
+      //                   textAlign: TextAlign.center,
+      //                 ),
+      //               ),
+      //             ),
+      //         ],
+      //       ),
+      //     ),
+      //   ],
+      // ),
       body: claims.isEmpty
-          ? const Center(
+          ? Center(
               child: Text(
                 'ไม่มีรายการ Claim',
-                style: TextStyle(fontSize: 18, color: Colors.grey),
+                style: TextStyle(
+                  fontSize: 18,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
             )
           : ListView.builder(
@@ -661,70 +689,140 @@ class _ClaimPageState extends State<ClaimPage> {
               itemBuilder: (context, index) {
                 final claim = claims[index];
                 DateTime timestamp = claim['timestamp'] ?? DateTime.now();
-                return ListTile(
-                  leading: const Icon(Icons.local_shipping),
-                  title: Text(
-                    'เลขเอกสาร: ${claim['docNumber']}',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w700),
+                final isSent = claim['isSent'] ?? false;
+                return Container(
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
                   ),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'ประเภท: ${claim['type']}',
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodyLarge
-                            ?.copyWith(fontWeight: FontWeight.w700),
+                  child: Card(
+                    elevation: 2,
+                    color: isSent
+                        ? Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3)
+                        : Theme.of(context).colorScheme.surface,
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'เลขเอกสาร: ${claim['docNumber']}',
+                                  style: Theme.of(context).textTheme.titleMedium
+                                      ?.copyWith(
+                                        fontWeight: FontWeight.w700,
+                                        color: Theme.of(context).colorScheme.onSurface,
+                                      ),
+                                ),
+                                Text(
+                                  'รหัสรถ: ${claim['carCode']}',
+                                  style: Theme.of(context).textTheme.bodyLarge
+                                      ?.copyWith(
+                                        fontWeight: FontWeight.w700,
+                                        color: Theme.of(context).colorScheme.onSurface,
+                                      ),
+                                ),
+                                Text(
+                                  'ประเภท: ${claim['type']}',
+                                  style: Theme.of(context).textTheme.bodyLarge
+                                      ?.copyWith(
+                                        fontWeight: FontWeight.w700,
+                                        color: Theme.of(context).colorScheme.onSurface,
+                                      ),
+                                ),
+
+                                if ((claim['type'] == 'เสียหาย' ||
+                                        claim['type'] == 'สูญหาย' ||
+                                        claim['type'] == 'ไม่ครบล็อต') &&
+                                    claim['remarkType'] != null &&
+                                    claim['remarkType'].toString().isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4),
+                                    child: Text(
+                                      claim['type'] == 'เสียหาย'
+                                          ? 'รายละเอียดความเสียหาย: ${claim['remarkType']}'
+                                          : claim['type'] == 'สูญหาย'
+                                          ? 'รายละเอียดการสูญหาย: ${claim['remarkType']}'
+                                          : 'รายละเอียดเพิ่มเติม: ${claim['remarkType']}',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyMedium
+                                          ?.copyWith(
+                                            fontStyle: FontStyle.italic,
+                                          ),
+                                      maxLines: 4,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                Text(
+                                  'วันที่: ${DateFormat('dd/MM/yyyy').format(timestamp)}',
+                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: Theme.of(context).colorScheme.onSurface,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          SizedBox(
+                            width: 80,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: Icon(
+                                    Icons.edit,
+                                    color: Theme.of(context).colorScheme.primary,
+                                    size: 40,
+                                  ),
+                                  tooltip: 'แก้ไขข้อมูล',
+                                  onPressed: () =>
+                                      _showClaimDialog(editIndex: index),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                ),
+                                const SizedBox(height: 12),
+                                IconButton(
+                                  icon: Icon(
+                                    Icons.send,
+                                    color: Theme.of(context).colorScheme.error,
+                                    size: 45,
+                                  ),
+                                  tooltip: 'ส่งรายการนี้ไป Google Sheet',
+                                  onPressed: () => _sendSingleClaim(index),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'กดส่งรายงาน',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Theme.of(context).colorScheme.error,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                  maxLines: 1,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                      Text(
-                        'รหัสรถ: ${claim['carCode']}',
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodyLarge
-                            ?.copyWith(fontWeight: FontWeight.w700),
-                      ),
-                      if (claim['type'] == 'ไม่ครบล็อต' && claim['remarkType'] != null && claim['remarkType'].toString().isNotEmpty)
-                        Text(
-                          'รายละเอียดเพิ่มเติม: ${claim['remarkType']}',
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodyMedium
-                              ?.copyWith(fontStyle: FontStyle.italic),
-                        ),
-                      Text(
-                        'วันที่: ${DateFormat('dd/MM/yyyy').format(timestamp)}',
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                    ],
-                  ),
-                  isThreeLine: true,
-                  trailing: Wrap(
-                    spacing: 12,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.edit, color: Colors.blue),
-                        tooltip: 'แก้ไขข้อมูล',
-                        onPressed: () => _showClaimDialog(editIndex: index),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.send, color: Colors.green),
-                        tooltip: 'ส่งรายการนี้ไป Google Sheet',
-                        onPressed: () => _sendSingleClaim(index),
-                      ),
-                    ],
+                    ),
                   ),
                 );
               },
             ),
       floatingActionButton: FloatingActionButton.extended(
         icon: const Icon(Icons.add),
-        label: const Text('Claim'),
-        backgroundColor: Colors.green,
+        label: const Text('สินค้าเสียหาย/สูญหาย'),
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        foregroundColor: Theme.of(context).colorScheme.onPrimary,
         onPressed: () => _showClaimDialog(),
       ),
     );
