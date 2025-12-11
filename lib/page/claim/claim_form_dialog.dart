@@ -28,14 +28,12 @@ Future<Map<String, dynamic>?> openClaimFormDialog(
   required String userId,
   Future<String?> Function(TextEditingController controller)? onScan,
 }) async {
-  // List of employee IDs that should show "มาจากคลังหน้าบ้าน" option
   const Set<String> frontStoreEmployeeIds = {
     '2547', '67057', '67176', '67177', '67217', '68015', '68069', '68089',
     '68102', '68124', '68145', '68194', '80354', '80412', '80653', '80899',
     '81725', '81881', '81990', '82005'
   };
 
-  // Check if current user should see the front store option
   final bool shouldShowFrontStoreOption = frontStoreEmployeeIds.contains(userId);
   final Map<String, dynamic> draft = {
     'docNumber': initialClaim?['docNumber'] ?? '',

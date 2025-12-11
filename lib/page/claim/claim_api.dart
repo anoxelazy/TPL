@@ -2,11 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
-
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 
-// Function to run base64 encoding in separate isolate
 String _encodeBase64(Uint8List bytes) {
   return base64Encode(bytes);
 }
@@ -62,8 +60,6 @@ Future<SimpleHttpResponse> postJsonPreserveRedirect(
     client.close(force: true);
   }
 }
-
-// Upload image to server - tries multipart first for better size preservation
 Future<String?> sendClaimToAPI({
   required String a1No,
   required String empId,
@@ -74,7 +70,7 @@ Future<String?> sendClaimToAPI({
   required double lon,
   required String bearerToken,
 }) async {
-  const String baseUrl = "http://61.91.54.130:1159";
+  const String baseUrl = "http://147.50.36.66:1152";
   final String url = "$baseUrl/api/GETImageLink_Folder";
 
   HttpClient? client;
@@ -121,11 +117,11 @@ Future<String?> sendClaimToAPI({
     request.add(utf8.encode(jsonString));
 
     final HttpClientResponse response = await request.close()
-        .timeout(const Duration(seconds: 120)); // Response timeout
+        .timeout(const Duration(seconds: 120)); 
 
     final String body = await utf8.decoder.bind(response)
         .join()
-        .timeout(const Duration(seconds: 30)); // Body read timeout
+        .timeout(const Duration(seconds: 30)); 
 
     debugPrint("API Response (${response.statusCode}): ${normalizeUrl(body)}");
 
@@ -158,7 +154,7 @@ Future<String?> sendClaimToAPIMultipart({
   required double lon,
   required String bearerToken,
 }) async {
-  const String baseUrl = "http://61.91.54.130:1159";
+  const String baseUrl = "http://147.50.36.66:1152";
   final String url = "$baseUrl/api/GETImageLink_Folder";
 
   HttpClient? client;

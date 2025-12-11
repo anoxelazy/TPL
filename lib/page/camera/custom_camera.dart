@@ -88,6 +88,7 @@ class _CustomCameraState extends State<CustomCamera> {
         },
       );
 
+
       if (mounted) {
         setState(() {
           _isInitialized = true;
@@ -118,6 +119,7 @@ class _CustomCameraState extends State<CustomCamera> {
     final nextCameraIndex = (_currentCameraIndex + 1) % cameras!.length;
     _switchToCamera(nextCameraIndex);
   }
+
 
   Future<void> _takePicture() async {
     if (_controller == null ||
@@ -264,6 +266,7 @@ class _CustomCameraState extends State<CustomCamera> {
                         padding: const EdgeInsets.all(8),
                       ),
                     ),
+
                     if (cameras != null && cameras!.length > 1)
                       Container(
                         decoration: BoxDecoration(
@@ -476,6 +479,7 @@ class _CustomCameraState extends State<CustomCamera> {
     );
   }
 }
+
 
 Future<void> openMultiImageCamera(
   BuildContext context,

@@ -19,12 +19,9 @@ class _HomePageState extends State<HomePage> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   int _selectedIndex = 0;
   String? _userId;
-
-  final List<Widget> _pages = [
-    // const MenuPage(),
-    const ClaimPage(),
-    const ProfilePage(),
-  ];
+  final ValueNotifier<bool> _isDialogOpen = ValueNotifier<bool>(false);
+  final ValueNotifier<int> _unsentClaimsCount = ValueNotifier<int>(0);
+  late final List<Widget> _pages;
 
   final List<String> _titles = [
     // 'TP Logistics',
@@ -32,10 +29,111 @@ class _HomePageState extends State<HomePage> {
     'โปรไฟล์',
   ];
 
-  void _onItemTapped(int index) {
+  final List<Map<String, dynamic>> claims = [];
+
+  Future<bool> _confirmNavigation() async {
+    if (!_hasPendingClaims()) return true;
+    
+    return await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('มีรายการที่ยังไม่ได้ส่ง'),
+          content: const Text('คุณมีรายการที่ยังไม่ได้ส่ง คุณต้องการออกจากหน้านี้หรือไม่?'),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('ยกเลิก'),
+              onPressed: () {
+                Navigator.of(context).pop(false);
+              },
+            ),
+            TextButton(
+              child: const Text('ออกจากหน้า'),
+              onPressed: () {
+                Navigator.of(context).pop(true);
+              },
+            ),
+          ],
+        );
+      },
+    ) ?? false;
+  }
+
+  void _onItemTapped(int index) async {
+    if (_selectedIndex == index) return;
+
+    if (_isDialogOpen.value) {
+      final leave = await showDialog<bool>(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: const Text('ยังมีการแก้ไขอยู่'),
+            content: const Text('มีหน้าต่างแก้ไขเปิดอยู่ คุณต้องการออกจากการแก้ไขหรือไม่?'),
+            actions: [
+              TextButton(
+                child: const Text('กลับไปแก้ต่อ'),
+                onPressed: () => Navigator.of(context).pop(false),
+              ),
+              TextButton(
+                child: const Text('ออกจากหน้า'),
+                onPressed: () => Navigator.of(context).pop(true),
+              ),
+            ],
+          );
+        },
+      ) ?? false;
+
+      if (!leave) return; // stay in dialog
+
+      Navigator.of(context, rootNavigator: true).popUntil((route) => route is PageRoute);
+      _isDialogOpen.value = false;
+    }
+
+    if (index == 1 && _hasPendingClaims()) {
+      final shouldContinue = await _showPendingClaimsDialog();
+      if (!shouldContinue) {
+        return;
+      }
+    } else if (_selectedIndex == 0 && _hasPendingClaims()) {
+      final shouldNavigate = await _confirmNavigation();
+      if (!shouldNavigate) {
+        return;
+      }
+    }
+
     setState(() {
       _selectedIndex = index;
     });
+  }
+
+  bool _hasPendingClaims() {
+    return _unsentClaimsCount.value > 0;
+  }
+
+  Future<bool> _showPendingClaimsDialog() async {
+    return await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('มีรายการเคลมที่ยังไม่ได้ส่ง'),
+          content: const Text('คุณมีรายการเคลมที่ยังไม่ได้ส่งไปยังระบบ คุณต้องการดำเนินการต่อหรือไม่?'),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('ยกเลิก'),
+              onPressed: () {
+                Navigator.of(context).pop(false);
+              },
+            ),
+            TextButton(
+              child: const Text('ดำเนินการต่อ'),
+              onPressed: () {
+                Navigator.of(context).pop(true);
+              },
+            ),
+          ],
+        );
+      },
+    ) ?? false;
   }
 
   // void _logout() {
@@ -46,6 +144,31 @@ class _HomePageState extends State<HomePage> {
   // }
 
   Future<void> _navigateFromDrawer(int index) async {
+    if (_isDialogOpen.value) {
+      final leave = await showDialog<bool>(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: const Text('ยังมีการแก้ไขอยู่'),
+            content: const Text('มีหน้าต่างแก้ไขเปิดอยู่ คุณต้องการออกจากการแก้ไขหรือไม่?'),
+            actions: [
+              TextButton(
+                child: const Text('กลับไปแก้ต่อ'),
+                onPressed: () => Navigator.of(context).pop(false),
+              ),
+              TextButton(
+                child: const Text('ออกจากหน้า'),
+                onPressed: () => Navigator.of(context).pop(true),
+              ),
+            ],
+          );
+        },
+      ) ?? false;
+
+      if (!leave) return;
+      Navigator.of(context, rootNavigator: true).popUntil((route) => route is PageRoute);
+      _isDialogOpen.value = false;
+    }
     try {
       final PackageInfo packageInfo = await PackageInfo.fromPlatform();
       final String version = packageInfo.version;
@@ -66,6 +189,10 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _loadUserId();
+    _pages = [
+      ClaimPage(dialogOpenNotifier: _isDialogOpen, unsentCountNotifier: _unsentClaimsCount),
+      const ProfilePage(),
+    ];
   }
 
   Future<void> _loadUserId() async {
@@ -81,14 +208,40 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      key: _scaffoldKey,
-      appBar: AppBar(
-        title: Text(_titles[_selectedIndex]),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Theme.of(context).colorScheme.onPrimary,
-        centerTitle: true,
-        automaticallyImplyLeading: false,
+    return WillPopScope(
+      onWillPop: () async {
+        if (_unsentClaimsCount.value > 0) {
+          final leave = await showDialog<bool>(
+            context: context,
+            builder: (context) {
+              return AlertDialog(
+                title: const Text('มีรายการที่ยังไม่ได้ส่ง'),
+                content: Text('มีรายการ ${_unsentClaimsCount.value} รายการที่ยังไม่ได้ส่ง คุณต้องการออกจากแอปหรือไม่?'),
+                actions: [
+                  TextButton(
+                    child: const Text('ยกเลิก'),
+                    onPressed: () => Navigator.of(context).pop(false),
+                  ),
+                  TextButton(
+                    child: const Text('ออกจากแอป'),
+                    onPressed: () => Navigator.of(context).pop(true),
+                  ),
+                ],
+              );
+            },
+          ) ?? false;
+          return leave;
+        }
+        return true;
+      },
+      child: Scaffold(
+        key: _scaffoldKey,
+        appBar: AppBar(
+          title: Text(_titles[_selectedIndex]),
+          backgroundColor: Theme.of(context).colorScheme.primary,
+          foregroundColor: Theme.of(context).colorScheme.onPrimary,
+          centerTitle: true,
+          automaticallyImplyLeading: false,
       ),
       // drawer: NavigationDrawer(onSelect: _navigateFromDrawer, onLogout: () {
       //   Navigator.pushReplacement(
@@ -117,6 +270,7 @@ class _HomePageState extends State<HomePage> {
         unselectedItemColor: Theme.of(context).colorScheme.onSurfaceVariant,
         backgroundColor: Theme.of(context).colorScheme.surface,
         onTap: _onItemTapped,
+      ),
       ),
     );
   }

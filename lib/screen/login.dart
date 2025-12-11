@@ -74,7 +74,7 @@ class _LoginPageState extends State<LoginPage> {
       isLoading = true;
     });
 
-    final url = Uri.parse("http://61.91.54.130:1159/Login");
+    final url = Uri.parse("http://147.50.36.66:1152/Login");
     final body = {
       "username": emailController.text,
       "password": passwordController.text,
@@ -165,7 +165,7 @@ class _LoginPageState extends State<LoginPage> {
           'body': response.body,
         });
         _showError(
-          "เข้าสู่ระบบล้มเหลว: ${response.statusCode}\n${response.body}",
+          "เข้าสู่ระบบล้มเหลวโปรดใส่ชื่อกับรหัสตามระบบโปรแกรมTPS",
         );
       }
     } catch (e) {

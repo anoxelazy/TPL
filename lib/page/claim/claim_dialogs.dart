@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'sending_animation.dart';
+export 'sending_animation.dart' show SendingStatus;
 
 Future<void> showImageUploadDialog(
   BuildContext context, {
@@ -35,7 +37,7 @@ Future<void> showImageUploadDialog(
                   builder: (context, count, child) {
                     return Text(
                       '$count / $totalImages รูป',
-                      style: const TextStyle(fontSize: 14, color: Colors.grey),
+                      style: const TextStyle(fontSize: 14, color: Colors.black),
                     );
                   },
                 ),
@@ -45,7 +47,7 @@ Future<void> showImageUploadDialog(
                   builder: (context, status, child) {
                     return Text(
                       status,
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      style: const TextStyle(fontSize: 12, color: Colors.black),
                       textAlign: TextAlign.center,
                     );
                   },
@@ -59,8 +61,12 @@ Future<void> showImageUploadDialog(
   );
 }
 
-Future<void> showLoadingDialog(BuildContext context, {String message = 'กำลังส่งข้อมูล...'}) async {
-  await showDialog(
+Future<ValueNotifier<SendingStatus>> showSmartLoadingDialog(
+  BuildContext context, {
+  String message = 'กำลังส่งข้อมูล...',
+}) async {
+  final notifier = ValueNotifier<SendingStatus>(SendingStatus.sending);
+  showDialog(
     context: context,
     useRootNavigator: true,
     barrierDismissible: false,
@@ -68,25 +74,25 @@ Future<void> showLoadingDialog(BuildContext context, {String message = 'กำ�
       return WillPopScope(
         onWillPop: () async => false,
         child: Dialog(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-                const SizedBox(width: 12),
-                Flexible(child: Text(message)),
-              ],
-            ),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          child: SendingAnimation(
+            statusNotifier: notifier,
+            message: message,
           ),
         ),
       );
     },
   );
+  return notifier;
+}
+
+// Keep the old one for backward compatibility if needed, or redirect
+Future<void> showLoadingDialog(
+  BuildContext context, {
+  String message = 'กำลังส่งข้อมูล...',
+}) async {
+  await showSmartLoadingDialog(context, message: message);
 }
 
 Future<void> showResultDialog(

@@ -38,34 +38,17 @@ Future<File> resizeImage(File file, {int maxSize = 720, bool useCache = true}) a
 
     img.Image processedImage;
 
-    // Only resize if necessary
-    if (decodedImage.width <= maxSize && decodedImage.height <= maxSize) {
-      processedImage = decodedImage;
-      debugPrint('Image already within size limits: ${decodedImage.width}x${decodedImage.height}');
-    } else {
-      final aspectRatio = decodedImage.width / decodedImage.height;
-      int newWidth, newHeight;
+    // Always resize to maxSize x maxSize
+    debugPrint('Resizing image from ${decodedImage.width}x${decodedImage.height} to ${maxSize}x${maxSize}');
 
-      if (aspectRatio > 1) {
-        newWidth = maxSize;
-        newHeight = (maxSize / aspectRatio).round();
-      } else {
-        newHeight = maxSize;
-        newWidth = (maxSize * aspectRatio).round();
-      }
+    processedImage = img.copyResize(
+      decodedImage,
+      width: maxSize,
+      height: maxSize,
+      interpolation: img.Interpolation.linear,
+    );
 
-      debugPrint('Resizing image from ${decodedImage.width}x${decodedImage.height} to ${newWidth}x${newHeight}');
-
-      // Use faster interpolation for mobile
-      processedImage = img.copyResize(
-        decodedImage,
-        width: newWidth,
-        height: newHeight,
-        interpolation: img.Interpolation.linear, // Changed from cubic to linear for speed
-      );
-
-      debugPrint('Resize completed: ${processedImage.width}x${processedImage.height}');
-    }
+    debugPrint('Resize completed: ${processedImage.width}x${processedImage.height}');
 
     // Encode with lower quality for smaller file size and faster processing
     final newBytes = await compute(_encodeImageSafely, _EncodeParams(processedImage, 85, progressive: false)); // Increased quality from 78 to 85, removed progressive
