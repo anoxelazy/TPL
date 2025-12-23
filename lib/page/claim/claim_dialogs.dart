@@ -106,7 +106,12 @@ Future<void> showResultDialog(
     builder: (context) {
       return AlertDialog(
         title: Text(title),
-        content: Text(message),
+        content: Text(
+          message,
+          style: TextStyle(
+            color: title == 'ผิดพลาด' ? Colors.red : null,
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context, rootNavigator: true).pop(),

@@ -140,7 +140,6 @@ class ClaimPageState extends State<ClaimPage> {
   };
 
   Future<void> _showClaimDialog({int? editIndex}) async {
-    // notify that a claim dialog is opening
     widget.dialogOpenNotifier?.value = true;
     final Map<String, dynamic> initial = editIndex == null
         ? {
@@ -171,7 +170,6 @@ class ClaimPageState extends State<ClaimPage> {
       ),
     );
 
-    // dialog has closed (either saved or cancelled)
     widget.dialogOpenNotifier?.value = false;
 
     if (result == null) return;
@@ -303,109 +301,136 @@ class ClaimPageState extends State<ClaimPage> {
     return _SimpleHttpResponse(resp.statusCode, resp.body);
   }
 
-  Future<bool> _sendClaimToGoogleSheet(Map<String, dynamic> claim) async {
+  Future<List<String>> _uploadImagesForClaim(Map<String, dynamic> claim, String token, String empId) async {
+    final List<File> images = List<File>.from(claim['images'] ?? []);
+    if (images.isEmpty) return [];
+
+    final String a1No = claim['docNumber'] ?? '';
+    final int sendCount = _a1SendCount[a1No] ?? 0;
+    _a1SendCount[a1No] = sendCount + 1;
+    await _saveA1SendCount();
+
+    final ValueNotifier<int> uploadedCount = ValueNotifier<int>(0);
+    final ValueNotifier<String> currentStatus = ValueNotifier<String>('กำลังเตรียมรูปภาพ...');
+
+    claim_dialogs.showImageUploadDialog(
+      context,
+      totalImages: images.length,
+      uploadedCount: uploadedCount,
+      currentStatus: currentStatus,
+    );
+
+    try {
+      final List<Future<String?>> uploadFutures = [];
+      for (int i = 0; i < images.length; i++) {
+        final File imageFile = images[i];
+        final String baseName = 'image${i + 1}';
+        final String fileName = sendCount > 0 ? '$baseName($sendCount)' : baseName;
+        uploadFutures.add(
+          _uploadImageWithRetry(
+            a1No: a1No,
+            empId: empId,
+            folderName: "Claim/$a1No",
+            imageName: fileName,
+            imageFile: imageFile,
+            token: token,
+            maxRetries: 3,
+          ),
+        );
+      }
+
+      final List<String?> results = await Future.wait(uploadFutures);
+      final List<String> uploadedLinks = [];
+
+      for (int i = 0; i < results.length; i++) {
+        currentStatus.value = 'กำลังอัพโหลดรูปที่ ${i + 1}...';
+        uploadedCount.value = i + 1;
+
+        final link = results[i];
+        if (link != null) {
+          uploadedLinks.add(_normalizeUrl(link));
+        } else {
+          debugPrint('Failed to upload image ${i + 1}');
+        }
+      }
+
+      if (uploadedLinks.length == images.length) {
+        currentStatus.value = 'อัพโหลดสำเร็จทั้งหมด!';
+      } else if (uploadedLinks.isNotEmpty) {
+        currentStatus.value = 'อัพโหลดสำเร็จ ${uploadedLinks.length}/${images.length} รูป';
+      } else {
+        currentStatus.value = 'อัพโหลดล้มเหลวทั้งหมด';
+      }
+
+      await Future.delayed(const Duration(seconds: 2));
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+
+      return uploadedLinks;
+    } catch (e) {
+      await _handleError('image_upload', e);
+      currentStatus.value = 'เกิดข้อผิดพลาด: $e';
+      await Future.delayed(const Duration(seconds: 2));
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+        await _showResultDialog(title: 'ผิดพลาด', message: 'อัปโหลดรูปภาพล้มเหลว: ${e.toString()}');
+      }
+      return [];
+    }
+  }
+
+  Future<String?> _submitClaimToSheet(Map<String, dynamic> claim) async {
+    try {
+      final payload = await _buildSheetPayload(claim);
+      final String a1No = payload['a1_no'] ?? '';
+      final List imageLinks = payload['images'] ?? [];
+
+      if (a1No.isEmpty) {
+        debugPrint('A1 No is missing, skipping Google Sheet submission');
+        return 'A1 No ไม่มีข้อมูล';
+      }
+      if (imageLinks.isEmpty) {
+        debugPrint('No image links available, skipping Google Sheet submission');
+        return 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ไม่มีลิงก์รูปภาพ ติดต่อเจ้าหน้าที่';
+      }
+
+      final uri = Uri.parse('$_sheetEndpoint?key=$_sheetKey');
+      final String body = jsonEncode(payload);
+      final _SimpleHttpResponse resp = await _postJsonPreserveRedirect(uri, body);
+
+      debugPrint('Sheet POST: ${resp.statusCode} ${resp.body}');
+      return (resp.statusCode >= 200 && resp.statusCode < 400) ||
+          resp.statusCode == 405 ? null : 'ส่งข้อมูลไปยัง Google Sheet ล้มเหลว (Status: ${resp.statusCode})';
+    } catch (e) {
+      return 'เกิดข้อผิดพลาดในการส่ง: $e';
+    }
+  }
+
+  Future<String?> _sendClaimToGoogleSheet(Map<String, dynamic> claim) async {
     _startOperation('sendClaimToGoogleSheet');
 
     try {
-      final uri = Uri.parse('$_sheetEndpoint?key=$_sheetKey');
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token') ?? '';
       final empId = prefs.getString('driverID') ?? '';
 
-      final List<File> images = List<File>.from(claim['images'] ?? []);
-      List<String> uploadedLinks = [];
+      // Upload images first
+      final uploadedLinks = await _uploadImagesForClaim(claim, token, empId);
 
-      if (images.isNotEmpty) {
-        final String a1No = claim['docNumber'] ?? '';
-        final int sendCount = _a1SendCount[a1No] ?? 0;
-        _a1SendCount[a1No] = sendCount + 1;
-        await _saveA1SendCount();
-
-        final ValueNotifier<int> uploadedCount = ValueNotifier<int>(0);
-        final ValueNotifier<String> currentStatus = ValueNotifier<String>(
-          'กำลังเตรียมรูปภาพ...',
-        );
-
-        claim_dialogs.showImageUploadDialog(
-          context,
-          totalImages: images.length,
-          uploadedCount: uploadedCount,
-          currentStatus: currentStatus,
-        );
-
-        try {
-          final List<Future<String?>> uploadFutures = [];
-          for (int i = 0; i < images.length; i++) {
-            final File imageFile = images[i];
-            final String baseName = 'image${i + 1}';
-            final String fileName = sendCount > 0 ? '$baseName($sendCount)' : baseName;
-            uploadFutures.add(
-              _uploadImageWithRetry(
-                a1No: a1No,
-                empId: empId,
-                folderName: "Claim/$a1No",
-                imageName: fileName,
-                imageFile: imageFile,
-                token: token,
-                maxRetries: 3,
-              ),
-            );
-          }
-
-          final List<String?> results = await Future.wait(uploadFutures);
-
-          for (int i = 0; i < results.length; i++) {
-            currentStatus.value = 'กำลังอัพโหลดรูปที่ ${i + 1}...';
-            uploadedCount.value = i + 1;
-
-            final link = results[i];
-            if (link != null) {
-              uploadedLinks.add(_normalizeUrl(link));
-            } else {
-              debugPrint('Failed to upload image ${i + 1}');
-            }
-          }
-
-          if (uploadedLinks.length == images.length) {
-            currentStatus.value = 'อัพโหลดสำเร็จทั้งหมด!';
-          } else if (uploadedLinks.isNotEmpty) {
-            currentStatus.value =
-                'อัพโหลดสำเร็จ ${uploadedLinks.length}/${images.length} รูป';
-          } else {
-            currentStatus.value = 'อัพโหลดล้มเหลวทั้งหมด';
-          }
-        } catch (e) {
-          await _handleError('image_upload', e);
-          currentStatus.value = 'เกิดข้อผิดพลาด: $e';
-        } finally {
-          await Future.delayed(const Duration(seconds: 2));
-          if (mounted) {
-            Navigator.of(context, rootNavigator: true).pop();
-          }
-        }
-      }
-
+      // Prepare claim data
       claim['uploadedLinks'] = uploadedLinks;
       claim['empId'] = empId;
       claim['empID'] = empId;
 
-      final payload = await _buildSheetPayload(claim);
-      final String body = jsonEncode(payload);
-
-      final _SimpleHttpResponse resp = await _postJsonPreserveRedirect(
-        uri,
-        body,
-      );
-
-      debugPrint('Sheet POST: ${resp.statusCode} ${resp.body}');
+      // Submit to Google Sheets
+      final result = await _submitClaimToSheet(claim);
 
       _endOperation('sendClaimToGoogleSheet');
-      return (resp.statusCode >= 200 && resp.statusCode < 400) ||
-          resp.statusCode == 405;
+      return result;
     } catch (e) {
-      await _handleError('sendClaimToGoogleSheet', e);
       _endOperation('sendClaimToGoogleSheet');
-      return false;
+      return 'เกิดข้อผิดพลาดในการส่ง: $e';
     }
   }
 
@@ -494,31 +519,31 @@ class ClaimPageState extends State<ClaimPage> {
         message: 'กำลังส่งรายการ...',
       );
       
-      final ok = await _sendClaimToGoogleSheet(claims[index]);
-      
-      if (ok) {
+      final error = await _sendClaimToGoogleSheet(claims[index]);
+
+      if (error == null) {
         // Show success animation
         statusNotifier.value = claim_dialogs.SendingStatus.success;
-        
+
         setState(() {
           claims[index]['isSent'] = true;
           final unsentCount = claims.where((c) => c['isSent'] != true).length;
           widget.unsentCountNotifier?.value = unsentCount;
         });
         await AppLogger.I.log('claim_send_one_success', data: {'index': index});
-        
+
         // Wait for animation to play
         await Future.delayed(const Duration(seconds: 2));
         _closeAllDialogs();
-        
+
         // No need to show result dialog again as the animation already showed success
       } else {
         statusNotifier.value = claim_dialogs.SendingStatus.error;
         await Future.delayed(const Duration(seconds: 2));
         _closeAllDialogs();
-        
+
         await AppLogger.I.log('claim_send_one_failed', data: {'index': index});
-        await _showResultDialog(title: 'ผิดพลาด', message: 'ส่งรายการล้มเหลว');
+        await _showResultDialog(title: 'ผิดพลาด', message: error);
       }
     } catch (e) {
       await AppLogger.I.log(
@@ -536,6 +561,12 @@ class ClaimPageState extends State<ClaimPage> {
     _loadUserId();
     // Clear old image cache on app start
     clearOldImageCache();
+  }
+
+  @override
+  void dispose() {
+    // Clean up any resources if needed
+    super.dispose();
   }
 
   Future<void> _loadUserId() async {

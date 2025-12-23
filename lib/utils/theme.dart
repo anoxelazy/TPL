@@ -2,7 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
+  static ThemeData? _lightTheme;
+  static ThemeData? _darkTheme;
+
   static ThemeData getLightTheme() {
+    _lightTheme ??= _buildLightTheme();
+    return _lightTheme!;
+  }
+
+  static ThemeData getDarkTheme() {
+    _darkTheme ??= _buildDarkTheme();
+    return _darkTheme!;
+  }
+
+  static ThemeData _buildLightTheme() {
     final ColorScheme lightScheme = ColorScheme.fromSeed(
       seedColor: const Color(0xFF2E7D32),
       brightness: Brightness.light,
@@ -129,7 +142,7 @@ class AppTheme {
     );
   }
 
-  static ThemeData getDarkTheme() {
+  static ThemeData _buildDarkTheme() {
     final ColorScheme darkScheme = ColorScheme.fromSeed(
       seedColor: const Color(0xFF2E7D32),
       brightness: Brightness.dark,
