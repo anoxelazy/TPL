@@ -200,7 +200,7 @@ class ClaimFormPage extends StatefulWidget {
     Key? key,
     this.initialClaim,
     required this.empId,
-    required this.onScanBarcode,
+    required this.onScanBarcode, required empName,
   }) : super(key: key);
 
   @override
@@ -707,10 +707,10 @@ class _ClaimFormPageState extends State<ClaimFormPage> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('ยกเลิก'),
-            ),
+            // TextButton(
+            //   onPressed: () => Navigator.pop(context),
+            //   child: const Text('ยกเลิก'),
+            // ),
             const SizedBox(width: 8),
             ElevatedButton(
               onPressed: () async {

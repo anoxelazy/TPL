@@ -26,7 +26,11 @@ class ClaimPage extends StatefulWidget {
   final ValueNotifier<bool>? dialogOpenNotifier;
   final ValueNotifier<int>? unsentCountNotifier;
 
-  const ClaimPage({super.key, this.dialogOpenNotifier, this.unsentCountNotifier});
+  const ClaimPage({
+    super.key,
+    this.dialogOpenNotifier,
+    this.unsentCountNotifier,
+  });
 
   @override
   State<ClaimPage> createState() => ClaimPageState();
@@ -44,10 +48,11 @@ class ClaimPageState extends State<ClaimPage> {
   int claimCount = 0;
   List<Map<String, dynamic>> claims = [];
   final String _sheetEndpoint =
-      'https://script.google.com/macros/s/AKfycbxdGLxrCcnAi2eWhO5s4RHIVWqMRxbX7kfQJKoHWd2Y35RUwzraogdkrfueUmOZ14Jd/exec';
+      'https://script.google.com/macros/s/AKfycbzMTA6IlcjnwwXWjO7-GA8NyfnX7rWvuqxKTnP0Vjs0iHEFZFswQsVl0CUwZeQR07up/exec';
   final String _sheetKey = '1407f066-e252-49aa-9099-a3f0942f319c';
   bool _isSendingAll = false;
   String? _userId;
+  String? _userName;
   final Map<String, int> _a1SendCount = {};
   static const String _a1SendCountKey = 'a1_send_count';
 
@@ -140,6 +145,7 @@ class ClaimPageState extends State<ClaimPage> {
   };
 
   Future<void> _showClaimDialog({int? editIndex}) async {
+    // notify that a claim dialog is opening
     widget.dialogOpenNotifier?.value = true;
     final Map<String, dynamic> initial = editIndex == null
         ? {
@@ -161,6 +167,7 @@ class ClaimPageState extends State<ClaimPage> {
         builder: (context) => ClaimFormPage(
           initialClaim: initial,
           empId: _userId ?? '',
+          empName: _userName,
           onScanBarcode: (ctx, controller) async {
             final String? value = await openBarcodeScanner(ctx);
             if (value != null) controller.text = value;
@@ -170,6 +177,7 @@ class ClaimPageState extends State<ClaimPage> {
       ),
     );
 
+    // dialog has closed (either saved or cancelled)
     widget.dialogOpenNotifier?.value = false;
 
     if (result == null) return;
@@ -301,7 +309,11 @@ class ClaimPageState extends State<ClaimPage> {
     return _SimpleHttpResponse(resp.statusCode, resp.body);
   }
 
-  Future<List<String>> _uploadImagesForClaim(Map<String, dynamic> claim, String token, String empId) async {
+  Future<List<String>> _uploadImagesForClaim(
+    Map<String, dynamic> claim,
+    String token,
+    String empId,
+  ) async {
     final List<File> images = List<File>.from(claim['images'] ?? []);
     if (images.isEmpty) return [];
 
@@ -311,7 +323,9 @@ class ClaimPageState extends State<ClaimPage> {
     await _saveA1SendCount();
 
     final ValueNotifier<int> uploadedCount = ValueNotifier<int>(0);
-    final ValueNotifier<String> currentStatus = ValueNotifier<String>('กำลังเตรียมรูปภาพ...');
+    final ValueNotifier<String> currentStatus = ValueNotifier<String>(
+      'กำลังเตรียมรูปภาพ...',
+    );
 
     claim_dialogs.showImageUploadDialog(
       context,
@@ -325,7 +339,9 @@ class ClaimPageState extends State<ClaimPage> {
       for (int i = 0; i < images.length; i++) {
         final File imageFile = images[i];
         final String baseName = 'image${i + 1}';
-        final String fileName = sendCount > 0 ? '$baseName($sendCount)' : baseName;
+        final String fileName = sendCount > 0
+            ? '$baseName($sendCount)'
+            : baseName;
         uploadFutures.add(
           _uploadImageWithRetry(
             a1No: a1No,
@@ -337,6 +353,11 @@ class ClaimPageState extends State<ClaimPage> {
             maxRetries: 3,
           ),
         );
+        // debugPrint("Upload $a1No");
+        // debugPrint("Upload $empId");
+        // debugPrint("Upload $fileName");
+        // debugPrint("Upload $imageFile");
+        // debugPrint("Upload $token");
       }
 
       final List<String?> results = await Future.wait(uploadFutures);
@@ -357,7 +378,8 @@ class ClaimPageState extends State<ClaimPage> {
       if (uploadedLinks.length == images.length) {
         currentStatus.value = 'อัพโหลดสำเร็จทั้งหมด!';
       } else if (uploadedLinks.isNotEmpty) {
-        currentStatus.value = 'อัพโหลดสำเร็จ ${uploadedLinks.length}/${images.length} รูป';
+        currentStatus.value =
+            'อัพโหลดสำเร็จ ${uploadedLinks.length}/${images.length} รูป';
       } else {
         currentStatus.value = 'อัพโหลดล้มเหลวทั้งหมด';
       }
@@ -374,7 +396,10 @@ class ClaimPageState extends State<ClaimPage> {
       await Future.delayed(const Duration(seconds: 2));
       if (mounted) {
         Navigator.of(context, rootNavigator: true).pop();
-        await _showResultDialog(title: 'ผิดพลาด', message: 'อัปโหลดรูปภาพล้มเหลว: ${e.toString()}');
+        await _showResultDialog(
+          title: 'ผิดพลาด',
+          message: 'อัปโหลดรูปภาพล้มเหลว: ${e.toString()}',
+        );
       }
       return [];
     }
@@ -391,17 +416,24 @@ class ClaimPageState extends State<ClaimPage> {
         return 'A1 No ไม่มีข้อมูล';
       }
       if (imageLinks.isEmpty) {
-        debugPrint('No image links available, skipping Google Sheet submission');
+        debugPrint(
+          'No image links available, skipping Google Sheet submission',
+        );
         return 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ไม่มีลิงก์รูปภาพ ติดต่อเจ้าหน้าที่';
       }
 
       final uri = Uri.parse('$_sheetEndpoint?key=$_sheetKey');
       final String body = jsonEncode(payload);
-      final _SimpleHttpResponse resp = await _postJsonPreserveRedirect(uri, body);
+      final _SimpleHttpResponse resp = await _postJsonPreserveRedirect(
+        uri,
+        body,
+      );
 
       debugPrint('Sheet POST: ${resp.statusCode} ${resp.body}');
       return (resp.statusCode >= 200 && resp.statusCode < 400) ||
-          resp.statusCode == 405 ? null : 'ส่งข้อมูลไปยัง Google Sheet ล้มเหลว (Status: ${resp.statusCode})';
+              resp.statusCode == 405
+          ? null
+          : 'ส่งข้อมูลไปยัง Google Sheet ล้มเหลว (Status: ${resp.statusCode})';
     } catch (e) {
       return 'เกิดข้อผิดพลาดในการส่ง: $e';
     }
@@ -451,7 +483,6 @@ class ClaimPageState extends State<ClaimPage> {
     );
   }
 
-
   Future<void> _sendAllClaimsToGoogleSheet() async {
     await AppLogger.I.log(
       'claim_send_all_clicked',
@@ -462,6 +493,22 @@ class ClaimPageState extends State<ClaimPage> {
         context,
       ).showSnackBar(const SnackBar(content: Text('ไม่มีรายการข้อมูลให้ส่ง')));
       return;
+    }
+
+    // Check if any claims have already been sent
+    final bool hasSentClaims = claims.any((c) => c['isSent'] == true);
+    
+    if (hasSentClaims) {
+      // Show confirmation dialog before sending again
+      final bool confirmed = await claim_dialogs.showConfirmResendDialog(
+        context,
+        message: 'มีรายการที่ได้ส่งไปแล้ว คุณแน่ใจว่าต้องการส่งอีกครั้งหรือไม่?',
+      );
+      
+      if (!confirmed) {
+        // User cancelled, do not proceed
+        return;
+      }
     }
 
     setState(() {
@@ -507,18 +554,33 @@ class ClaimPageState extends State<ClaimPage> {
   }
 
   Future<void> _sendSingleClaim(int index) async {
+    // Check if this claim has already been sent
+    final bool isAlreadySent = claims[index]['isSent'] ?? false;
+    
+    if (isAlreadySent) {
+      // Show confirmation dialog before sending again
+      final bool confirmed = await claim_dialogs.showConfirmResendDialog(
+        context,
+      );
+      
+      if (!confirmed) {
+        // User cancelled, do not proceed
+        return;
+      }
+    }
+    
     try {
       await AppLogger.I.log(
         'claim_send_one_clicked',
         data: {'index': index, 'docNumber': claims[index]['docNumber']},
       );
-      
+
       // Use smart dialog
       final statusNotifier = await claim_dialogs.showSmartLoadingDialog(
-        context, 
+        context,
         message: 'กำลังส่งรายการ...',
       );
-      
+
       final error = await _sendClaimToGoogleSheet(claims[index]);
 
       if (error == null) {
@@ -574,8 +636,9 @@ class ClaimPageState extends State<ClaimPage> {
       final prefs = await SharedPreferences.getInstance();
       setState(() {
         _userId = prefs.getString('driverID') ?? '';
+        _userName = prefs.getString('driverName');
       });
-      await AppLogger.I.log('claim_loaded_user', data: {'driverID': _userId});
+      await AppLogger.I.log('claim_loaded_user', data: {'driverID': _userId, 'driverName': _userName});
 
       // Load A1 send count
       final countJson = prefs.getString(_a1SendCountKey);

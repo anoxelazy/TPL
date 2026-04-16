@@ -33,28 +33,57 @@ class _SplashPageState extends State<SplashPage> {
   }
 
   Future<void> _checkLogin() async {
-    // Start version tracking in background (non-blocking)
-    UpdateService.sendVersionToGoogleSheet();
+    // Run version tracking in background (fire and forget)
+    _runVersionTracking();
 
-    // Check for updates (may block on force update)
-    bool shouldBlock = await UpdateService.checkForUpdates(context);
-    if (shouldBlock) return; // Block further execution if force update
+    // Run update check in background with timeout
+    _runUpdateCheck();
 
-    // Get user preferences
+    // Get user preferences (this is fast, run it first)
     SharedPreferences prefs = await SharedPreferences.getInstance();
     final token = prefs.getString("token");
 
     // Navigate based on authentication status
     if (token != null && token.isNotEmpty) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const HomePage()),
-      );
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const HomePage()),
+        );
+      }
     } else {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const LoginPage()),
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const LoginPage()),
+        );
+      }
+    }
+  }
+
+  // Run version tracking in background (non-blocking)
+  void _runVersionTracking() {
+    try {
+      UpdateService.sendVersionToGoogleSheet();
+    } catch (e) {
+      // Silently ignore errors - this is just tracking
+    }
+  }
+
+  // Run update check in background with timeout
+  Future<void> _runUpdateCheck() async {
+    try {
+      // Run with a short timeout so it doesn't block the app
+      await UpdateService.checkForUpdates(context).timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          // Return false on timeout - treat as no force update needed
+          return false;
+        },
       );
+    } catch (e) {
+      // Silently ignore update check errors
+      // App will continue to work without update check
     }
   }
 

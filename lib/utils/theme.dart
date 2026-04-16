@@ -6,23 +6,23 @@ class AppTheme {
   static ThemeData? _darkTheme;
 
   static ThemeData getLightTheme() {
-    _lightTheme ??= _buildLightTheme();
+    _lightTheme ??= _buildTheme(Brightness.light);
     return _lightTheme!;
   }
 
   static ThemeData getDarkTheme() {
-    _darkTheme ??= _buildDarkTheme();
+    _darkTheme ??= _buildTheme(Brightness.dark);
     return _darkTheme!;
   }
 
-  static ThemeData _buildLightTheme() {
-    final ColorScheme lightScheme = ColorScheme.fromSeed(
+  static ThemeData _buildTheme(Brightness brightness) {
+    final ColorScheme colorScheme = ColorScheme.fromSeed(
       seedColor: const Color(0xFF2E7D32),
-      brightness: Brightness.light,
+      brightness: brightness,
     );
 
     final TextTheme baseTextTheme = GoogleFonts.notoSansThaiTextTheme();
-    final TextTheme enhancedTextTheme = baseTextTheme.copyWith(
+    final TextTheme textTheme = baseTextTheme.copyWith(
       titleLarge: baseTextTheme.titleLarge?.copyWith(
         fontSize: 24,
         fontWeight: FontWeight.w700,
@@ -41,232 +41,116 @@ class AppTheme {
       ),
     );
 
+    final TextTheme finalTextTheme = brightness == Brightness.dark
+        ? textTheme.apply(bodyColor: Colors.white, displayColor: Colors.white)
+        : textTheme;
+
     return ThemeData(
       useMaterial3: true,
-      colorScheme: lightScheme,
-      textTheme: enhancedTextTheme.copyWith(
-        titleLarge: enhancedTextTheme.titleLarge?.copyWith(color: lightScheme.onSurface),
-        titleMedium: enhancedTextTheme.titleMedium?.copyWith(color: lightScheme.onSurface),
-        titleSmall: enhancedTextTheme.titleSmall?.copyWith(color: lightScheme.onSurface),
-        bodyLarge: enhancedTextTheme.bodyLarge?.copyWith(color: lightScheme.onSurface),
-        bodyMedium: enhancedTextTheme.bodyMedium?.copyWith(color: lightScheme.onSurface),
-        bodySmall: enhancedTextTheme.bodySmall?.copyWith(color: lightScheme.onSurface),
-        labelLarge: enhancedTextTheme.labelLarge?.copyWith(color: lightScheme.onSurface),
-        labelMedium: enhancedTextTheme.labelMedium?.copyWith(color: lightScheme.onSurface),
-        labelSmall: enhancedTextTheme.labelSmall?.copyWith(color: lightScheme.onSurface),
+      colorScheme: colorScheme,
+      textTheme: finalTextTheme,
+      scaffoldBackgroundColor: colorScheme.surface,
+      appBarTheme: AppBarTheme(
+        backgroundColor: colorScheme.surface,
+        foregroundColor: brightness == Brightness.dark
+            ? Colors.white
+            : colorScheme.onSurface,
       ),
       dialogTheme: DialogThemeData(
-        titleTextStyle: enhancedTextTheme.titleMedium?.copyWith(
+        titleTextStyle: textTheme.titleMedium?.copyWith(
           fontSize: 20,
           fontWeight: FontWeight.w800,
-          color: lightScheme.onSurface,
+          color: colorScheme.onSurface,
         ),
-        contentTextStyle: enhancedTextTheme.bodyLarge?.copyWith(
+        contentTextStyle: textTheme.bodyLarge?.copyWith(
           fontSize: 18,
           fontWeight: FontWeight.w600,
-          color: lightScheme.onSurface,
+          color: colorScheme.onSurface,
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          textStyle: enhancedTextTheme.labelLarge?.copyWith(
+          textStyle: textTheme.labelLarge?.copyWith(
             fontWeight: FontWeight.w700,
           ),
-          foregroundColor: lightScheme.onSurface,
+          foregroundColor: colorScheme.onSurface,
         ),
-      ),
-      appBarTheme: AppBarTheme(
-        backgroundColor: lightScheme.surface,
-        foregroundColor: lightScheme.onSurface,
-        elevation: 0,
-        centerTitle: true,
       ),
       filledButtonTheme: FilledButtonThemeData(
-        style: FilledButton.styleFrom(
-          foregroundColor: lightScheme.onPrimary,
-          backgroundColor: lightScheme.primary,
-          textStyle: baseTextTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
-          shape: const StadiumBorder(),
-          elevation: 4,
-          shadowColor: lightScheme.shadow,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-        ),
-      ),
-      elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
-          foregroundColor: lightScheme.onPrimary,
-          backgroundColor: lightScheme.primary,
-          textStyle: baseTextTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
-          shape: const StadiumBorder(),
-          elevation: 4,
-          shadowColor: lightScheme.shadow,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-        ),
-      ),
-      outlinedButtonTheme: OutlinedButtonThemeData(
-        style: OutlinedButton.styleFrom(
-          foregroundColor: lightScheme.primary,
-          textStyle: baseTextTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
-          shape: const StadiumBorder(),
-          side: BorderSide(color: lightScheme.primary, width: 2),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-        ),
-      ),
-      iconTheme: IconThemeData(
-        color: lightScheme.onSurface,
-      ),
-      cardTheme: CardThemeData(
-        color: lightScheme.surface,
-        shadowColor: lightScheme.shadow,
-      ),
-      inputDecorationTheme: InputDecorationTheme(
-        border: const OutlineInputBorder(),
-        focusedBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: lightScheme.primary, width: 2),
-        ),
-        labelStyle: TextStyle(color: lightScheme.onSurfaceVariant),
-      ),
-      bottomNavigationBarTheme: BottomNavigationBarThemeData(
-        selectedItemColor: lightScheme.primary,
-        unselectedItemColor: lightScheme.onSurfaceVariant,
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: lightScheme.surface,
-      ),
-      scaffoldBackgroundColor: lightScheme.surface,
-    );
-  }
-
-  static ThemeData _buildDarkTheme() {
-    final ColorScheme darkScheme = ColorScheme.fromSeed(
-      seedColor: const Color(0xFF2E7D32),
-      brightness: Brightness.dark,
-    );
-
-    final TextTheme baseTextTheme = GoogleFonts.notoSansThaiTextTheme();
-    final TextTheme enhancedTextTheme = baseTextTheme.copyWith(
-      titleLarge: baseTextTheme.titleLarge?.copyWith(
-        fontSize: 24,
-        fontWeight: FontWeight.w700,
-      ),
-      titleMedium: baseTextTheme.titleMedium?.copyWith(
-        fontSize: 20,
-        fontWeight: FontWeight.w700,
-      ),
-      bodyLarge: baseTextTheme.bodyLarge?.copyWith(
-        fontSize: 18,
-        fontWeight: FontWeight.w500,
-      ),
-      labelLarge: baseTextTheme.labelLarge?.copyWith(
-        fontSize: 16,
-        fontWeight: FontWeight.w600,
-      ),
-    );
-
-    return ThemeData(
-      useMaterial3: true,
-      colorScheme: darkScheme,
-      textTheme: enhancedTextTheme.copyWith(
-        titleLarge: enhancedTextTheme.titleLarge?.copyWith(color: darkScheme.onSurface),
-        titleMedium: enhancedTextTheme.titleMedium?.copyWith(color: darkScheme.onSurface),
-        titleSmall: enhancedTextTheme.titleSmall?.copyWith(color: darkScheme.onSurface),
-        bodyLarge: enhancedTextTheme.bodyLarge?.copyWith(color: darkScheme.onSurface),
-        bodyMedium: enhancedTextTheme.bodyMedium?.copyWith(color: darkScheme.onSurface),
-        bodySmall: enhancedTextTheme.bodySmall?.copyWith(color: darkScheme.onSurface),
-        labelLarge: enhancedTextTheme.labelLarge?.copyWith(color: darkScheme.onSurface),
-        labelMedium: enhancedTextTheme.labelMedium?.copyWith(color: darkScheme.onSurface),
-        labelSmall: enhancedTextTheme.labelSmall?.copyWith(color: darkScheme.onSurface),
-      ),
-      dialogTheme: DialogThemeData(
-        titleTextStyle: enhancedTextTheme.titleMedium?.copyWith(
-          fontSize: 20,
-          fontWeight: FontWeight.w800,
-          color: darkScheme.onSurface,
-        ),
-        contentTextStyle: enhancedTextTheme.bodyLarge?.copyWith(
-          fontSize: 18,
-          fontWeight: FontWeight.w600,
-          color: darkScheme.onSurface,
-        ),
-      ),
-      textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          textStyle: enhancedTextTheme.labelLarge?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
-          foregroundColor: darkScheme.onSurface,
-        ),
-      ),
-      appBarTheme: AppBarTheme(
-        backgroundColor: darkScheme.surface,
-        foregroundColor: darkScheme.onSurface,
-        elevation: 0,
-        centerTitle: true,
-      ),
-      filledButtonTheme: FilledButtonThemeData(
-        style: FilledButton.styleFrom(
-          foregroundColor: darkScheme.onPrimary,
-          backgroundColor: darkScheme.primary,
+          foregroundColor: colorScheme.onPrimary,
+          backgroundColor: colorScheme.primary,
           textStyle: baseTextTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.w600,
           ),
-          shape: const StadiumBorder(),
-          elevation: 4,
-          shadowColor: darkScheme.shadow,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(28),
+          ),
+          elevation: 0,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          foregroundColor: darkScheme.onPrimary,
-          backgroundColor: darkScheme.primary,
+          foregroundColor: colorScheme.onPrimary,
+          backgroundColor: colorScheme.primary,
           textStyle: baseTextTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.w600,
           ),
-          shape: const StadiumBorder(),
-          elevation: 4,
-          shadowColor: darkScheme.shadow,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(28),
+          ),
+          elevation: 0,
+          shadowColor: colorScheme.primary.withOpacity(0.1),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: darkScheme.primary,
+          foregroundColor: colorScheme.primary,
           textStyle: baseTextTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.w600,
           ),
-          shape: const StadiumBorder(),
-          side: BorderSide(color: darkScheme.primary, width: 2),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(28),
+          ),
+          side: BorderSide(color: colorScheme.primary, width: 1.5),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
         ),
+      ),
+      iconTheme: IconThemeData(color: colorScheme.onSurface, size: 24),
+      cardTheme: CardThemeData(
+        color: colorScheme.surface,
+        shadowColor: colorScheme.shadow,
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       ),
       inputDecorationTheme: InputDecorationTheme(
-        border: const OutlineInputBorder(),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
         focusedBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: darkScheme.primary, width: 2),
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: colorScheme.primary, width: 2),
         ),
-        labelStyle: TextStyle(color: darkScheme.onSurfaceVariant),
+        labelStyle: TextStyle(color: colorScheme.onSurfaceVariant),
+        filled: true,
+        fillColor: colorScheme.surface,
       ),
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
-        selectedItemColor: darkScheme.primary,
-        unselectedItemColor: darkScheme.onSurfaceVariant,
+        selectedItemColor: colorScheme.primary,
+        unselectedItemColor: Colors.grey[400],
         type: BottomNavigationBarType.fixed,
-        backgroundColor: darkScheme.surface,
+        backgroundColor: colorScheme.surface,
+        elevation: 0,
+        selectedLabelStyle: const TextStyle(
+          fontWeight: FontWeight.w600,
+          fontSize: 12,
+        ),
+        unselectedLabelStyle: const TextStyle(
+          fontWeight: FontWeight.w400,
+          fontSize: 12,
+        ),
       ),
-      iconTheme: IconThemeData(
-        color: darkScheme.onSurface,
-      ),
-      cardTheme: CardThemeData(
-        color: darkScheme.surface,
-        shadowColor: darkScheme.shadow,
-        elevation: 4,
-      ),
-      scaffoldBackgroundColor: darkScheme.surface,
     );
   }
 }

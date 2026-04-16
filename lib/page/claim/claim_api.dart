@@ -159,6 +159,8 @@ Future<String?> sendClaimToAPI({
         .postUrl(Uri.parse(url))
         .timeout(const Duration(seconds: 30));
 
+        debugPrint("Url send pic (${url}): ${normalizeUrl(base64Image)}");
+
     request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $bearerToken');
     request.headers.set(HttpHeaders.contentTypeHeader, 'application/json');
     request.headers.set('X-Image-Width', '720');
@@ -192,6 +194,7 @@ Future<String?> sendClaimToAPI({
         .timeout(const Duration(seconds: 7));
 
     debugPrint("API Response (${response.statusCode}): ${normalizeUrl(body)}");
+    
 
     if (response.statusCode == 200) {
       final String raw = body.trim();
@@ -336,8 +339,6 @@ Future<Map<String, dynamic>> buildSheetPayload(
   final String dateKey = DateFormat('yyyyMMdd').format(timestamp);
   final String dedupeKey = '${a1}_${userId}_${dateKey}_${imageLinks.length}';
   final String remarkType = claim['remarkType'] ?? '';
-
-  // Get app version
   final packageInfo = await PackageInfo.fromPlatform();
   final appVersion = '${packageInfo.version}+${packageInfo.buildNumber}';
 

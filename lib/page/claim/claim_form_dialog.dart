@@ -29,12 +29,31 @@ Future<Map<String, dynamic>?> openClaimFormDialog(
   Future<String?> Function(TextEditingController controller)? onScan,
 }) async {
   const Set<String> frontStoreEmployeeIds = {
-    '2547', '67057', '67176', '67177', '67217', '68015', '68069', '68089',
-    '68102', '68124', '68145', '68194', '80354', '80412', '80653', '80899',
-    '81725', '81881', '81990', '82005'
+    '2547',
+    '67057',
+    '67176',
+    '67177',
+    '67217',
+    '68015',
+    '68069',
+    '68089',
+    '68102',
+    '68124',
+    '68145',
+    '68194',
+    '80354',
+    '80412',
+    '80653',
+    '80899',
+    '81725',
+    '81881',
+    '81990',
+    '82005',
   };
 
-  final bool shouldShowFrontStoreOption = frontStoreEmployeeIds.contains(userId);
+  final bool shouldShowFrontStoreOption = frontStoreEmployeeIds.contains(
+    userId,
+  );
   final Map<String, dynamic> draft = {
     'docNumber': initialClaim?['docNumber'] ?? '',
     'type': initialClaim?['type'] ?? 'เสียหาย',
@@ -57,6 +76,7 @@ Future<Map<String, dynamic>?> openClaimFormDialog(
   String selectedType = draft['type'];
   DateTime selectedDate = draft['timestamp'];
   List<File> claimImages = List<File>.from(draft['images']);
+  File? latestSelectedImage;
   bool fromFrontStore = draft['fromFrontStore'];
   final ImagePicker picker = ImagePicker();
 
@@ -80,6 +100,7 @@ Future<Map<String, dynamic>?> openClaimFormDialog(
     debugPrint('Image processed in dialog, ready for upload');
     setStateDialog(() {
       claimImages.add(file);
+      latestSelectedImage = file;
     });
   }
 
@@ -102,9 +123,7 @@ Future<Map<String, dynamic>?> openClaimFormDialog(
                   Container(
                     padding: const EdgeInsets.all(16),
                     child: Text(
-                      initialClaim == null
-                          ? 'สร้างรายการใหม่'
-                          : 'แก้ไขรายการ',
+                      initialClaim == null ? 'สร้างรายการใหม่' : 'แก้ไขรายการ',
                       style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -228,13 +247,21 @@ Future<Map<String, dynamic>?> openClaimFormDialog(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
                               color: claimImages.isEmpty
-                                ? Theme.of(context).colorScheme.surface
-                                : Color.lerp(Colors.yellow[100], Colors.green[100], claimImages.length / 6.0),
+                                  ? Theme.of(context).colorScheme.surface
+                                  : Color.lerp(
+                                      Colors.yellow[100],
+                                      Colors.green[100],
+                                      claimImages.length / 6.0,
+                                    ),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
                                 color: claimImages.isEmpty
-                                  ? Theme.of(context).colorScheme.outline
-                                  : Color.lerp(Colors.yellow[300]!, Colors.green[300]!, claimImages.length / 6.0)!,
+                                    ? Theme.of(context).colorScheme.outline
+                                    : Color.lerp(
+                                        Colors.yellow[300]!,
+                                        Colors.green[300]!,
+                                        claimImages.length / 6.0,
+                                      )!,
                               ),
                             ),
                             child: Row(
@@ -243,8 +270,14 @@ Future<Map<String, dynamic>?> openClaimFormDialog(
                                 Icon(
                                   Icons.info,
                                   color: claimImages.isEmpty
-                                    ? Theme.of(context).colorScheme.onSurfaceVariant
-                                    : Color.lerp(Colors.orange[600], Colors.green[700], claimImages.length / 6.0),
+                                      ? Theme.of(
+                                          context,
+                                        ).colorScheme.onSurfaceVariant
+                                      : Color.lerp(
+                                          Colors.orange[600],
+                                          Colors.green[700],
+                                          claimImages.length / 6.0,
+                                        ),
                                   size: 20,
                                 ),
                                 const SizedBox(width: 8),
@@ -252,8 +285,14 @@ Future<Map<String, dynamic>?> openClaimFormDialog(
                                   'สามารถอัปโหลดรูปภาพได้สูงสุด 6 รูป (${claimImages.length}/6)',
                                   style: TextStyle(
                                     color: claimImages.isEmpty
-                                      ? Theme.of(context).colorScheme.onSurfaceVariant
-                                      : Color.lerp(Colors.orange[700], Colors.green[700], claimImages.length / 6.0),
+                                        ? Theme.of(
+                                            context,
+                                          ).colorScheme.onSurfaceVariant
+                                        : Color.lerp(
+                                            Colors.orange[700],
+                                            Colors.green[700],
+                                            claimImages.length / 6.0,
+                                          ),
                                     fontSize: 14,
                                     fontWeight: FontWeight.w500,
                                   ),
@@ -294,14 +333,17 @@ Future<Map<String, dynamic>?> openClaimFormDialog(
                                           child: GestureDetector(
                                             onTap: () {
                                               setStateDialog(
-                                                () => claimImages.removeAt(index),
+                                                () =>
+                                                    claimImages.removeAt(index),
                                               );
                                             },
                                             child: Container(
                                               width: 28,
                                               height: 28,
                                               decoration: BoxDecoration(
-                                                color: Colors.red.withOpacity(0.8),
+                                                color: Colors.red.withOpacity(
+                                                  0.8,
+                                                ),
                                                 shape: BoxShape.circle,
                                                 border: Border.all(
                                                   color: Colors.white,
@@ -326,66 +368,68 @@ Future<Map<String, dynamic>?> openClaimFormDialog(
                             const Divider(),
                           ],
 
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 16),
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                             children: [
-                              ElevatedButton.icon(
-                                onPressed: claimImages.length >= 6
-                                    ? null
-                                    : () async {
-                                        final XFile? image = await picker
-                                            .pickImage(
-                                              source: ImageSource.camera,
-                                            );
-                                        if (image != null)
-                                          await addImage(
-                                            File(image.path),
-                                            setStateDialog,
-                                          );
-                                      },
-                                icon: const Icon(Icons.camera_alt),
-                                label: const Text('ถ่ายรูป'),
+                              Expanded(
+                                child: _ActionCard(
+                                  icon: Icons.camera_alt_outlined,
+                                  label: 'ถ่ายรูป',
+                                  isEnabled: claimImages.length < 6,
+                                  imageFile: latestSelectedImage,
+                                  onTap: () async {
+                                    final XFile? image = await picker.pickImage(
+                                      source: ImageSource.camera,
+                                    );
+                                    if (image != null) {
+                                      await addImage(
+                                        File(image.path),
+                                        setStateDialog,
+                                      );
+                                    }
+                                  },
+                                ),
                               ),
-                              ElevatedButton.icon(
-                                onPressed: claimImages.length >= 6
-                                    ? null
-                                    : () async {
-                                        final List<XFile>? images = await picker
-                                            .pickMultiImage();
-                                        if (images != null) {
-                                          final int remainingSlots =
-                                              6 - claimImages.length;
-                                          final List<XFile> imagesToProcess =
-                                              images
-                                                  .take(remainingSlots)
-                                                  .toList();
-                                          if (imagesToProcess.isEmpty) {
-                                            if (context.mounted) {
-                                              ScaffoldMessenger.of(
-                                                context,
-                                              ).showSnackBar(
-                                                const SnackBar(
-                                                  content: Text(
-                                                    'ไม่สามารถเพิ่มรูปภาพได้อีกแล้ว (จำกัด 6 รูป)',
-                                                  ),
-                                                  backgroundColor:
-                                                      Colors.orange,
-                                                ),
-                                              );
-                                            }
-                                            return;
-                                          }
-                                          for (var imgFile in imagesToProcess) {
-                                            await addImage(
-                                              File(imgFile.path),
-                                              setStateDialog,
-                                            );
-                                          }
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _ActionCard(
+                                  icon: Icons.photo_library_outlined,
+                                  label: 'เลือกรูป',
+                                  isEnabled: claimImages.length < 6,
+                                  imageFile: latestSelectedImage,
+                                  onTap: () async {
+                                    final List<XFile>? images = await picker
+                                        .pickMultiImage();
+                                    if (images != null) {
+                                      final int remainingSlots =
+                                          6 - claimImages.length;
+                                      final List<XFile> imagesToProcess = images
+                                          .take(remainingSlots)
+                                          .toList();
+                                      if (imagesToProcess.isEmpty) {
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                'ไม่สามารถเพิ่มรูปภาพได้อีกแล้ว (จำกัด 6 รูป)',
+                                              ),
+                                              backgroundColor: Colors.orange,
+                                            ),
+                                          );
                                         }
-                                      },
-                                icon: const Icon(Icons.photo_library),
-                                label: const Text('เลือกรูป'),
+                                        return;
+                                      }
+                                      for (var imgFile in imagesToProcess) {
+                                        await addImage(
+                                          File(imgFile.path),
+                                          setStateDialog,
+                                        );
+                                      }
+                                    }
+                                  },
+                                ),
                               ),
                             ],
                           ),
@@ -398,72 +442,91 @@ Future<Map<String, dynamic>?> openClaimFormDialog(
                       vertical: 8,
                       horizontal: 16,
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text('ยกเลิก'),
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF2E7D32),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(28),
+                          ),
                         ),
-                        const SizedBox(width: 8),
-                        ElevatedButton(
-                          onPressed: () async {
-                            if (docNumberController.text.trim().isEmpty ||
-                                carCodeController.text.trim().isEmpty) {
-                              await showDialog<void>(
-                                context: context,
-                                builder: (ctx) => AlertDialog(
-                                  title: const Text('กรอกข้อมูลไม่ครบ'),
-                                  content: const Text(
-                                    'กรุณากรอก เลขเอกสาร และ รหัสรถ ให้ครบก่อนทำรายการ',
-                                  ),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () => Navigator.pop(ctx),
-                                      child: const Text('ตกลง'),
-                                    ),
-                                  ],
+                        onPressed: () async {
+                          if (docNumberController.text.trim().isEmpty ||
+                              carCodeController.text.trim().isEmpty) {
+                            await showDialog<void>(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                title: const Text('กรอกข้อมูลไม่ครบ'),
+                                content: const Text(
+                                  'กรุณากรอก เลขเอกสาร และ รหัสรถ ให้ครบก่อนทำรายการ',
                                 ),
-                              );
-                              return;
-                            }
-                            if (remarkController.text.trim().isEmpty) {
-                              await showDialog<void>(
-                                context: context,
-                                builder: (ctx) => AlertDialog(
-                                  title: const Text('กรุณากรอกรายละเอียด'),
-                                  content: const Text(
-                                    'กรุณากรอกรายละเอียดในช่อง remark ก่อนทำรายการ',
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(ctx),
+                                    child: const Text('ตกลง'),
                                   ),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () => Navigator.pop(ctx),
-                                      child: const Text('ตกลง'),
-                                    ),
-                                  ],
+                                ],
+                              ),
+                            );
+                            return;
+                          }
+                          if (remarkController.text.trim().isEmpty) {
+                            await showDialog<void>(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                title: const Text('กรุณากรอกรายละเอียด'),
+                                content: const Text(
+                                  'กรุณากรอกรายละเอียดในช่อง remark ก่อนทำรายการ',
                                 ),
-                              );
-                              return;
-                            }
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(ctx),
+                                    child: const Text('ตกลง'),
+                                  ),
+                                ],
+                              ),
+                            );
+                            return;
+                          }
 
-                            final newClaim = {
-                              'docNumber': docNumberController.text.trim(),
-                              'type': selectedType,
-                              'carCode': carCodeController.text.trim(),
-                              'timestamp': selectedDate,
-                              'images': List<File>.from(claimImages),
-                              'empID': userId,
-                              'remarkType': selectedType == 'ไม่ครบล็อต'
-                                  ? remarkController.text.trim()
-                                  : null,
-                              'fromFrontStore': fromFrontStore,
-                            };
+                          final newClaim = {
+                            'docNumber': docNumberController.text.trim(),
+                            'type': selectedType,
+                            'carCode': carCodeController.text.trim(),
+                            'timestamp': selectedDate,
+                            'images': List<File>.from(claimImages),
+                            'empID': userId,
+                            'remarkType': selectedType == 'ไม่ครบล็อต'
+                                ? remarkController.text.trim()
+                                : null,
+                            'fromFrontStore': fromFrontStore,
+                          };
 
-                            Navigator.pop(context, newClaim);
-                          },
-                          child: const Text('Save'),
+                          Navigator.pop(context, newClaim);
+                        },
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.check_circle_outline,
+                              size: 24,
+                              color: Colors.white,
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              'บันทึก',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 ],
@@ -474,6 +537,105 @@ Future<Map<String, dynamic>?> openClaimFormDialog(
       );
     },
   );
-
   return result;
+}
+
+class _ActionCard extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool isEnabled;
+  final VoidCallback onTap;
+  final File? imageFile;
+
+  const _ActionCard({
+    required this.icon,
+    required this.label,
+    required this.isEnabled,
+    required this.onTap,
+    this.imageFile,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const primaryColor = Color(0xFF2E7D32);
+    final isDisabled = !isEnabled;
+    final hasImage = imageFile != null;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: isDisabled ? null : onTap,
+        borderRadius: BorderRadius.circular(28),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+          decoration: BoxDecoration(
+            color: isDisabled ? Colors.grey[100] : primaryColor,
+            borderRadius: BorderRadius.circular(28),
+            boxShadow: isDisabled
+                ? null
+                : [
+                    BoxShadow(
+                      color: primaryColor.withValues(alpha: 0.15),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+            border: Border.all(
+              color: isDisabled ? Colors.grey[300]! : primaryColor,
+              width: 2,
+            ),
+            image: hasImage
+                ? DecorationImage(
+                    image: FileImage(imageFile!),
+                    fit: BoxFit.cover,
+                  )
+                : null,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: hasImage
+                      ? Colors.white.withValues(alpha: 0.3)
+                      : (isDisabled
+                            ? Colors.grey[200]
+                            : primaryColor.withValues(alpha: 0.12)),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  hasImage ? Icons.check : icon,
+                  size: 28,
+                  color: hasImage
+                      ? Colors.white
+                      : (isDisabled ? Colors.grey[400] : primaryColor),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: isDisabled ? Colors.grey[400] : Colors.white,
+                ),
+              ),
+              if (isDisabled) ...[
+                const SizedBox(height: 4),
+                Text(
+                  '(ครบแล้ว)',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: isDisabled ? Colors.grey[400] : Colors.white,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

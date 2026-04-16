@@ -81,7 +81,6 @@ Future<ClaimFormResult?> showClaimFormDialog(
         const Duration(seconds: 20), 
         onTimeout: () {
           debugPrint('Image processing timeout - using original file');
-          // Return original file instead of throwing error for better UX
           return file;
         },
       );
@@ -92,7 +91,6 @@ Future<ClaimFormResult?> showClaimFormDialog(
       });
     } catch (e) {
       debugPrint('Image processing error: $e');
-      // For single image processing, be more lenient and just add the original file
       setStateDialog(() {
         claimImages.add(file);
       });
@@ -529,10 +527,10 @@ Future<ClaimFormResult?> showClaimFormDialog(
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: const Text('ยกเลิก'),
-                          ),
+                          // TextButton(
+                          //   onPressed: () => Navigator.pop(context),
+                          //   child: const Text('ยกเลิก'),
+                          // ),
                           const SizedBox(width: 8),
                           ElevatedButton(
                             onPressed: () async {

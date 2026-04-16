@@ -123,4 +123,35 @@ Future<void> showResultDialog(
   );
 }
 
+Future<bool> showConfirmResendDialog(
+  BuildContext context, {
+  String title = 'ยืนยันการส่งอีกครั้ง',
+  String message = 'รายการนี้ได้ส่งไปแล้ว คุณแน่ใจว่าต้องการส่งอีกครั้งหรือไม่?',
+}) async {
+  final result = await showDialog<bool>(
+    context: context,
+    useRootNavigator: true,
+    builder: (context) {
+      return AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context, rootNavigator: true).pop(false),
+            child: const Text('ยกเลิก'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context, rootNavigator: true).pop(true),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.red,
+            ),
+            child: const Text('ส่งอีกครั้ง'),
+          ),
+        ],
+      );
+    },
+  );
+  return result ?? false;
+}
+
 
