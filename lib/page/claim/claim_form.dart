@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/foundation.dart';
+import 'package:claim/utils/app_icons.dart';
 import 'image_utils.dart';
 import '../../widgets/image_widgets.dart';
 import '../camera/custom_camera.dart';
@@ -14,11 +15,11 @@ class _ProcessImagesParams {
   _ProcessImagesParams(this.images, this.maxSize);
 }
 
-Future<List<File>> _processImagesInBackground(_ProcessImagesParams params) async {
+Future<List<File>> _processImagesInBackground(
+  _ProcessImagesParams params,
+) async {
   return processImagesBatch(params.images, maxSize: params.maxSize);
 }
-
-
 
 Future<ClaimFormResult?> showClaimFormDialog(
   BuildContext context, {
@@ -34,9 +35,26 @@ Future<ClaimFormResult?> showClaimFormDialog(
   onScanBarcode,
 }) async {
   const Set<String> frontStoreEmployeeIds = {
-    '2547', '67057', '67176', '67177', '67217', '68015', '68069', '68089',
-    '68102', '68124', '68145', '68194', '80354', '80412', '80653', '80899',
-    '81725', '81881', '81990', '82005'
+    '2547',
+    '67057',
+    '67176',
+    '67177',
+    '67217',
+    '68015',
+    '68069',
+    '68089',
+    '68102',
+    '68124',
+    '68145',
+    '68194',
+    '80354',
+    '80412',
+    '80653',
+    '80899',
+    '81725',
+    '81881',
+    '81990',
+    '82005',
   };
 
   final bool shouldShowFrontStoreOption = frontStoreEmployeeIds.contains(empId);
@@ -77,13 +95,14 @@ Future<ClaimFormResult?> showClaimFormDialog(
     try {
       debugPrint('Processing single image with maxSize: 720');
 
-      final resized = await resizeImage(file, maxSize: 720, useCache: true).timeout(
-        const Duration(seconds: 20), 
-        onTimeout: () {
-          debugPrint('Image processing timeout - using original file');
-          return file;
-        },
-      );
+      final resized = await resizeImage(file, maxSize: 720, useCache: true)
+          .timeout(
+            const Duration(seconds: 20),
+            onTimeout: () {
+              debugPrint('Image processing timeout - using original file');
+              return file;
+            },
+          );
 
       debugPrint('Image processed successfully');
       setStateDialog(() {
@@ -135,20 +154,28 @@ Future<ClaimFormResult?> showClaimFormDialog(
                                 Text(
                                   'วันที่: ',
                                   style: TextStyle(
-                                    color: Theme.of(context).colorScheme.onSurface,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurface,
                                   ),
                                 ),
                                 TextButton.icon(
                                   onPressed: () => _selectDate(setStateDialog),
                                   icon: Icon(
                                     Icons.calendar_today,
-                                    color: Theme.of(context).colorScheme.primary,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
                                   ),
                                   label: Text(
-                                    DateFormat('dd/MM/yyyy').format(selectedDate),
+                                    DateFormat(
+                                      'dd/MM/yyyy',
+                                    ).format(selectedDate),
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
-                                      color: Theme.of(context).colorScheme.primary,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.primary,
                                     ),
                                   ),
                                 ),
@@ -164,11 +191,11 @@ Future<ClaimFormResult?> showClaimFormDialog(
                                       ?.copyWith(fontWeight: FontWeight.w700),
                                 ),
                                 suffixIcon: IconButton(
-                                  icon: const Icon(
-                                    Icons.qr_code_scanner_outlined,
+                                  icon: const Icon(AppIcons.scan),
+                                  onPressed: () => onScanBarcode(
+                                    context,
+                                    docNumberController,
                                   ),
-                                  onPressed: () =>
-                                      onScanBarcode(context, docNumberController),
                                 ),
                               ),
                             ),
@@ -182,16 +209,13 @@ Future<ClaimFormResult?> showClaimFormDialog(
                                       ?.copyWith(fontWeight: FontWeight.w700),
                                 ),
                                 suffixIcon: IconButton(
-                                  icon: const Icon(
-                                    Icons.qr_code_scanner_outlined,
-                                  ),
+                                  icon: const Icon(AppIcons.scan),
                                   onPressed: () =>
                                       onScanBarcode(context, carCodeController),
                                 ),
                               ),
                             ),
- 
- 
+
                             const SizedBox(height: 12),
                             DropdownButtonFormField<String>(
                               value: selectedType,
@@ -231,11 +255,14 @@ Future<ClaimFormResult?> showClaimFormDialog(
                                     fromFrontStore = value ?? false;
                                   });
                                 },
-                                controlAffinity: ListTileControlAffinity.leading,
+                                controlAffinity:
+                                    ListTileControlAffinity.leading,
                               ),
                               const SizedBox(height: 12),
                             ],
-                            if (selectedType == 'เสียหาย' || selectedType == 'สูญหาย' || selectedType == 'ไม่ครบล็อต') ...[
+                            if (selectedType == 'เสียหาย' ||
+                                selectedType == 'สูญหาย' ||
+                                selectedType == 'ไม่ครบล็อต') ...[
                               TextField(
                                 controller: remarkController,
                                 decoration: InputDecoration(
@@ -243,9 +270,11 @@ Future<ClaimFormResult?> showClaimFormDialog(
                                     selectedType == 'เสียหาย'
                                         ? 'ให้ถ่ายภาพหลังตู้แสดงว่าไม่มีสินค้าในตู้แล้ว(กรอกรายละเอียด)'
                                         : selectedType == 'สูญหาย'
-                                            ? 'รายละเอียดการสูญหาย'
-                                            : 'รายละเอียดเพิ่มเติม (ใส่เลขกล่อง ที่หาย)',
-                                    style: Theme.of(context).textTheme.titleSmall
+                                        ? 'รายละเอียดการสูญหาย'
+                                        : 'รายละเอียดเพิ่มเติม (ใส่เลขกล่อง ที่หาย)',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleSmall
                                         ?.copyWith(fontWeight: FontWeight.w700),
                                   ),
                                 ),
@@ -258,13 +287,23 @@ Future<ClaimFormResult?> showClaimFormDialog(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
                                 color: claimImages.isEmpty
-                                  ? Theme.of(context).colorScheme.surface
-                                  : Color.lerp(Colors.yellow[100], Colors.green[100], claimImages.length / 6.0),
+                                    ? Theme.of(context).colorScheme.surface
+                                    : Color.lerp(
+                                        Colors.yellow[100],
+                                        Colors.green[100],
+                                        claimImages.length / 6.0,
+                                      ),
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
                                   color: claimImages.isEmpty
-                                    ? Theme.of(context).colorScheme.outline.withOpacity(0.3)
-                                    : Color.lerp(Colors.yellow[300]!, Colors.green[300]!, claimImages.length / 6.0)!,
+                                      ? Theme.of(
+                                          context,
+                                        ).colorScheme.outline.withOpacity(0.3)
+                                      : Color.lerp(
+                                          Colors.yellow[300]!,
+                                          Colors.green[300]!,
+                                          claimImages.length / 6.0,
+                                        )!,
                                 ),
                               ),
                               child: Row(
@@ -273,8 +312,14 @@ Future<ClaimFormResult?> showClaimFormDialog(
                                   Icon(
                                     Icons.info,
                                     color: claimImages.isEmpty
-                                      ? Theme.of(context).colorScheme.onSurfaceVariant
-                                      : Color.lerp(Colors.orange[600], Colors.green[700], claimImages.length / 6.0),
+                                        ? Theme.of(
+                                            context,
+                                          ).colorScheme.onSurfaceVariant
+                                        : Color.lerp(
+                                            Colors.orange[600],
+                                            Colors.green[700],
+                                            claimImages.length / 6.0,
+                                          ),
                                     size: 20,
                                   ),
                                   const SizedBox(width: 8),
@@ -282,8 +327,14 @@ Future<ClaimFormResult?> showClaimFormDialog(
                                     'สามารถอัปโหลดรูปภาพได้สูงสุด 6 รูป (${claimImages.length}/6)',
                                     style: TextStyle(
                                       color: claimImages.isEmpty
-                                        ? Theme.of(context).colorScheme.onSurfaceVariant
-                                        : Color.lerp(Colors.orange[700], Colors.green[700], claimImages.length / 6.0),
+                                          ? Theme.of(
+                                              context,
+                                            ).colorScheme.onSurfaceVariant
+                                          : Color.lerp(
+                                              Colors.orange[700],
+                                              Colors.green[700],
+                                              claimImages.length / 6.0,
+                                            ),
                                       fontSize: 14,
                                       fontWeight: FontWeight.w500,
                                     ),
@@ -297,13 +348,17 @@ Future<ClaimFormResult?> showClaimFormDialog(
                               const Divider(),
                               const SizedBox(height: 12),
                               ImageListWidget(
-                                key: ValueKey(claimImages.length), 
+                                key: ValueKey(claimImages.length),
                                 images: claimImages,
                                 onDeleteImage: (index) {
-                                  debugPrint('Deleting image at index: $index, current list length: ${claimImages.length}');
+                                  debugPrint(
+                                    'Deleting image at index: $index, current list length: ${claimImages.length}',
+                                  );
                                   setStateDialog(() {
                                     claimImages.removeAt(index);
-                                    debugPrint('After deletion, list length: ${claimImages.length}');
+                                    debugPrint(
+                                      'After deletion, list length: ${claimImages.length}',
+                                    );
                                   });
                                 },
                               ),
@@ -320,7 +375,8 @@ Future<ClaimFormResult?> showClaimFormDialog(
                                       ? null
                                       : () async {
                                           try {
-                                            final initialCount = claimImages.length;
+                                            final initialCount =
+                                                claimImages.length;
                                             await openMultiImageCamera(
                                               context,
                                               (List<File> images) async {
@@ -332,11 +388,16 @@ Future<ClaimFormResult?> showClaimFormDialog(
                                                     builder: (BuildContext context) {
                                                       return AlertDialog(
                                                         content: Row(
-                                                          mainAxisSize: MainAxisSize.min,
+                                                          mainAxisSize:
+                                                              MainAxisSize.min,
                                                           children: [
                                                             const CircularProgressIndicator(),
-                                                            const SizedBox(width: 16),
-                                                            Text('กำลังประมวลผล ${images.length} รูป'),
+                                                            const SizedBox(
+                                                              width: 16,
+                                                            ),
+                                                            Text(
+                                                              'กำลังประมวลผล ${images.length} รูป',
+                                                            ),
                                                           ],
                                                         ),
                                                       );
@@ -346,45 +407,72 @@ Future<ClaimFormResult?> showClaimFormDialog(
 
                                                 try {
                                                   // Process images in background isolate to prevent UI lag
-                                                  final processedImages = await compute(
-                                                    _processImagesInBackground,
-                                                    _ProcessImagesParams(images, 720),
-                                                  );
+                                                  final processedImages =
+                                                      await compute(
+                                                        _processImagesInBackground,
+                                                        _ProcessImagesParams(
+                                                          images,
+                                                          720,
+                                                        ),
+                                                      );
 
                                                   setStateDialog(() {
-                                                    claimImages.addAll(processedImages);
+                                                    claimImages.addAll(
+                                                      processedImages,
+                                                    );
                                                   });
 
-                                                  if (Navigator.canPop(context)) {
+                                                  if (Navigator.canPop(
+                                                    context,
+                                                  )) {
                                                     Navigator.of(context).pop();
                                                   }
                                                 } catch (e) {
-                                                  if (Navigator.canPop(context)) {
+                                                  if (Navigator.canPop(
+                                                    context,
+                                                  )) {
                                                     Navigator.of(context).pop();
                                                   }
-                                                  debugPrint('Camera image processing error: $e');
+                                                  debugPrint(
+                                                    'Camera image processing error: $e',
+                                                  );
                                                   if (context.mounted) {
-                                                    ScaffoldMessenger.of(context).showSnackBar(
+                                                    ScaffoldMessenger.of(
+                                                      context,
+                                                    ).showSnackBar(
                                                       const SnackBar(
-                                                        content: Text('เกิดข้อผิดพลาดในการประมวลผลรูปภาพ'),
-                                                        backgroundColor: Colors.red,
-                                                        duration: const Duration(seconds: 3),
+                                                        content: Text(
+                                                          'เกิดข้อผิดพลาดในการประมวลผลรูปภาพ',
+                                                        ),
+                                                        backgroundColor:
+                                                            Colors.red,
+                                                        duration:
+                                                            const Duration(
+                                                              seconds: 3,
+                                                            ),
                                                       ),
                                                     );
                                                   }
                                                 }
                                               },
                                               maxImages: 6,
-                                              currentImageCount: claimImages.length,
+                                              currentImageCount:
+                                                  claimImages.length,
                                             );
                                           } catch (e) {
                                             debugPrint('Camera error: $e');
                                             if (context.mounted) {
-                                              ScaffoldMessenger.of(context).showSnackBar(
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
                                                 SnackBar(
-                                                  content: const Text('เกิดข้อผิดพลาดในการเปิดกล้อง'),
+                                                  content: const Text(
+                                                    'เกิดข้อผิดพลาดในการเปิดกล้อง',
+                                                  ),
                                                   backgroundColor: Colors.red,
-                                                  duration: const Duration(seconds: 2),
+                                                  duration: const Duration(
+                                                    seconds: 2,
+                                                  ),
                                                 ),
                                               );
                                             }
@@ -398,16 +486,16 @@ Future<ClaimFormResult?> showClaimFormDialog(
                                       ? null
                                       : () async {
                                           try {
-                                            final List<XFile>? images = await picker
-                                                .pickMultiImage();
+                                            final List<XFile>? images =
+                                                await picker.pickMultiImage();
                                             if (images != null &&
                                                 images.isNotEmpty) {
                                               final int remainingSlots =
                                                   6 - claimImages.length;
-                                              final List<XFile> imagesToProcess =
-                                                  images
-                                                      .take(remainingSlots)
-                                                      .toList();
+                                              final List<XFile>
+                                              imagesToProcess = images
+                                                  .take(remainingSlots)
+                                                  .toList();
                                               if (imagesToProcess.isEmpty) {
                                                 if (context.mounted) {
                                                   ScaffoldMessenger.of(
@@ -432,11 +520,16 @@ Future<ClaimFormResult?> showClaimFormDialog(
                                                   builder: (BuildContext context) {
                                                     return AlertDialog(
                                                       content: Row(
-                                                        mainAxisSize: MainAxisSize.min,
+                                                        mainAxisSize:
+                                                            MainAxisSize.min,
                                                         children: [
                                                           const CircularProgressIndicator(),
-                                                          const SizedBox(width: 16),
-                                                          Text('กำลังประมวลผล ${imagesToProcess.length} รูป'),
+                                                          const SizedBox(
+                                                            width: 16,
+                                                          ),
+                                                          Text(
+                                                            'กำลังประมวลผล ${imagesToProcess.length} รูป',
+                                                          ),
                                                         ],
                                                       ),
                                                     );
@@ -451,28 +544,40 @@ Future<ClaimFormResult?> showClaimFormDialog(
 
                                                 // Process images with timeout
                                                 final fileList = imagesToProcess
-                                                    .map((img) => File(img.path))
+                                                    .map(
+                                                      (img) => File(img.path),
+                                                    )
                                                     .toList();
 
                                                 // Process images in background isolate to prevent UI lag
-                                                final processedImages = await compute(
-                                                  _processImagesInBackground,
-                                                  _ProcessImagesParams(fileList, 720),
-                                                ).timeout(
-                                                  const Duration(seconds: 45), // Reduced timeout for mobile performance
-                                                  onTimeout: () {
-                                                    debugPrint('Batch processing timeout - using original files');
-                                                    // Return original files instead of throwing error
-                                                    return fileList;
-                                                  },
-                                                );
+                                                final processedImages =
+                                                    await compute(
+                                                      _processImagesInBackground,
+                                                      _ProcessImagesParams(
+                                                        fileList,
+                                                        720,
+                                                      ),
+                                                    ).timeout(
+                                                      const Duration(
+                                                        seconds: 45,
+                                                      ), // Reduced timeout for mobile performance
+                                                      onTimeout: () {
+                                                        debugPrint(
+                                                          'Batch processing timeout - using original files',
+                                                        );
+                                                        // Return original files instead of throwing error
+                                                        return fileList;
+                                                      },
+                                                    );
 
                                                 debugPrint(
                                                   'Batch processing completed for ${processedImages.length} images',
                                                 );
 
                                                 setStateDialog(() {
-                                                  claimImages.addAll(processedImages);
+                                                  claimImages.addAll(
+                                                    processedImages,
+                                                  );
                                                 });
 
                                                 // Close loading dialog
@@ -485,26 +590,43 @@ Future<ClaimFormResult?> showClaimFormDialog(
                                                   Navigator.of(context).pop();
                                                 }
 
-                                                debugPrint('Batch processing error: $e');
+                                                debugPrint(
+                                                  'Batch processing error: $e',
+                                                );
                                                 if (context.mounted) {
-                                                  ScaffoldMessenger.of(context).showSnackBar(
+                                                  ScaffoldMessenger.of(
+                                                    context,
+                                                  ).showSnackBar(
                                                     SnackBar(
-                                                      content: Text('เกิดข้อผิดพลาดในการประมวลผลรูปภาพ'),
-                                                      backgroundColor: Colors.red,
-                                                      duration: const Duration(seconds: 3),
+                                                      content: Text(
+                                                        'เกิดข้อผิดพลาดในการประมวลผลรูปภาพ',
+                                                      ),
+                                                      backgroundColor:
+                                                          Colors.red,
+                                                      duration: const Duration(
+                                                        seconds: 3,
+                                                      ),
                                                     ),
                                                   );
                                                 }
                                               }
                                             }
                                           } catch (e) {
-                                            debugPrint('Gallery picker error: $e');
+                                            debugPrint(
+                                              'Gallery picker error: $e',
+                                            );
                                             if (context.mounted) {
-                                              ScaffoldMessenger.of(context).showSnackBar(
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
                                                 SnackBar(
-                                                  content: const Text('เกิดข้อผิดพลาดในการเลือกภาพ'),
+                                                  content: const Text(
+                                                    'เกิดข้อผิดพลาดในการเลือกภาพ',
+                                                  ),
                                                   backgroundColor: Colors.red,
-                                                  duration: const Duration(seconds: 2),
+                                                  duration: const Duration(
+                                                    seconds: 2,
+                                                  ),
                                                 ),
                                               );
                                             }
@@ -597,7 +719,10 @@ Future<ClaimFormResult?> showClaimFormDialog(
                                   timestamp: selectedDate,
                                   images: List<File>.from(claimImages),
                                   empId: empId,
-                                  remarkType: (selectedType == 'เสียหาย' || selectedType == 'สูญหาย' || selectedType == 'ไม่ครบล็อต')
+                                  remarkType:
+                                      (selectedType == 'เสียหาย' ||
+                                          selectedType == 'สูญหาย' ||
+                                          selectedType == 'ไม่ครบล็อต')
                                       ? remarkController.text.trim()
                                       : null,
                                   fromFrontStore: fromFrontStore,

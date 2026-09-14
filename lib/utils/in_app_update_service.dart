@@ -24,10 +24,10 @@ class InAppUpdateService {
   bool _isCheckingForUpdate = false;
 
   /// Check for app updates and start flexible update if available
-  /// 
+  ///
   /// [onUpdateResult] - Optional callback to handle update result
   /// [context] - BuildContext for showing dialogs (optional, used for snackbar)
-  /// 
+  ///
   /// Returns [AppUpdateResult] indicating the outcome
   Future<AppUpdateResult> checkForUpdateAndUpdate({
     UpdateCallback? onUpdateResult,
@@ -55,8 +55,10 @@ class InAppUpdateService {
         _log('Update available! Starting flexible update...');
 
         // Notify callback
-        onUpdateResult?.call(AppUpdateResult.updateAvailable, 
-            'Update available');
+        onUpdateResult?.call(
+          AppUpdateResult.updateAvailable,
+          'Update available',
+        );
 
         // Start flexible update (user can continue using the app)
         final AppUpdateResult result = await _startFlexibleUpdate(
@@ -66,13 +68,15 @@ class InAppUpdateService {
 
         _isCheckingForUpdate = false;
         return result;
-      } else if (updateInfo.updateAvailability == 
-                  UpdateAvailability.updateNotAvailable) {
+      } else if (updateInfo.updateAvailability ==
+          UpdateAvailability.updateNotAvailable) {
         _log('No update available');
-        
-        onUpdateResult?.call(AppUpdateResult.updateNotAvailable, 
-            'App is up to date');
-        
+
+        onUpdateResult?.call(
+          AppUpdateResult.updateNotAvailable,
+          'App is up to date',
+        );
+
         _isCheckingForUpdate = false;
         return AppUpdateResult.updateNotAvailable;
       } else {
@@ -82,10 +86,10 @@ class InAppUpdateService {
       }
     } catch (e, stackTrace) {
       _log('Error checking for update: $e\n$stackTrace', isError: true);
-      
+
       final errorMessage = 'Failed to check for updates: $e';
       onUpdateResult?.call(AppUpdateResult.updateError, errorMessage);
-      
+
       _isCheckingForUpdate = false;
       return AppUpdateResult.updateError;
     }
@@ -103,22 +107,24 @@ class InAppUpdateService {
       await InAppUpdate.startFlexibleUpdate();
 
       _log('Flexible update started successfully');
-      onUpdateResult?.call(AppUpdateResult.flexibleUpdateStarted, 
-          'Update started. It will be installed when you restart the app.');
+      onUpdateResult?.call(
+        AppUpdateResult.flexibleUpdateStarted,
+        'Update started. It will be installed when you restart the app.',
+      );
 
       return AppUpdateResult.flexibleUpdateStarted;
     } catch (e, stackTrace) {
       _log('Error starting flexible update: $e\n$stackTrace', isError: true);
-      
+
       final errorMessage = 'Failed to start update: $e';
       onUpdateResult?.call(AppUpdateResult.updateError, errorMessage);
-      
+
       return AppUpdateResult.updateError;
     }
   }
 
   /// Complete flexible update - should be called when app resumes
-  /// 
+  ///
   /// Call this in your widget's onResume lifecycle method
   Future<void> checkUpdateOnResume({
     UpdateCallback? onUpdateResult,
@@ -137,10 +143,10 @@ class InAppUpdateService {
       if (result.updateAvailability == UpdateAvailability.updateAvailable) {
         _log('Update ready to install - calling completeUpdate');
         await InAppUpdate.completeFlexibleUpdate();
-        
+
         _log('Flexible update completed');
         onUpdateResult?.call(
-          AppUpdateResult.flexibleUpdateStarted, 
+          AppUpdateResult.flexibleUpdateStarted,
           'Update installed successfully!',
         );
       }
@@ -156,6 +162,7 @@ class InAppUpdateService {
       developer.log(message, name: 'InAppUpdate');
     }
   }
+
   bool get isCheckingForUpdate => _isCheckingForUpdate;
 }
 
@@ -164,7 +171,7 @@ Future<void> checkForAppUpdate({
   BuildContext? context,
 }) async {
   final updateService = InAppUpdateService();
-  
+
   await updateService.checkForUpdateAndUpdate(
     onUpdateResult: (result, message) {
       // Log the result
@@ -178,7 +185,7 @@ Future<void> checkForAppUpdate({
 }
 
 /// Helper to be called in your home widget's resume lifecycle
-/// 
+///
 /// Example:
 /// ```dart
 /// class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
@@ -202,9 +209,7 @@ Future<void> checkForAppUpdate({
 ///   }
 /// }
 /// ```
-Future<void> checkForUpdateOnResume({
-  BuildContext? context,
-}) async {
+Future<void> checkForUpdateOnResume({BuildContext? context}) async {
   final updateService = InAppUpdateService();
   await updateService.checkUpdateOnResume(context: context);
 }

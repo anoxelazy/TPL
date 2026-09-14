@@ -119,7 +119,9 @@ class _SendingAnimationState extends State<SendingAnimation>
                                   child: Icon(
                                     Icons.send_rounded,
                                     size: 40,
-                                    color: Theme.of(context).colorScheme.primary,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
                                   ),
                                 ),
                               ),
@@ -131,8 +133,9 @@ class _SendingAnimationState extends State<SendingAnimation>
                                     child: Icon(
                                       Icons.send_rounded,
                                       size: 40,
-                                      color:
-                                          Theme.of(context).colorScheme.primary,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.primary,
                                     ),
                                   ),
                                 ),
@@ -170,14 +173,14 @@ class _SendingAnimationState extends State<SendingAnimation>
                 status == SendingStatus.sending
                     ? widget.message
                     : status == SendingStatus.success
-                        ? widget.successMessage
-                        : widget.errorMessage,
+                    ? widget.successMessage
+                    : widget.errorMessage,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: status == SendingStatus.error
-                          ? Theme.of(context).colorScheme.error
-                          : null,
-                    ),
+                  fontWeight: FontWeight.w600,
+                  color: status == SendingStatus.error
+                      ? Theme.of(context).colorScheme.error
+                      : null,
+                ),
                 textAlign: TextAlign.center,
               ),
             ],

@@ -23,12 +23,37 @@ class UpdateService {
     }
   }
 
+  /// กำลังเช็คอัปเดตอยู่หรือไม่
+  ///
+  /// ตอนเปิดแอปมีหลายทางที่เรียกเข้ามาไล่ ๆ กัน (เฟรมแรกของ MyApp และ
+  /// lifecycle resumed ที่ Android ยิงตามมาทันที) ถ้าไม่กันไว้จะได้ทั้ง
+  /// การยิงเน็ตซ้ำและ dialog แจ้งอัปเดตซ้อนกันสองใบ
+  static bool _checking = false;
+
+  /// ผลของรอบล่าสุด ใช้ตอบทางที่เรียกซ้ำระหว่างรอบเดียวกัน
+  static bool _lastBlocked = false;
+
   static Future<bool> checkForUpdates(BuildContext context) async {
+    if (_checking) return _lastBlocked;
+    _checking = true;
+
+    try {
+      return _lastBlocked = await _checkForUpdates(context);
+    } finally {
+      _checking = false;
+    }
+  }
+
+  static Future<bool> _checkForUpdates(BuildContext context) async {
     try {
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final response = await http.get(
-        Uri.parse('https://anoxelazy.github.io/TPL/update.json?t=$timestamp'),
-      ).timeout(const Duration(seconds: 5));
+      final response = await http
+          .get(
+            Uri.parse(
+              'https://anoxelazy.github.io/TPL/update.json?t=$timestamp',
+            ),
+          )
+          .timeout(const Duration(seconds: 5));
 
       if (response.statusCode == 200) {
         final updateData = jsonDecode(response.body);
@@ -104,19 +129,22 @@ class UpdateService {
         'type': 'version_check',
       };
 
-      final sheetEndpoint = 'https://script.google.com/macros/s/AKfycbzMTA6IlcjnwwXWjO7-GA8NyfnX7rWvuqxKTnP0Vjs0iHEFZFswQsVl0CUwZeQR07up/exec';
+      final sheetEndpoint =
+          'https://script.google.com/macros/s/AKfycbzMTA6IlcjnwwXWjO7-GA8NyfnX7rWvuqxKTnP0Vjs0iHEFZFswQsVl0CUwZeQR07up/exec';
       final sheetKey = '1407f066-e252-49aa-9099-a3f0942f319c';
 
       final uri = Uri.parse('$sheetEndpoint?key=$sheetKey');
       final body = jsonEncode(versionData);
 
       // Use timeout to prevent hanging
-      await claim_api.postJsonPreserveRedirect(uri, body).timeout(
-        const Duration(seconds: 3),
-        onTimeout: () {
-          throw TimeoutException('Version send timeout');
-        },
-      );
+      await claim_api
+          .postJsonPreserveRedirect(uri, body)
+          .timeout(
+            const Duration(seconds: 3),
+            onTimeout: () {
+              throw TimeoutException('Version send timeout');
+            },
+          );
     } catch (e) {
       // Silently fail - version tracking is not critical
     }
@@ -157,9 +185,7 @@ class _UpdateDialog extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
 
     return Dialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(28),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
       elevation: 8,
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -297,10 +323,7 @@ class _UpdateDialog extends StatelessWidget {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: Text(
-                        'ภายหลัง',
-                        style: theme.textTheme.labelLarge,
-                      ),
+                      child: Text('ภายหลัง', style: theme.textTheme.labelLarge),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -311,7 +334,9 @@ class _UpdateDialog extends StatelessWidget {
                     onPressed: () async {
                       if (apkUrl.isEmpty) return;
 
-                      final success = await UpdateService.launchExternalUrl(apkUrl);
+                      final success = await UpdateService.launchExternalUrl(
+                        apkUrl,
+                      );
                       if (!success && context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(

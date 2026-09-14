@@ -22,6 +22,14 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>NSCameraUsageDescription</key>
+	<string>ใช้กล้องถ่ายรูปสินค้าเสียหายและหน้าปัดไมล์รถ</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>ใช้เลือกรูปจากคลังภาพเพื่อแนบกับรายการบันทึก</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>ใช้บันทึกสำเนารูปหลักฐานที่ส่งแล้วลงคลังภาพ</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>ใช้บันทึกพิกัดตอนถ่ายรูปหน้าปัดไมล์รถ</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

@@ -2,18 +2,28 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
-import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
-import 'package:intl/intl.dart';
-import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
+import 'package:intl/intl.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:dio/dio.dart';
+import 'package:http_parser/http_parser.dart';
+import 'package:claim/utils/dio_service.dart';
+import 'package:claim/utils/url_utils.dart';
+
+// ฟีเจอร์อื่นเรียก normalizeUrl ผ่านไฟล์นี้อยู่ จึงส่งต่อจากตัวกลางให้
+export 'package:claim/utils/url_utils.dart' show normalizeUrl, resolveImageUrl;
 
 String _encodeBase64(Uint8List bytes) {
   return base64Encode(bytes);
 }
 
-Future<Uint8List> _compressImage(Uint8List bytes, {int maxWidth = 1920, int maxHeight = 1080, int quality = 85}) async {
+Future<Uint8List> _compressImage(
+  Uint8List bytes, {
+  int maxWidth = 1920,
+  int maxHeight = 1080,
+  int quality = 85,
+}) async {
   return await compute(_compressImageIsolate, {
     'bytes': bytes,
     'maxWidth': maxWidth,
@@ -28,13 +38,11 @@ Uint8List _compressImageIsolate(Map<String, dynamic> params) {
   final maxHeight = params['maxHeight'] as int;
   final quality = params['quality'] as int;
 
-  // Decode image
   final image = img.decodeImage(bytes);
   if (image == null) {
     throw Exception('Failed to decode image');
   }
 
-  // Calculate new dimensions while maintaining aspect ratio
   var newWidth = image.width;
   var newHeight = image.height;
 
@@ -48,7 +56,6 @@ Uint8List _compressImageIsolate(Map<String, dynamic> params) {
     newHeight = maxHeight;
   }
 
-  // Resize if needed
   img.Image resizedImage;
   if (newWidth != image.width || newHeight != image.height) {
     resizedImage = img.copyResize(image, width: newWidth, height: newHeight);
@@ -56,64 +63,49 @@ Uint8List _compressImageIsolate(Map<String, dynamic> params) {
     resizedImage = image;
   }
 
-  // Encode with compression
   return img.encodeJpg(resizedImage, quality: quality);
-}
-
-String normalizeUrl(String url) {
-  final parts = url.split('://');
-  if (parts.length != 2) return url;
-  final protocol = parts[0];
-  final rest = parts[1].replaceAll(RegExp(r'/+'), '/');
-  return '$protocol://$rest';
 }
 
 class SimpleHttpResponse {
   final int statusCode;
   final String body;
-  SimpleHttpResponse(this.statusCode, this.body);
+  final bool noResponse;
+
+  SimpleHttpResponse(this.statusCode, this.body, {this.noResponse = false});
 }
 
 Future<SimpleHttpResponse> postJsonPreserveRedirect(
   Uri uri,
   String jsonBody,
 ) async {
-  final HttpClient client = HttpClient();
   try {
-    final HttpClientRequest request = await client.postUrl(uri);
-    request.followRedirects = false;
-    request.headers.set(HttpHeaders.contentTypeHeader, 'application/json');
-    request.add(utf8.encode(jsonBody));
-    final HttpClientResponse response = await request.close();
+    final response = await dio.postUri(
+      uri,
+      data: jsonBody,
+      options: Options(
+        headers: {'Content-Type': 'application/json'},
+        receiveTimeout: const Duration(seconds: 60),
+        sendTimeout: const Duration(seconds: 60),
+        followRedirects: true,
+        maxRedirects: 5,
+        validateStatus: (_) => true,
+      ),
+    );
 
-    if ({301, 302, 303, 307, 308}.contains(response.statusCode)) {
-      final String? location = response.headers.value(
-        HttpHeaders.locationHeader,
+    return SimpleHttpResponse(
+      response.statusCode ?? 0,
+      response.data.toString(),
+    );
+  } on DioException catch (e) {
+    final response = e.response;
+    if (response != null) {
+      return SimpleHttpResponse(
+        response.statusCode ?? 0,
+        response.data?.toString() ?? '',
       );
-      if (location != null) {
-        final Uri redirectUri = Uri.parse(location);
-        if (response.statusCode == 303) {
-          final HttpClientRequest getReq = await client.getUrl(redirectUri);
-          final HttpClientResponse getResp = await getReq.close();
-          final String getBody = await utf8.decoder.bind(getResp).join();
-          return SimpleHttpResponse(getResp.statusCode, getBody);
-        } else {
-          final HttpClientRequest postReq = await client.postUrl(redirectUri);
-          postReq.headers.set(
-            HttpHeaders.contentTypeHeader,
-            'application/json',
-          );
-          postReq.add(utf8.encode(jsonBody));
-          final HttpClientResponse postResp = await postReq.close();
-          final String postBody = await utf8.decoder.bind(postResp).join();
-          return SimpleHttpResponse(postResp.statusCode, postBody);
-        }
-      }
     }
-    final String body = await utf8.decoder.bind(response).join();
-    return SimpleHttpResponse(response.statusCode, body);
-  } finally {
-    client.close(force: true);
+    debugPrint('Sheet POST no response: ${e.type} ${e.message}');
+    return SimpleHttpResponse(0, e.message ?? e.type.name, noResponse: true);
   }
 }
 
@@ -127,11 +119,6 @@ Future<String?> sendClaimToAPI({
   required double lon,
   required String bearerToken,
 }) async {
-  const String baseUrl = "http://147.50.36.66:1152";
-  final String url = "$baseUrl/api/GETImageLink_Folder";
-
-  HttpClient? client;
-
   try {
     final fileSize = await imageFile.length();
     if (fileSize > 50 * 1024 * 1024) {
@@ -141,8 +128,6 @@ Future<String?> sendClaimToAPI({
     }
 
     final bytes = await imageFile.readAsBytes();
-
-    // Compress image before encoding
     final compressedBytes = await _compressImage(bytes);
 
     if (compressedBytes.length > 30 * 1024 * 1024) {
@@ -151,70 +136,45 @@ Future<String?> sendClaimToAPI({
 
     final String base64Image = await compute(_encodeBase64, compressedBytes);
 
-    client = HttpClient();
-    client.connectionTimeout = const Duration(seconds: 7);
-    client.idleTimeout = const Duration(seconds: 7);
-
-    final HttpClientRequest request = await client
-        .postUrl(Uri.parse(url))
-        .timeout(const Duration(seconds: 30));
-
-        debugPrint("Url send pic (${url}): ${normalizeUrl(base64Image)}");
-
-    request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $bearerToken');
-    request.headers.set(HttpHeaders.contentTypeHeader, 'application/json');
-    request.headers.set('X-Image-Width', '720');
-    request.headers.set('X-Image-Height', '720');
-    request.headers.set('X-Preserve-Size', 'true');
-    request.headers.set('X-No-Resize', 'true');
-    request.headers.set('Accept', 'application/json');
-
-    final minimalData = {
-      "a1No": a1No,
-      "image1": base64Image,
-      "empId": empId,
-      "folderName": folderName,
-      "imageName": imageName,
-    };
-
-    final jsonString = jsonEncode(minimalData);
-    request.headers.set(
-      HttpHeaders.contentLengthHeader,
-      utf8.encode(jsonString).length,
+    final response = await dio.post(
+      '/api/GETImageLink_Folder',
+      data: {
+        "a1No": a1No,
+        "image1": base64Image,
+        "empId": empId,
+        "folderName": folderName,
+        "imageName": imageName,
+      },
+      options: Options(
+        headers: {
+          'Authorization': 'Bearer $bearerToken',
+          'Content-Type': 'application/json',
+          'X-Image-Width': '720',
+          'X-Image-Height': '720',
+          'X-Preserve-Size': 'true',
+          'X-No-Resize': 'true',
+          'Accept': 'application/json',
+        },
+        // เซิร์ฟเวอร์ต้องอัปโหลดรูปต่อไปยัง Drive ก่อนตอบลิงก์กลับมา
+        // มักเกิน receiveTimeout 7 วินาทีของ dio
+        receiveTimeout: const Duration(seconds: 60),
+      ),
     );
-    request.add(utf8.encode(jsonString));
-
-    final HttpClientResponse response = await request.close().timeout(
-      const Duration(seconds: 120),
-    );
-
-    final String body = await utf8.decoder
-        .bind(response)
-        .join()
-        .timeout(const Duration(seconds: 7));
-
-    debugPrint("API Response (${response.statusCode}): ${normalizeUrl(body)}");
-    
 
     if (response.statusCode == 200) {
-      final String raw = body.trim();
+      final String raw = response.data.toString().trim();
       final String normalized = normalizeUrl(raw);
       return normalized;
     } else {
-      debugPrint("Upload failed: ${response.statusCode} $body");
       throw Exception('อัปโหลดรูปภาพไม่สำเร็จ');
-
     }
-  } 
-  on TimeoutException catch (e) {
+  } on DioException catch (e) {
+    if (e.type == DioExceptionType.connectionTimeout ||
+        e.type == DioExceptionType.receiveTimeout ||
+        e.type == DioExceptionType.sendTimeout) {
+      throw Exception('อัปโหลดรูปภาพไม่สำเร็จ');
+    }
     throw Exception('อัปโหลดรูปภาพไม่สำเร็จ');
-
-  } on SocketException catch (e) {
-    throw Exception('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ กรุณาลองส่งใหม่');
-  } on TimeoutException catch (e) {
-    throw Exception('การอัปโหลดใช้เวลานานเกินไป กรุณาส่งใหม่');
-  } finally {
-    client?.close(force: true);
   }
 }
 
@@ -228,11 +188,6 @@ Future<String?> sendClaimToAPIMultipart({
   required double lon,
   required String bearerToken,
 }) async {
-  const String baseUrl = "http://147.50.36.66:1152";
-  final String url = "$baseUrl/api/GETImageLink_Folder";
-
-  HttpClient? client;
-
   try {
     final fileSize = await imageFile.length();
     if (fileSize > 50 * 1024 * 1024) {
@@ -243,24 +198,7 @@ Future<String?> sendClaimToAPIMultipart({
 
     final bytes = await imageFile.readAsBytes();
 
-    client = HttpClient();
-    client.connectionTimeout = const Duration(seconds: 7);
-    client.idleTimeout = const Duration(seconds: 7);
-
-    final HttpClientRequest request = await client
-        .postUrl(Uri.parse(url))
-        .timeout(const Duration(seconds: 30));
-
-    request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $bearerToken');
-    request.headers.set(
-      HttpHeaders.contentTypeHeader,
-      'multipart/form-data; boundary=boundary123',
-    );
-
-    final boundary = 'boundary123';
-    final List<int> requestBody = [];
-
-    final fields = {
+    final formData = FormData.fromMap({
       'a1No': a1No,
       'IsStempText': 'false',
       'lat': lat.toString(),
@@ -271,59 +209,33 @@ Future<String?> sendClaimToAPIMultipart({
       'width': '720',
       'height': '720',
       'keepOriginalSize': 'true',
-    };
+      'image1': MultipartFile.fromBytes(
+        bytes,
+        filename: '$imageName.jpg',
+        contentType: MediaType('image', 'jpeg'),
+      ),
+    });
 
-    for (final entry in fields.entries) {
-      requestBody.addAll(utf8.encode('--$boundary\r\n'));
-      requestBody.addAll(
-        utf8.encode(
-          'Content-Disposition: form-data; name="${entry.key}"\r\n\r\n',
-        ),
-      );
-      requestBody.addAll(utf8.encode('${entry.value}\r\n'));
-    }
-
-    requestBody.addAll(utf8.encode('--$boundary\r\n'));
-    requestBody.addAll(
-      utf8.encode(
-        'Content-Disposition: form-data; name="image1"; filename="$imageName.jpg"\r\n',
+    final response = await dio.post(
+      '/api/GETImageLink_Folder',
+      data: formData,
+      options: Options(
+        headers: {'Authorization': 'Bearer $bearerToken'},
+        // เหมือน sendClaimToAPI: รอเซิร์ฟเวอร์อัปโหลดรูปขึ้น Drive
+        receiveTimeout: const Duration(seconds: 60),
       ),
     );
-    requestBody.addAll(utf8.encode('Content-Type: image/jpeg\r\n\r\n'));
-    requestBody.addAll(bytes);
-    requestBody.addAll(utf8.encode('\r\n--$boundary--\r\n'));
-
-    request.add(requestBody);
-
-    final HttpClientResponse response = await request.close().timeout(
-      const Duration(seconds: 120),
-    );
-
-    final String body = await utf8.decoder
-        .bind(response)
-        .join()
-        .timeout(const Duration(seconds: 10));
 
     if (response.statusCode == 200) {
-      final String raw = body.trim();
+      final String raw = response.data.toString().trim();
       final String normalized = normalizeUrl(raw);
       return normalized;
     } else {
-      // throw Exception('อัปโหลดรูปภาพไม่สำเร็จ');
       return null;
-
     }
-  } on TimeoutException catch (e) {
-    throw Exception('อัปโหลดรูปภาพไม่สำเร็จ');
-
-  } on SocketException catch (e) {
-    debugPrint('Network error: $e');
-    throw Exception('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ กรุณาลองส่งใหม่');
-  } on TimeoutException catch (e) {
-    debugPrint('Timeout: $e');
-    throw Exception('การอัปโหลดใช้เวลานานเกินไป กรุณาส่งใหม่');
-  } finally {
-    client?.close(force: true);
+  } on DioException catch (e) {
+    debugPrint('Multipart upload error: ${e.type} ${e.message}');
+    return null;
   }
 }
 
@@ -360,73 +272,49 @@ Future<Map<String, dynamic>> buildSheetPayload(
 }
 
 Future<Uint8List?> sendImageForProcessing(File imageFile) async {
-  const String url = "http://147.50.36.66:1152";
-  HttpClient? client;
-
   try {
     final originalBytes = await imageFile.readAsBytes();
-
-    // Compress image before upload
     final bytes = await _compressImage(originalBytes);
 
-    client = HttpClient();
-    client.connectionTimeout = const Duration(seconds: 7);
-    client.idleTimeout = const Duration(seconds: 7);
-
-    final request = await client
-        .postUrl(Uri.parse(url))
-        .timeout(const Duration(seconds: 30));
-
-    request.headers.set(
-      HttpHeaders.contentTypeHeader,
-      'application/octet-stream',
-    );
-    request.headers.set(HttpHeaders.contentLengthHeader, bytes.length);
-    request.add(bytes);
-
-    final response = await request.close().timeout(
-      const Duration(seconds: 120),
+    final response = await dio.post(
+      '/',
+      data: bytes,
+      options: Options(
+        headers: {
+          'Content-Type': 'application/octet-stream',
+          'Content-Length': bytes.length,
+        },
+      ),
     );
 
     if (response.statusCode == 200) {
-      final responseBytes = await response.toList();
-      final flatBytes = responseBytes.expand((x) => x).toList();
+      final responseBytes = response.data;
 
-      // Check if we received image data (basic check)
-      if (flatBytes.isNotEmpty && flatBytes.length > 100) {
-        // Assume image is at least 100 bytes
-        return Uint8List.fromList(flatBytes);
+      if (responseBytes is List &&
+          responseBytes.isNotEmpty &&
+          responseBytes.length > 100) {
+        return Uint8List.fromList(List<int>.from(responseBytes));
       } else {
         _showErrorNotification('ไม่ได้รับข้อมูลรูปภาพกลับมา');
         throw Exception('อัปโหลดรูปภาพไม่สำเร็จ');
-
       }
     } else {
       _showErrorNotification(
         'การส่งรูปภาพล้มเหลว: HTTP ${response.statusCode}',
       );
       throw Exception('อัปโหลดรูปภาพไม่สำเร็จ');
-
     }
-  } on TimeoutException catch (e) {
-    debugPrint("Image processing timeout: $e");
-    _showErrorNotification('การแปลงรูปภาพหมดเวลา');
-    throw Exception('อัปโหลดรูปภาพไม่สำเร็จ');
-
-  } on SocketException catch (e) {
-    debugPrint('Network error: $e');
+  } on DioException catch (e) {
+    debugPrint("Image processing error: ${e.message}");
+    if (e.type == DioExceptionType.receiveTimeout ||
+        e.type == DioExceptionType.connectionTimeout) {
+      _showErrorNotification('การแปลงรูปภาพหมดเวลา');
+      throw Exception('อัปโหลดรูปภาพไม่สำเร็จ');
+    }
     throw Exception('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ กรุณาลองส่งใหม่');
-  } on TimeoutException catch (e) {
-    debugPrint('Timeout: $e');
-    throw Exception('การอัปโหลดใช้เวลานานเกินไป กรุณาส่งใหม่');
-  } finally {
-    client?.close(force: true);
   }
 }
 
 void _showErrorNotification(String message) {
-  // Since this is called from API, we need context
-  // For now, just debug print, but ideally pass context or use global key
   debugPrint('Error notification: $message');
-  // TODO: Show actual notification using ScaffoldMessenger or similar
 }

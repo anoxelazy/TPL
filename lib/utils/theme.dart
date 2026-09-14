@@ -1,7 +1,31 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
+  /// สไตล์ของแถบสถานะ (นาฬิกา แบต สัญญาณ) ให้ตัดกับพื้นหลังที่อยู่ข้างหลัง
+  ///
+  /// ถ้าไม่ตั้งค่านี้ ไอคอนจะกลืนไปกับพื้นหลัง เช่นไอคอนขาวบนพื้นขาว
+  /// จนมองไม่เห็นแถบด้านบนของเครื่องเลย
+  ///
+  /// [background] คือสีที่อยู่ใต้แถบสถานะจริง ๆ ไม่ใช่สีของธีม
+  static SystemUiOverlayStyle statusBarStyleFor(Color background) {
+    final isDarkBackground =
+        ThemeData.estimateBrightnessForColor(background) == Brightness.dark;
+
+    return SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      // Android: ความสว่างของ "ไอคอน" จึงต้องตรงข้ามกับพื้นหลัง
+      statusBarIconBrightness: isDarkBackground
+          ? Brightness.light
+          : Brightness.dark,
+      // iOS: ความสว่างของ "พื้นหลัง" ระบบเลือกสีตัวอักษรให้เอง
+      statusBarBrightness: isDarkBackground
+          ? Brightness.dark
+          : Brightness.light,
+    );
+  }
+
   static ThemeData? _lightTheme;
   static ThemeData? _darkTheme;
 
@@ -45,16 +69,31 @@ class AppTheme {
         ? textTheme.apply(bodyColor: Colors.white, displayColor: Colors.white)
         : textTheme;
 
+    // แถบหัวเรื่องเป็นสีเขียวแบรนด์ทุกหน้า ธีมมืดใช้ primaryContainer
+    // เพราะ primary ของธีมมืดเป็นเขียวพาสเทลสว่าง จ้าเกินไปเมื่อเต็มแถบ
+    final bool isDark = brightness == Brightness.dark;
+    final Color appBarBg = isDark
+        ? colorScheme.primaryContainer
+        : colorScheme.primary;
+    final Color appBarFg = isDark
+        ? colorScheme.onPrimaryContainer
+        : colorScheme.onPrimary;
+
     return ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
       textTheme: finalTextTheme,
       scaffoldBackgroundColor: colorScheme.surface,
       appBarTheme: AppBarTheme(
-        backgroundColor: colorScheme.surface,
-        foregroundColor: brightness == Brightness.dark
-            ? Colors.white
-            : colorScheme.onSurface,
+        backgroundColor: appBarBg,
+        foregroundColor: appBarFg,
+        centerTitle: true,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        titleTextStyle: textTheme.titleMedium?.copyWith(color: appBarFg),
+        iconTheme: IconThemeData(color: appBarFg),
+        // แถบหัวเรื่องเป็นเขียวเข้ม ไอคอนของเครื่องต้องเป็นสีขาวจึงจะเห็น
+        systemOverlayStyle: statusBarStyleFor(appBarBg),
       ),
       dialogTheme: DialogThemeData(
         titleTextStyle: textTheme.titleMedium?.copyWith(
@@ -101,7 +140,7 @@ class AppTheme {
             borderRadius: BorderRadius.circular(28),
           ),
           elevation: 0,
-          shadowColor: colorScheme.primary.withOpacity(0.1),
+          shadowColor: colorScheme.primary.withValues(alpha: 0.1),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
         ),
       ),
@@ -119,6 +158,17 @@ class AppTheme {
         ),
       ),
       iconTheme: IconThemeData(color: colorScheme.onSurface, size: 24),
+      // chip กรองสถานะมีหลายตัวเรียงกัน ย่อให้ไม่กินพื้นที่การ์ด
+      chipTheme: ChipThemeData(
+        labelStyle: baseTextTheme.labelSmall?.copyWith(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
+        labelPadding: const EdgeInsets.symmetric(horizontal: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        showCheckmark: false,
+        side: BorderSide(color: colorScheme.outlineVariant),
+      ),
       cardTheme: CardThemeData(
         color: colorScheme.surface,
         shadowColor: colorScheme.shadow,

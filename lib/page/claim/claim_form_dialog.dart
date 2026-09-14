@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:claim/utils/app_icons.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:image/image.dart' as img;
@@ -160,9 +161,7 @@ Future<Map<String, dynamic>?> openClaimFormDialog(
                             decoration: InputDecoration(
                               labelText: 'เลขเอกสาร',
                               suffixIcon: IconButton(
-                                icon: const Icon(
-                                  Icons.qr_code_scanner_outlined,
-                                ),
+                                icon: const Icon(AppIcons.scan),
                                 onPressed: onScan == null
                                     ? null
                                     : () async {
@@ -217,9 +216,7 @@ Future<Map<String, dynamic>?> openClaimFormDialog(
                             decoration: InputDecoration(
                               labelText: 'รหัสรถที่บรรทุกสินค้าเสียหาย',
                               suffixIcon: IconButton(
-                                icon: const Icon(
-                                  Icons.qr_code_scanner_outlined,
-                                ),
+                                icon: const Icon(AppIcons.scan),
                                 onPressed: onScan == null
                                     ? null
                                     : () async {
@@ -447,8 +444,6 @@ Future<Map<String, dynamic>?> openClaimFormDialog(
                       height: 56,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF2E7D32),
-                          foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(28),
                           ),
@@ -557,7 +552,7 @@ class _ActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const primaryColor = Color(0xFF2E7D32);
+    final primaryColor = Theme.of(context).colorScheme.primary;
     final isDisabled = !isEnabled;
     final hasImage = imageFile != null;
 

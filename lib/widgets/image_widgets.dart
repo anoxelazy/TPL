@@ -10,7 +10,9 @@ class _ProcessImagesParams {
   _ProcessImagesParams(this.images, this.maxSize);
 }
 
-Future<List<File>> _processImagesInBackground(_ProcessImagesParams params) async {
+Future<List<File>> _processImagesInBackground(
+  _ProcessImagesParams params,
+) async {
   return processImagesBatch(params.images, maxSize: params.maxSize);
 }
 
@@ -34,6 +36,7 @@ class ClaimFormResult {
   final String empId;
   final String? remarkType;
   final bool fromFrontStore;
+  final bool isDraft;
 
   ClaimFormResult({
     required this.docNumber,
@@ -44,6 +47,7 @@ class ClaimFormResult {
     required this.empId,
     this.remarkType,
     this.fromFrontStore = false,
+    this.isDraft = false,
   });
 }
 
@@ -184,10 +188,7 @@ class _ImageListWidgetState extends State<ImageListWidget> {
                         decoration: BoxDecoration(
                           color: Colors.red.withOpacity(0.8),
                           shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Colors.white,
-                            width: 2,
-                          ),
+                          border: Border.all(color: Colors.white, width: 2),
                         ),
                         child: const Icon(
                           Icons.close,

@@ -1,0 +1,30 @@
+{
+  "locations": [
+    { "code": "0",  "name": "ไม่ระบุตำแหน่ง" },
+    { "code": "1",  "name": "เลขา" },
+    { "code": "2",  "name": "IT" },
+    { "code": "3",  "name": "Sale" },
+    { "code": "4",  "name": "CC" },
+    { "code": "5",  "name": "SC" },
+    { "code": "6",  "name": "Operation" },
+    { "code": "7",  "name": "การตลาด" },
+    { "code": "8",  "name": "การเงิน" },
+    { "code": "9",  "name": "กฎหมาย" },
+    { "code": "10", "name": "CS" },
+    { "code": "11", "name": "เคลม" },
+    { "code": "12", "name": "บัญชี" },
+    { "code": "13", "name": "จัดซื้อ" },
+    { "code": "14", "name": "HR" },
+    { "code": "15", "name": "WH1" },
+    { "code": "16", "name": "WH2" },
+    { "code": "17", "name": "ออกเอกสาร" },
+    { "code": "18", "name": "IT Data" },
+    { "code": "19", "name": "WH3 Ecom" },
+    { "code": "20", "name": "RT" },
+    { "code": "21", "name": "ซ่อมบำรุงพาหนะ" },
+    { "code": "22", "name": "ออฟฟิศ ECOM" },
+    { "code": "23", "name": "WH4" },
+    { "code": "24", "name": "เดินธุรการพาหนะ" },
+    { "code": "25", "name": "WH5" }
+  ]
+}

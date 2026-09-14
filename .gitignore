@@ -43,3 +43,11 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# เครื่องมือฝั่ง dev ไม่เกี่ยวกับแอป
+.claude/
+.kilo/
+.vscode/
+
+# คีย์สำหรับ --dart-define-from-file ห้ามขึ้น git
+env.json

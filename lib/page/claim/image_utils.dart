@@ -3,7 +3,11 @@ import 'dart:math';
 import 'package:image/image.dart' as img;
 import 'package:flutter/foundation.dart';
 
-Future<File> resizeImage(File file, {int maxSize = 720, bool useCache = true}) async {
+Future<File> resizeImage(
+  File file, {
+  int maxSize = 720,
+  bool useCache = true,
+}) async {
   try {
     // Check cache first
     if (useCache) {
@@ -16,8 +20,11 @@ Future<File> resizeImage(File file, {int maxSize = 720, bool useCache = true}) a
 
     // Get file size
     final fileSize = await file.length();
-    if (fileSize > 50 * 1024 * 1024) { // Reduced from 100MB to 50MB
-      throw Exception('Image file too large: ${fileSize ~/ (1024 * 1024)}MB (max 50MB)');
+    if (fileSize > 50 * 1024 * 1024) {
+      // Reduced from 100MB to 50MB
+      throw Exception(
+        'Image file too large: ${fileSize ~/ (1024 * 1024)}MB (max 50MB)',
+      );
     }
 
     debugPrint('Processing image, size: ${fileSize ~/ 1024}KB');
@@ -33,13 +40,17 @@ Future<File> resizeImage(File file, {int maxSize = 720, bool useCache = true}) a
 
     // Check dimensions (reduced limits for mobile performance)
     if (decodedImage.width > 10000 || decodedImage.height > 10000) {
-      throw Exception('Image dimensions too large: ${decodedImage.width}x${decodedImage.height} (max 10000x10000)');
+      throw Exception(
+        'Image dimensions too large: ${decodedImage.width}x${decodedImage.height} (max 10000x10000)',
+      );
     }
 
     img.Image processedImage;
 
     // Always resize to maxSize x maxSize
-    debugPrint('Resizing image from ${decodedImage.width}x${decodedImage.height} to ${maxSize}x${maxSize}');
+    debugPrint(
+      'Resizing image from ${decodedImage.width}x${decodedImage.height} to ${maxSize}x${maxSize}',
+    );
 
     processedImage = img.copyResize(
       decodedImage,
@@ -48,10 +59,15 @@ Future<File> resizeImage(File file, {int maxSize = 720, bool useCache = true}) a
       interpolation: img.Interpolation.linear,
     );
 
-    debugPrint('Resize completed: ${processedImage.width}x${processedImage.height}');
+    debugPrint(
+      'Resize completed: ${processedImage.width}x${processedImage.height}',
+    );
 
     // Encode with lower quality for smaller file size and faster processing
-    final newBytes = await compute(_encodeImageSafely, _EncodeParams(processedImage, 85, progressive: false)); // Increased quality from 78 to 85, removed progressive
+    final newBytes = await compute(
+      _encodeImageSafely,
+      _EncodeParams(processedImage, 85, progressive: false),
+    ); // Increased quality from 78 to 85, removed progressive
 
     // Write file
     final newFile = await file.writeAsBytes(newBytes, flush: true);
@@ -61,9 +77,10 @@ Future<File> resizeImage(File file, {int maxSize = 720, bool useCache = true}) a
       _ImageCache.put(file, maxSize, 85, newFile); // Updated quality parameter
     }
 
-    debugPrint('Image processing completed, final size: ${newBytes.length ~/ 1024}KB');
+    debugPrint(
+      'Image processing completed, final size: ${newBytes.length ~/ 1024}KB',
+    );
     return newFile;
-
   } catch (e) {
     debugPrint('Image processing error: $e');
     // Return original file if processing fails
@@ -112,7 +129,10 @@ class _ImageCache {
     final keysToRemove = <String>[];
     for (final key in _cache.keys) {
       // Clear old quality caches (60, 40, 65, 78)
-      if (key.contains('_60') || key.contains('_40') || key.contains('_65') || key.contains('_78')) {
+      if (key.contains('_60') ||
+          key.contains('_40') ||
+          key.contains('_65') ||
+          key.contains('_78')) {
         keysToRemove.add(key);
       }
     }
@@ -136,7 +156,10 @@ void clearOldImageCache() {
   _ImageCache.clearOldQualityCache();
 }
 
-Future<List<File>> processImagesBatch(List<File> files, {int maxSize = 720}) async {
+Future<List<File>> processImagesBatch(
+  List<File> files, {
+  int maxSize = 720,
+}) async {
   debugPrint('Starting parallel batch processing of ${files.length} images');
 
   // Process images in parallel with controlled concurrency
@@ -145,10 +168,14 @@ Future<List<File>> processImagesBatch(List<File> files, {int maxSize = 720}) asy
   final List<File> results = [];
 
   for (int i = 0; i < files.length; i += concurrencyLimit) {
-    final endIndex = (i + concurrencyLimit < files.length) ? i + concurrencyLimit : files.length;
+    final endIndex = (i + concurrencyLimit < files.length)
+        ? i + concurrencyLimit
+        : files.length;
     final chunk = files.sublist(i, endIndex);
 
-    debugPrint('Processing chunk ${i ~/ concurrencyLimit + 1}/${(files.length / concurrencyLimit).ceil()}: ${chunk.length} images');
+    debugPrint(
+      'Processing chunk ${i ~/ concurrencyLimit + 1}/${(files.length / concurrencyLimit).ceil()}: ${chunk.length} images',
+    );
 
     // Process this chunk in parallel
     final chunkFutures = chunk.map((file) async {
@@ -167,7 +194,9 @@ Future<List<File>> processImagesBatch(List<File> files, {int maxSize = 720}) asy
     debugPrint('Chunk completed: ${chunkResults.length} images processed');
   }
 
-  debugPrint('Batch processing completed: ${results.length}/${files.length} images');
+  debugPrint(
+    'Batch processing completed: ${results.length}/${files.length} images',
+  );
   return results;
 }
 
@@ -227,11 +256,10 @@ img.Image? _decodeImageSafely(Uint8List bytes) {
 
 Uint8List _encodeImageSafely(_EncodeParams params) {
   try {
-    final result = img.encodeJpg(
-      params.image,
-      quality: params.quality,
+    final result = img.encodeJpg(params.image, quality: params.quality);
+    debugPrint(
+      'Encoded image, size: ${result.length ~/ 1024}KB, quality: ${params.quality}',
     );
-    debugPrint('Encoded image, size: ${result.length ~/ 1024}KB, quality: ${params.quality}');
     return result;
   } catch (e) {
     debugPrint('Image encode error in isolate: $e');
@@ -244,11 +272,26 @@ Uint8List _encodeImageSafely(_EncodeParams params) {
   }
 }
 
+/// นามสกุลของไฟล์ thumbnail ต้องตรงกับ ClaimStore.thumbSuffix
+/// (ClaimStore จะเก็บ thumbnail ของรูปที่ยังใช้อยู่ไว้ ไม่ลบทิ้ง)
+const String thumbnailSuffix = '.thumb.jpg';
+
 Future<File> generateThumbnail(File file, {int size = 720}) async {
   try {
+    // ไฟล์นี้เป็น thumbnail อยู่แล้ว ใช้ซ้ำได้เลย
+    if (file.path.endsWith(thumbnailSuffix)) return file;
+
     final cached = _ImageCache.get(file, size, 75); // Updated quality
     if (cached != null && await cached.exists()) {
       return cached;
+    }
+
+    // ใช้ thumbnail ที่สร้างไว้แล้วถ้ายังใหม่กว่าไฟล์ต้นฉบับ
+    final existing = File('${file.path}$thumbnailSuffix');
+    if (await existing.exists() &&
+        (await existing.lastModified()).isAfter(await file.lastModified())) {
+      _ImageCache.put(file, size, 75, existing);
+      return existing;
     }
 
     final bytes = await file.readAsBytes();
@@ -266,8 +309,15 @@ Future<File> generateThumbnail(File file, {int size = 720}) async {
       interpolation: img.Interpolation.linear, // Changed to linear for speed
     );
 
-    final thumbnailBytes = await compute(_encodeImageSafely, _EncodeParams(thumbnail, 75, progressive: false)); // Updated quality
-    final thumbnailFile = await file.writeAsBytes(thumbnailBytes, flush: true);
+    final thumbnailBytes = await compute(
+      _encodeImageSafely,
+      _EncodeParams(thumbnail, 75, progressive: false),
+    ); // Updated quality
+    // เขียนเป็นไฟล์แยก ไม่ทับไฟล์ต้นฉบับ เพราะไฟล์ต้นฉบับคือรูปที่จะอัปโหลด
+    // และถูกเก็บถาวรไว้ใน ClaimStore (ถ้าทับจะถูกบีบอัดซ้ำทุกครั้งที่ preview)
+    final thumbnailFile = await File(
+      '${file.path}$thumbnailSuffix',
+    ).writeAsBytes(thumbnailBytes, flush: true);
 
     _ImageCache.put(file, size, 75, thumbnailFile); // Updated quality
 
@@ -277,5 +327,3 @@ Future<File> generateThumbnail(File file, {int size = 720}) async {
     return file;
   }
 }
-
-

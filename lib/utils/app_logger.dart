@@ -12,10 +12,10 @@ class LogEntry {
   LogEntry({required this.timestamp, required this.action, this.data});
 
   Map<String, dynamic> toJson() => {
-        'ts': timestamp.toIso8601String(),
-        'action': action,
-        'data': data,
-      };
+    'ts': timestamp.toIso8601String(),
+    'action': action,
+    'data': data,
+  };
 
   static LogEntry fromJson(Map<String, dynamic> json) {
     return LogEntry(
@@ -38,7 +38,7 @@ class AppLogger {
 
   final List<LogEntry> _entries = <LogEntry>[];
   bool _initialized = false;
-  
+
   // Batching variables
   int _unsavedCount = 0;
   Timer? _debounceTimer;
@@ -90,7 +90,10 @@ class AppLogger {
 
   Future<void> log(String action, {Map<String, dynamic>? data}) async {
     await _ensureLoaded();
-    _entries.insert(0, LogEntry(timestamp: DateTime.now(), action: action, data: data));
+    _entries.insert(
+      0,
+      LogEntry(timestamp: DateTime.now(), action: action, data: data),
+    );
     if (_entries.length > _maxEntries) {
       _entries.removeRange(_maxEntries, _entries.length);
     }
@@ -108,5 +111,3 @@ class AppLogger {
     await _persist();
   }
 }
-
-

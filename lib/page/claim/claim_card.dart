@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import 'package:claim/utils/app_colors.dart';
+
 class ClaimCard extends StatelessWidget {
   final Map<String, dynamic> claim;
   final int index;
@@ -22,23 +24,23 @@ class ClaimCard extends StatelessWidget {
     final String type = claim['type'] ?? '';
     final String remarkType = claim['remarkType']?.toString() ?? '';
 
-return Container(
+    final scheme = Theme.of(context).colorScheme;
+
+    return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       decoration: BoxDecoration(
+        // รายการที่ส่งแล้วให้พื้นจางลง แยกจากรายการที่ยังค้าง
         color: isSent
-            ? Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.2)
-            : Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Theme.of(context).colorScheme.primary.withOpacity(0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 2),
-          ),
-        ],
+            ? scheme.surfaceContainerHighest.withValues(alpha: 0.4)
+            : scheme.surface,
+        borderRadius: BorderRadius.circular(AppSizes.cardRadius),
+        border: Border.all(
+          color: scheme.outlineVariant,
+          width: AppSizes.cardBorder,
+        ),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: AppSizes.cardPadding,
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -65,15 +67,17 @@ return Container(
                                 style: Theme.of(context).textTheme.bodyMedium
                                     ?.copyWith(
                                       fontWeight: FontWeight.w600,
-                                      color: const Color(0xFF424242),
+                                      color: scheme.onSurfaceVariant,
                                     ),
                               ),
                               TextSpan(
-                                text: '${claim['docNumber']}',
+                                text: claim['docNumber']?.toString() ?? '',
                                 style: Theme.of(context).textTheme.bodyMedium
                                     ?.copyWith(
                                       fontWeight: FontWeight.w700,
-                                      color: Theme.of(context).colorScheme.primary,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.primary,
                                     ),
                               ),
                             ],
@@ -103,15 +107,17 @@ return Container(
                                 style: Theme.of(context).textTheme.bodyMedium
                                     ?.copyWith(
                                       fontWeight: FontWeight.w600,
-                                      color: const Color(0xFF424242),
+                                      color: scheme.onSurfaceVariant,
                                     ),
                               ),
                               TextSpan(
-                                text: '${claim['carCode']}',
+                                text: claim['carCode']?.toString() ?? '',
                                 style: Theme.of(context).textTheme.bodyMedium
                                     ?.copyWith(
                                       fontWeight: FontWeight.w700,
-                                      color: Theme.of(context).colorScheme.primary,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.primary,
                                     ),
                               ),
                             ],
@@ -140,15 +146,17 @@ return Container(
                               style: Theme.of(context).textTheme.bodyMedium
                                   ?.copyWith(
                                     fontWeight: FontWeight.w600,
-                                    color: const Color(0xFF424242),
+                                    color: scheme.onSurfaceVariant,
                                   ),
                             ),
                             TextSpan(
-                              text: '${claim['type']}',
+                              text: claim['type']?.toString() ?? '',
                               style: Theme.of(context).textTheme.bodyMedium
                                   ?.copyWith(
                                     fontWeight: FontWeight.w700,
-                                    color: Theme.of(context).colorScheme.primary,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
                                   ),
                             ),
                           ],
@@ -157,7 +165,7 @@ return Container(
                     ],
                   ),
                   if ((type == 'เสียหาย' ||
-                          type == 'ส���ญ���าย' ||
+                          type == 'สูญหาย' ||
                           type == 'ไม่ครบล็อต') &&
                       remarkType.isNotEmpty)
                     Padding(
@@ -168,8 +176,10 @@ return Container(
                             : type == 'สูญหาย'
                             ? 'รายละเอียดการสูญหาย: $remarkType'
                             : 'รายละเอียดเพิ่มเติม: $remarkType',
-                        style: Theme.of(context).textTheme.bodySmall
-                            ?.copyWith(fontStyle: FontStyle.italic, color: Colors.grey[600]),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontStyle: FontStyle.italic,
+                          color: Colors.grey[600],
+                        ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -177,9 +187,9 @@ return Container(
                   const SizedBox(height: 8),
                   Text(
                     'วันที่: ${DateFormat('dd/MM/yyyy').format(timestamp)}',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.grey[500],
-                    ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: Colors.grey[500]),
                   ),
                 ],
               ),
@@ -192,7 +202,9 @@ return Container(
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(22),
                   ),
                   child: IconButton(
@@ -212,13 +224,13 @@ return Container(
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.08),
+                    color: Colors.orange.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(22),
                   ),
                   child: IconButton(
                     icon: Icon(
                       Icons.send_outlined,
-                      color: Colors.red[700],
+                      color: Colors.orange[700],
                       size: 22,
                     ),
                     tooltip: 'ส่งรายการนี้ไป Google Sheet',

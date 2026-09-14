@@ -88,7 +88,6 @@ class _CustomCameraState extends State<CustomCamera> {
         },
       );
 
-
       if (mounted) {
         setState(() {
           _isInitialized = true;
@@ -119,7 +118,6 @@ class _CustomCameraState extends State<CustomCamera> {
     final nextCameraIndex = (_currentCameraIndex + 1) % cameras!.length;
     _switchToCamera(nextCameraIndex);
   }
-
 
   Future<void> _takePicture() async {
     if (_controller == null ||
@@ -161,7 +159,6 @@ class _CustomCameraState extends State<CustomCamera> {
           _isTakingPicture = false;
         });
       }
-
     } catch (e) {
       debugPrint('Error taking picture: $e');
       if (mounted) {
@@ -316,7 +313,9 @@ class _CustomCameraState extends State<CustomCamera> {
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: IconButton(
-                          onPressed: _isProcessingImages ? null : _finishCapturing,
+                          onPressed: _isProcessingImages
+                              ? null
+                              : _finishCapturing,
                           icon: _isProcessingImages
                               ? const SizedBox(
                                   width: 20,
@@ -405,7 +404,9 @@ class _CustomCameraState extends State<CustomCamera> {
             child: Center(
               child: SafeArea(
                 child: GestureDetector(
-                  onTap: (_isTakingPicture || _isProcessingImages) ? null : _takePicture,
+                  onTap: (_isTakingPicture || _isProcessingImages)
+                      ? null
+                      : _takePicture,
                   child: Container(
                     width: 80,
                     height: 80,
@@ -413,7 +414,10 @@ class _CustomCameraState extends State<CustomCamera> {
                       shape: BoxShape.circle,
                       color: Colors.white,
                       border: Border.all(
-                        color: (_capturedImages.length + widget.currentImageCount) >= _maxImages
+                        color:
+                            (_capturedImages.length +
+                                    widget.currentImageCount) >=
+                                _maxImages
                             ? Colors.grey
                             : Colors.white,
                         width: 4,
@@ -430,7 +434,10 @@ class _CustomCameraState extends State<CustomCamera> {
                         ? const CircularProgressIndicator(color: Colors.black)
                         : Icon(
                             Icons.camera_alt,
-                            color: (_capturedImages.length + widget.currentImageCount) >= _maxImages
+                            color:
+                                (_capturedImages.length +
+                                        widget.currentImageCount) >=
+                                    _maxImages
                                 ? Colors.grey
                                 : Colors.black,
                             size: 40,
@@ -479,7 +486,6 @@ class _CustomCameraState extends State<CustomCamera> {
     );
   }
 }
-
 
 Future<void> openMultiImageCamera(
   BuildContext context,

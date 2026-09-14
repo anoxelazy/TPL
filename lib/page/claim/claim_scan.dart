@@ -22,9 +22,7 @@ Future<String?> openBarcodeScanner(BuildContext context) async {
             ),
             // Scanning frame overlay
             Positioned.fill(
-              child: CustomPaint(
-                painter: ScannerOverlayPainter(),
-              ),
+              child: CustomPaint(painter: ScannerOverlayPainter()),
             ),
             // Red scanning line
             // Positioned(
@@ -90,16 +88,40 @@ class ScannerOverlayPainter extends CustomPainter {
     canvas.drawLine(Offset(left, top), Offset(left, top + cornerLength), paint);
 
     // Top-right corner
-    canvas.drawLine(Offset(left + scanAreaWidth, top), Offset(left + scanAreaWidth - cornerLength, top), paint);
-    canvas.drawLine(Offset(left + scanAreaWidth, top), Offset(left + scanAreaWidth, top + cornerLength), paint);
+    canvas.drawLine(
+      Offset(left + scanAreaWidth, top),
+      Offset(left + scanAreaWidth - cornerLength, top),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(left + scanAreaWidth, top),
+      Offset(left + scanAreaWidth, top + cornerLength),
+      paint,
+    );
 
     // Bottom-left corner
-    canvas.drawLine(Offset(left, top + scanAreaHeight), Offset(left + cornerLength, top + scanAreaHeight), paint);
-    canvas.drawLine(Offset(left, top + scanAreaHeight), Offset(left, top + scanAreaHeight - cornerLength), paint);
+    canvas.drawLine(
+      Offset(left, top + scanAreaHeight),
+      Offset(left + cornerLength, top + scanAreaHeight),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(left, top + scanAreaHeight),
+      Offset(left, top + scanAreaHeight - cornerLength),
+      paint,
+    );
 
     // Bottom-right corner
-    canvas.drawLine(Offset(left + scanAreaWidth, top + scanAreaHeight), Offset(left + scanAreaWidth - cornerLength, top + scanAreaHeight), paint);
-    canvas.drawLine(Offset(left + scanAreaWidth, top + scanAreaHeight), Offset(left + scanAreaWidth, top + scanAreaHeight - cornerLength), paint);
+    canvas.drawLine(
+      Offset(left + scanAreaWidth, top + scanAreaHeight),
+      Offset(left + scanAreaWidth - cornerLength, top + scanAreaHeight),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(left + scanAreaWidth, top + scanAreaHeight),
+      Offset(left + scanAreaWidth, top + scanAreaHeight - cornerLength),
+      paint,
+    );
   }
 
   @override

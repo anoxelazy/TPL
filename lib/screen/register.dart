@@ -22,7 +22,6 @@ class _RegisterPageState extends State<RegisterPage> {
       return;
     }
 
-
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('สมัครสมาชิกสำเร็จ! รหัสพนักงาน: $employeeId')),
     );
@@ -63,15 +62,13 @@ class _RegisterPageState extends State<RegisterPage> {
               height: 50,
               child: ElevatedButton(
                 onPressed: _register,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                ),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
                 child: const Text(
                   'ลงทะเบียน',
                   style: TextStyle(fontSize: 18, color: Colors.white),
                 ),
               ),
-            )
+            ),
           ],
         ),
       ),
