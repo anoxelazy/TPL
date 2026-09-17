@@ -1,47 +1,92 @@
 import 'package:flutter/material.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
+import 'package:claim/page/itcase/itcase_form_page.dart';
+import 'package:claim/utils/app_colors.dart';
 import 'package:claim/utils/mobile_api.dart';
+import 'package:claim/utils/theme.dart';
 
-/// ตัวทดสอบว่าเว็บคุยกับ Mobile API ได้จริงไหม ไม่ใช่แอปตัวจริง
+/// เว็บแอปเฉพาะระบบแจ้งเคส IT
 ///
-/// จงใจไม่แตะโค้ดหน้าแจ้งเคสที่มีอยู่ เพราะไฟล์พวกนั้นยัง import `dart:io`
-/// ซึ่งเว็บไม่มี ตัวนี้เรียก endpoint ตรง ๆ เพื่อตอบคำถามเดียวคือ
-/// "เบราว์เซอร์ล็อกอินแล้วดึงรายการเคสได้หรือเปล่า"
+/// เป็นคนละ entry point กับ main.dart เพราะแอปมือถือมีเมนูที่ใช้บนเว็บไม่ได้
+/// (กล้อง สแกนบาร์โค้ด อัปเดตในแอป แจ้งเตือน) และคุยกับ API หลักซึ่งเป็น
+/// http:// ล้วน ๆ ที่เบราว์เซอร์บล็อกเพราะหน้าเว็บเสิร์ฟผ่าน https
 ///
-/// ผ่านแล้วค่อยไปแก้ dart:io ออกจาก 3 ไฟล์แล้วยกของจริงมาใช้
+/// ระบบแจ้งเคสใช้ Mobile API ตัวใหม่อย่างเดียว ซึ่งเป็น https ใบรับรองถูกต้อง
+/// เปิด CORS ให้แล้ว และมีหน้าล็อกอินของตัวเอง จึงยกมาทั้งชุดได้เลย
 ///
-/// รันด้วย `flutter run -d chrome -t lib/main_web.dart`
-void main() {
-  runApp(const _ProbeApp());
+/// Dart คอมไพล์เฉพาะไฟล์ที่ entry point เรียกถึง ไฟล์ของเคลม/มิเตอร์/สแกน/PM
+/// จึงไม่ถูกลากเข้ามาในก้อนเว็บ
+///
+/// รัน: flutter run -d chrome -t lib/main_web.dart
+/// build: flutter build web -t lib/main_web.dart --base-href /TPL/
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // วันที่ภาษาไทยใช้ทั้งการ์ดเคสและหน้ารายละเอียด ไม่โหลดก่อนจะโยนตอนวาด
+  await initializeDateFormatting('th', null);
+  await MobileSession.I.init();
+
+  runApp(const ItCaseWebApp());
 }
 
-class _ProbeApp extends StatelessWidget {
-  const _ProbeApp();
+class ItCaseWebApp extends StatelessWidget {
+  const ItCaseWebApp({super.key});
 
   @override
   Widget build(BuildContext context) => MaterialApp(
-    title: 'ทดสอบเว็บ – แจ้งเคส IT',
-    theme: ThemeData(
-      colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF5B21B6)),
-      useMaterial3: true,
-    ),
-    home: const _ProbePage(),
+    title: 'แจ้งเคส IT',
+    debugShowCheckedModeBanner: false,
+    theme: AppTheme.getLightTheme(),
+    home: const _Gate(),
   );
 }
 
-class _ProbePage extends StatefulWidget {
-  const _ProbePage();
+/// มี token อยู่แล้วเข้าหน้าแจ้งเคสเลย ไม่มีก็ให้ล็อกอินก่อน
+///
+/// token เก็บใน shared_preferences ซึ่งบนเว็บคือ localStorage ปิดแท็บแล้ว
+/// เปิดใหม่จึงไม่ต้องล็อกอินซ้ำ
+class _Gate extends StatefulWidget {
+  const _Gate();
 
   @override
-  State<_ProbePage> createState() => _ProbePageState();
+  State<_Gate> createState() => _GateState();
 }
 
-class _ProbePageState extends State<_ProbePage> {
+class _GateState extends State<_Gate> {
+  bool _signedIn = MobileSession.I.isReady;
+
+  @override
+  Widget build(BuildContext context) => _signedIn
+      ? ItCaseFormPage(onSignOut: _signOut)
+      : _LoginPage(onDone: () => setState(() => _signedIn = true));
+
+  Future<void> _signOut() async {
+    await MobileSession.I.clear();
+    if (!mounted) return;
+    setState(() => _signedIn = false);
+  }
+}
+
+/// หน้าล็อกอินของเว็บ ใช้บัญชีเดียวกับแอปมือถือ
+///
+/// ไม่ได้ยกหน้าล็อกอินของแอปมาใช้ เพราะอันนั้นล็อกอินที่ API หลักซึ่งเป็น
+/// http:// เบราว์เซอร์บล็อกแน่นอน อันนี้ยิงที่ Mobile API ตรง ๆ
+class _LoginPage extends StatefulWidget {
+  final VoidCallback onDone;
+
+  const _LoginPage({required this.onDone});
+
+  @override
+  State<_LoginPage> createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<_LoginPage> {
   final _user = TextEditingController();
   final _pass = TextEditingController();
 
   bool _busy = false;
-  String _log = 'ยังไม่ได้ทดสอบ';
+  String? _error;
 
   @override
   void dispose() {
@@ -50,126 +95,116 @@ class _ProbePageState extends State<_ProbePage> {
     super.dispose();
   }
 
-  /// ล็อกอินแล้วยิง joblist ต่อทันที เขียนผลดิบลงจอทั้งหมด
-  ///
-  /// ไม่แปลง ไม่จัดรูปแบบ อยากเห็นว่าเซิร์ฟเวอร์ตอบอะไรกลับมาจริง ๆ
-  /// รวมถึงชื่อช่องใน json ที่เดาไว้ในแอปมือถือว่าตรงของจริงไหม
-  Future<void> _run() async {
+  Future<void> _submit() async {
+    final username = _user.text.trim();
+    if (username.isEmpty || _pass.text.isEmpty) {
+      setState(() => _error = 'กรอกชื่อผู้ใช้และรหัสผ่านก่อน');
+      return;
+    }
+
     setState(() {
       _busy = true;
-      _log = 'กำลังล็อกอิน...';
+      _error = null;
     });
 
     final ok = await MobileSession.I.signIn(
-      username: _user.text.trim(),
+      username: username,
       password: _pass.text,
     );
 
     if (!mounted) return;
-    if (!ok) {
-      setState(() {
-        _busy = false;
-        _log =
-            'ล็อกอินไม่ผ่าน\n\n'
-            'ถ้าชื่อผู้ใช้กับรหัสถูก แต่ยังไม่ผ่าน แปลว่าเบราว์เซอร์ถูกบล็อก\n'
-            'ให้เปิด DevTools แท็บ Console ดูว่ามีข้อความ CORS หรือ '
-            'mixed content ขึ้นไหม';
-      });
+    if (ok) {
+      widget.onDone();
       return;
     }
 
-    setState(
-      () => _log =
-          'ล็อกอินผ่าน (empNo: ${MobileSession.I.empNo})\n'
-          'กำลังดึงรายการเคส...',
-    );
-
-    try {
-      final response = await mobileDio.get(
-        '/api/ITRepair/joblist',
-        options: MobileSession.I.authOptions(),
-      );
-
-      if (!mounted) return;
-      setState(() {
-        _busy = false;
-        _log =
-            'สำเร็จ HTTP ${response.statusCode}\n\n'
-            '--- response ดิบ ---\n${response.data}';
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _busy = false;
-        _log = 'ดึงรายการเคสไม่สำเร็จ\n\n$e';
-      });
-    }
+    setState(() {
+      _busy = false;
+      _error = 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง';
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('ทดสอบเว็บ – แจ้งเคส IT'),
-        backgroundColor: const Color(0xFF5B21B6),
-        foregroundColor: Colors.white,
-      ),
+      backgroundColor: scheme.surfaceContainerLowest,
       body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 560),
-          child: ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-              const Text(
-                'ล็อกอินด้วยชื่อผู้ใช้/รหัสผ่านชุดเดียวกับในแอปมือถือ',
-                style: TextStyle(fontSize: 13),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _user,
-                decoration: const InputDecoration(
-                  labelText: 'ชื่อผู้ใช้',
-                  border: OutlineInputBorder(),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: ConstrainedBox(
+            // จอคอมกว้างกว่ามือถือมาก ปล่อยให้ช่องกรอกยาวเต็มจอแล้วอ่านยาก
+            constraints: const BoxConstraints(maxWidth: 380),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Icon(
+                  Icons.support_agent,
+                  size: 56,
+                  color: AppColors.caseIcon,
                 ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _pass,
-                obscureText: true,
-                onSubmitted: (_) => _busy ? null : _run(),
-                decoration: const InputDecoration(
-                  labelText: 'รหัสผ่าน',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                height: 46,
-                child: FilledButton(
-                  onPressed: _busy ? null : _run,
-                  child: Text(
-                    _busy ? 'กำลังทดสอบ...' : 'ล็อกอินและดึงรายการเคส',
+                const SizedBox(height: 12),
+                const Text(
+                  'แจ้งเคสถึงทีม IT',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.caseIcon,
                   ),
                 ),
-              ),
-              const SizedBox(height: 20),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: SelectableText(
-                  _log,
-                  style: const TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 12,
-                    height: 1.45,
+                const SizedBox(height: 4),
+                Text(
+                  'ใช้บัญชีเดียวกับแอปในมือถือ',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: scheme.onSurfaceVariant,
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 24),
+                TextField(
+                  controller: _user,
+                  autofocus: true,
+                  decoration: const InputDecoration(
+                    labelText: 'ชื่อผู้ใช้',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _pass,
+                  obscureText: true,
+                  onSubmitted: (_) => _busy ? null : _submit(),
+                  decoration: const InputDecoration(
+                    labelText: 'รหัสผ่าน',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                if (_error != null) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    _error!,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 13, color: scheme.error),
+                  ),
+                ],
+                const SizedBox(height: 20),
+                SizedBox(
+                  height: 46,
+                  child: FilledButton(
+                    onPressed: _busy ? null : _submit,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.caseIcon,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: Text(_busy ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
-import 'package:claim/utils/image_encode.dart';
+import 'package:claim/utils/image_encode_io.dart';
 import 'package:claim/utils/supabase_config.dart';
 
 const String _function = '/functions/v1/get-asset';

@@ -7,7 +7,7 @@ library;
 import 'dart:io';
 
 import 'package:claim/page/pm/pm_models.dart';
-import 'package:claim/utils/image_encode.dart';
+import 'package:claim/utils/image_encode_io.dart';
 import 'package:claim/utils/mobile_api.dart';
 
 /// รูปที่ถ่ายไว้ของหัวข้อหนึ่ง ยังไม่ได้อัปโหลด

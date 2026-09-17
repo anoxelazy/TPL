@@ -1,0 +1,64 @@
+# เอาเว็บแจ้งเคส IT ขึ้น GitHub Pages ทุกครั้งที่ push เข้า main
+#
+# build จาก lib/main_web.dart ไม่ใช่ lib/main.dart เพราะตัวหลังเป็นแอปมือถือ
+# ที่มีกล้อง สแกนบาร์โค้ด และแจ้งเตือน ซึ่งคอมไพล์บนเว็บไม่ผ่าน
+name: Deploy web
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'lib/**'
+      - 'web/**'
+      - 'pubspec.yaml'
+      - 'update.json'
+      - '.github/workflows/deploy-web.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# ปล่อยให้ deploy ทับกันเองไม่ได้ เอารอบล่าสุดรอบเดียว
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      # base-href ต้องเป็นชื่อ repo เพราะ Pages เสิร์ฟที่ /TPL/ ไม่ใช่รากโดเมน
+      # ใส่ไม่ตรงแล้วหน้าเว็บจะขาวเปล่า หาไฟล์ js ไม่เจอ
+      - run: flutter build web -t lib/main_web.dart --base-href /TPL/
+
+      # ⚠️ update.json ต้องติดไปด้วยเสมอ
+      #
+      # แอปมือถือทุกเครื่องเช็คเวอร์ชันจาก anoxelazy.github.io/TPL/update.json
+      # Pages เสิร์ฟได้ชุดเดียว พอเปลี่ยนมาเสิร์ฟเว็บแล้วไม่ก๊อปไฟล์นี้ตามไป
+      # ตัวเช็คอัปเดตของแอปที่ติดตั้งไปแล้วจะหาไม่เจอทันที
+      - run: cp update.json build/web/update.json
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

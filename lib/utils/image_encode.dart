@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
@@ -14,13 +13,15 @@ const int maxUploadFileBytes = 50 * 1024 * 1024;
 ///
 /// ทำใน isolate เพราะทั้ง decode และ encode หนักพอที่จะทำให้เฟรมกระตุก
 /// ย่อไม่สำเร็จจะคืนไบต์เดิม ดีกว่าบล็อกไม่ให้ส่งเลย
-Future<Uint8List> compressImageForUpload(
-  File file, {
+///
+/// รับเป็นไบต์ไม่ใช่ File เพราะไฟล์นี้ต้องคอมไพล์บนเว็บได้ด้วย ซึ่งไม่มี
+/// `dart:io` ฝั่งที่ถือไฟล์จริงอยู่ให้ใช้ compressImageForUpload ใน
+/// image_encode_io.dart ที่ห่อตัวนี้ไว้อีกชั้น
+Future<Uint8List> compressImageBytes(
+  Uint8List bytes, {
   int maxEdge = 1600,
   int quality = 85,
 }) async {
-  final bytes = await file.readAsBytes();
-
   try {
     return await compute(
       _compressIsolate,

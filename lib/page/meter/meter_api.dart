@@ -7,7 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:claim/utils/app_logger.dart';
 import 'package:claim/utils/dio_service.dart';
-import 'package:claim/utils/image_encode.dart';
+import 'package:claim/utils/image_encode_io.dart';
 import 'package:claim/utils/location_service.dart';
 import 'package:claim/utils/permission_service.dart';
 import 'package:claim/utils/url_utils.dart';

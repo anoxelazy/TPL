@@ -8,7 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:claim/utils/api_host.dart';
 import 'package:claim/utils/app_logger.dart';
 import 'package:claim/utils/dio_service.dart';
-import 'package:claim/utils/image_encode.dart';
+import 'package:claim/utils/image_encode_io.dart';
 import 'package:claim/page/scan/scan_image_parser.dart';
 
 const String scanModule = 'ScanBar&TakePhoto';

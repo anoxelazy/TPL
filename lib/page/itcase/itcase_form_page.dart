@@ -1,8 +1,9 @@
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+
 import 'package:permission_handler/permission_handler.dart';
 import 'package:claim/page/itcase/itcase_api.dart';
 import 'package:claim/page/itcase/itcase_appbar.dart';
@@ -42,7 +43,13 @@ TextEditingValue insertScannedCode(String text, int at, String code) {
 
 /// ช่องเลือกโปรแกรมจึงโผล่มาเฉพาะตอนที่เกี่ยวข้องจริง
 class ItCaseFormPage extends StatefulWidget {
-  const ItCaseFormPage({super.key});
+  /// ใส่มาจากเว็บแอปเพื่อให้มีปุ่มออกจากระบบบนแถบหัว
+  ///
+  /// แอปมือถือไม่ต้องส่ง เพราะออกจากระบบที่หน้าโปรไฟล์อยู่แล้ว ปุ่มซ้ำอีกที่
+  /// รังแต่จะกดพลาด ส่วนเว็บมีแค่หน้านี้หน้าเดียว ไม่มีที่อื่นให้ออก
+  final VoidCallback? onSignOut;
+
+  const ItCaseFormPage({super.key, this.onSignOut});
 
   @override
   State<ItCaseFormPage> createState() => _ItCaseFormPageState();
@@ -55,7 +62,7 @@ class _ItCaseFormPageState extends State<ItCaseFormPage> {
 
   ItCaseSolveType? _solveType;
   ItCaseProgram? _program;
-  File? _image;
+  XFile? _image;
 
   bool _loading = true;
   bool _sending = false;
@@ -149,7 +156,7 @@ class _ItCaseFormPageState extends State<ItCaseFormPage> {
     // จะได้ไม่โดนบีบซ้ำสองรอบจนอ่านตัวหนังสือบนหน้าจอที่ถ่ายมาไม่ออก
     final picked = await ImagePicker().pickImage(source: source);
     if (picked == null || !mounted) return;
-    setState(() => _image = File(picked.path));
+    setState(() => _image = picked);
   }
 
   Future<void> _submit() async {
@@ -294,6 +301,12 @@ class _ItCaseFormPageState extends State<ItCaseFormPage> {
       appBar: itCaseAppBar(
         title: 'แจ้งเคส',
         actions: [
+          if (widget.onSignOut != null)
+            IconButton(
+              tooltip: 'ออกจากระบบ',
+              onPressed: widget.onSignOut,
+              icon: const Icon(Icons.logout),
+            ),
           IconButton(
             tooltip: 'ขั้นตอนการดำเนินงาน',
             onPressed: () => Navigator.of(
@@ -592,12 +605,7 @@ class _ItCaseFormPageState extends State<ItCaseFormPage> {
           borderRadius: BorderRadius.circular(_kImageRadius),
           child: Stack(
             children: [
-              Image.file(
-                image,
-                height: 150,
-                width: double.infinity,
-                fit: BoxFit.cover,
-              ),
+              _Preview(file: image),
               Positioned(
                 top: 8,
                 right: 8,
@@ -877,6 +885,42 @@ class _CaseNumberBoxState extends State<_CaseNumberBox> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// รูปที่เลือกไว้ก่อนส่ง
+///
+/// อ่านเป็นไบต์แล้ววาดด้วย [Image.memory] แทน `Image.file` เพราะบนเว็บไม่มี
+/// `dart:io` ให้สร้าง File และ path ของ [XFile] ฝั่งเว็บเป็น blob ที่เปิดแบบ
+/// ไฟล์ไม่ได้ ทางนี้ใช้ได้เหมือนกันทั้งสองฝั่ง
+class _Preview extends StatelessWidget {
+  final XFile file;
+
+  const _Preview({required this.file});
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<Uint8List>(
+      // อ่านใหม่เมื่อเปลี่ยนรูป ไม่ใช่ค้างรูปเดิมเพราะ future ตัวเก่ายังอยู่
+      key: ValueKey(file.path),
+      future: file.readAsBytes(),
+      builder: (context, snapshot) {
+        final bytes = snapshot.data;
+        if (bytes == null) {
+          return const SizedBox(
+            height: 150,
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        return Image.memory(
+          bytes,
+          height: 150,
+          width: double.infinity,
+          fit: BoxFit.cover,
+        );
+      },
     );
   }
 }

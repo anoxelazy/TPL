@@ -16,6 +16,7 @@ dependencies:
   line_icons: ^2.0.3
   ionicons: ^0.2.2
   image_picker: ^1.0.7
+  cross_file: ^0.3.4
   camera: ^0.10.5+9
   intl: ^0.18.1
   mobile_scanner: ^7.0.0

@@ -1,5 +1,6 @@
 import 'dart:convert';
-import 'dart:io';
+
+import 'package:cross_file/cross_file.dart';
 
 import 'package:claim/utils/image_encode.dart';
 import 'package:claim/utils/mobile_api.dart';
@@ -1046,7 +1047,7 @@ Future<ItCaseResult> createItCase({
   required String jobType,
   required String description,
   String? programId,
-  File? image,
+  XFile? image,
 }) async {
   final options = MobileSession.I.authOptions(
     receiveTimeout: const Duration(seconds: 60),
@@ -1060,7 +1061,8 @@ Future<ItCaseResult> createItCase({
 
   String imageBase64 = '';
   if (image != null) {
-    final bytes = await compressImageForUpload(image);
+    final picked = await image.readAsBytes();
+    final bytes = await compressImageBytes(picked);
     imageBase64 = await encodeBase64InBackground(bytes);
   }
 
