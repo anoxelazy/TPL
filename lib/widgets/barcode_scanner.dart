@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -143,3 +144,13 @@ class _ScanFramePainter extends CustomPainter {
   @override
   bool shouldRepaint(CustomPainter oldDelegate) => false;
 }
+
+/// เครื่องนี้สแกนบาร์โค้ดได้ไหม
+///
+/// เว็บบนคอมไม่มีกล้องหลัง เปิดขึ้นมาก็ได้กล้องหน้าที่ส่องบาร์โค้ดไม่ถนัด
+/// และคนที่นั่งหน้าคอมมักถือของอยู่ตรงหน้าแล้วพิมพ์เองได้เร็วกว่าอยู่ดี
+/// หน้าจอที่มีปุ่มสแกนจึงซ่อนปุ่มไปเลยบนเว็บ เหลือช่องให้พิมพ์เหมือนเดิม
+///
+/// ไม่ได้เช็คว่ามีกล้องจริงไหม เพราะการถามสิทธิ์กล้องต้องเกิดจากการกดของผู้ใช้
+/// เช็คตอนวาดหน้าจอจะเด้งขอสิทธิ์ทั้งที่ยังไม่มีใครจะสแกน
+bool get canScanBarcode => !kIsWeb;

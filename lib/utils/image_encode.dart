@@ -3,20 +3,8 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 
-/// ขนาดไฟล์รูปที่ยอมรับ ใหญ่กว่านี้ decode ไม่ผ่านหรือกินแรมจนแอปตาย
 const int maxUploadFileBytes = 50 * 1024 * 1024;
 
-/// ย่อรูปสำหรับอัปโหลดโดยคงสัดส่วนเดิม
-///
-/// คงสัดส่วนเพราะรูปหลักฐาน (หน้าปัดไมล์ / บาร์โค้ด) ต้องอ่านตัวเลขออก
-/// การบีบเป็นสี่เหลี่ยมจัตุรัสทำให้อ่านไม่ได้
-///
-/// ทำใน isolate เพราะทั้ง decode และ encode หนักพอที่จะทำให้เฟรมกระตุก
-/// ย่อไม่สำเร็จจะคืนไบต์เดิม ดีกว่าบล็อกไม่ให้ส่งเลย
-///
-/// รับเป็นไบต์ไม่ใช่ File เพราะไฟล์นี้ต้องคอมไพล์บนเว็บได้ด้วย ซึ่งไม่มี
-/// `dart:io` ฝั่งที่ถือไฟล์จริงอยู่ให้ใช้ compressImageForUpload ใน
-/// image_encode_io.dart ที่ห่อตัวนี้ไว้อีกชั้น
 Future<Uint8List> compressImageBytes(
   Uint8List bytes, {
   int maxEdge = 1600,

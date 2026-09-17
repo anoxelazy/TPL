@@ -404,7 +404,7 @@ class _AssetFormPageState extends State<AssetFormPage> {
               onChanged: entry.key == 'sn' ? (_) => setState(() {}) : null,
               decoration: InputDecoration(
                 labelText: entry.value,
-                suffixIcon: entry.key == 'sn' && !_readOnly
+                suffixIcon: entry.key == 'sn' && !_readOnly && canScanBarcode
                     ? IconButton(
                         tooltip: 'สแกน',
                         onPressed: _scanSn,

@@ -174,11 +174,12 @@ class _AssetPickerPageState extends State<AssetPickerPage> {
                 },
                 icon: const Icon(Icons.close),
               ),
-            IconButton(
-              tooltip: 'สแกน',
-              onPressed: _scanToSearch,
-              icon: const Icon(AppIcons.scan),
-            ),
+            if (canScanBarcode)
+              IconButton(
+                tooltip: 'สแกน',
+                onPressed: _scanToSearch,
+                icon: const Icon(AppIcons.scan),
+              ),
           ],
         ),
       ),
