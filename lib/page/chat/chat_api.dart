@@ -220,11 +220,11 @@ DateTime? _date(dynamic value) {
 ///
 /// ⚠️ ถามไม่สำเร็จคืน true คือถือว่าผูกแล้ว แถบชวนจะได้ไม่โผล่
 /// เน็ตสะดุดทีเดียวแล้วไปเด้งแถบใส่คนที่ผูกไปนานแล้ว น่ารำคาญกว่าประโยชน์ที่ได้
-Future<bool> isLineLinked() async {
-  final empNumber = RoleService.I.empNumber;
-  if (empNumber == null) return true;
-
-  if (!await SupabaseConfig.ensureKey()) return true;
+Future<bool> isLineLinked(int empNumber) async {
+  if (!await SupabaseConfig.ensureKey()) {
+    debugPrint('line link: โหลดคีย์ Supabase ไม่ได้');
+    return true;
+  }
 
   try {
     final response = await supabaseDio.post(
@@ -238,12 +238,17 @@ Future<bool> isLineLinked() async {
     );
 
     final body = response.data;
-    if (body is! Map || body['success'] != true) return true;
+    if (body is! Map || body['success'] != true) {
+      debugPrint('line link: ตอบผิดรูป HTTP ${response.statusCode} $body');
+      return true;
+    }
 
     final data = body['data'];
-    return data is! Map || data['linked'] != false;
+    final linked = data is! Map || data['linked'] != false;
+    debugPrint('line link: emp $empNumber linked=$linked');
+    return linked;
   } catch (e) {
-    debugPrint('line link status error: $e');
+    debugPrint('line link: ถามไม่สำเร็จ $e');
     return true;
   }
 }

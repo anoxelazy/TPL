@@ -57,11 +57,19 @@ class AppColors {
   /// ที่จางและออกเทากว่านี้
   static const Color rankTop10 = Color(0xFF5A6EA8);
 
-  /// สีแบรนด์ LINE ใช้กับปุ่มติดต่อผู้ดูแล
+  /// สีแบรนด์ LINE ใช้กับปุ่มติดต่อผู้ดูแลและเป็นสีประจำระบบแจ้งซ่อม
   static const Color lineGreen = Color(0xFF06C755);
 
-  static const Color repairIcon = Color(0xFF8D6E63);
-  static const Color repairBg = Color(0xFFEFEBE9);
+  /// สีประจำระบบแจ้งซ่อม ใช้สีแบรนด์ LINE เพราะระบบนี้ผูกกับ LINE OA
+  /// (บอทติดตามสถานะ ผูกบัญชี แจ้งเตือน) คนที่คุ้นกับบอทในไลน์อยู่แล้ว
+  /// จะเห็นว่าเป็นเรื่องเดียวกัน
+  ///
+  /// ⚠️ ตัวหนังสือขาวบนสีนี้ contrast ต่ำกว่าเกณฑ์ AA ใช้ได้กับหัวเรื่องและ
+  /// ปุ่มที่ตัวอักษรใหญ่และหนา แต่อย่าเอาไปใช้เป็นสีข้อความเนื้อหาบนพื้นขาว
+  static const Color repairIcon = lineGreen;
+
+  /// พื้นอ่อนของสีข้างบน สำหรับกล่องไอคอนและพื้นการ์ด
+  static const Color repairBg = Color(0xFFE3F9EC);
 
   /// แจ้งเคสให้ทีม IT คนละเมนูกับแจ้งซ่อม สีจึงต้องแยกจากกันให้เห็น
   static const Color caseIcon = Color(0xFF5B21B6);

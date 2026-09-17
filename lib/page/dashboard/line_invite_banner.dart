@@ -37,16 +37,40 @@ class _LineInviteBannerState extends State<LineInviteBanner> {
   }
 
   /// เช็คเงียบ ๆ ว่าควรโชว์ไหม พังก็ไม่โชว์
+  /// เช็คว่าควรโชว์ไหม พังก็ไม่โชว์ แต่บอกเหตุผลลง log ทุกทาง
+  ///
+  /// อ่าน driverID จาก prefs ตรง ๆ ไม่ผ่าน [RoleService] เพราะตัวนั้นอ่านค่า
+  /// ตอนเปิดแอปครั้งเดียว ถ้าหน้าจอนี้ถูกสร้างก่อนมันอ่านเสร็จจะได้ค่าว่าง
+  /// แล้วแถบจะเงียบไปตลอดโดยไม่มีอะไรบอก
   Future<void> _check() async {
-    final empId = RoleService.I.empId;
-    if (empId == null || empId.isEmpty) return;
-
     final prefs = await SharedPreferences.getInstance();
-    if (prefs.getBool(lineBannerDismissKey(empId)) == true) return;
+    final empId = prefs.getString('driverID')?.trim() ?? '';
 
-    final linked = await isLineLinked();
-    if (!mounted || linked) return;
+    if (empId.isEmpty) {
+      debugPrint('line banner: ไม่มี driverID ใน prefs ยังไม่ได้ล็อกอิน?');
+      return;
+    }
 
+    if (prefs.getBool(lineBannerDismissKey(empId)) == true) {
+      debugPrint('line banner: เคยกดปิดไปแล้ว ($empId)');
+      return;
+    }
+
+    final empNumber = int.tryParse(empId);
+    if (empNumber == null) {
+      debugPrint('line banner: driverID "$empId" ไม่ใช่ตัวเลข');
+      return;
+    }
+
+    final linked = await isLineLinked(empNumber);
+    if (!mounted) return;
+
+    if (linked) {
+      debugPrint('line banner: ผูกบัญชีแล้ว หรือถามไม่สำเร็จ ($empNumber)');
+      return;
+    }
+
+    debugPrint('line banner: ยังไม่ผูก โชว์แถบ ($empNumber)');
     setState(() => _show = true);
   }
 
