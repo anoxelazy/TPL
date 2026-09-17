@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -8,6 +6,7 @@ import 'package:claim/page/repair/asset_picker_page.dart';
 import 'package:claim/page/repair/asset_tile.dart';
 import 'package:claim/page/repair/repair_api.dart';
 import 'package:claim/utils/app_colors.dart';
+import 'package:claim/widgets/local_image_view.dart';
 import 'package:claim/utils/permission_service.dart';
 import 'package:claim/widgets/app_card.dart';
 import 'package:claim/widgets/barcode_scanner.dart';
@@ -31,7 +30,7 @@ class _RepairFormPageState extends State<RepairFormPage> {
   ///
   /// แนบได้ใบละหนึ่งรูป รูปเดียวพอให้ช่างเห็นว่าของจริงเป็นยังไงก่อนไปถึงหน้างาน
   /// ส่วนคอลัมน์ฝั่ง DB เป็น array อยู่แล้ว วันหลังจะแนบหลายรูปก็ไม่ต้องแก้ตาราง
-  File? _photo;
+  XFile? _photo;
 
   String _requesterName = '';
 
@@ -132,7 +131,7 @@ class _RepairFormPageState extends State<RepairFormPage> {
     final picked = await ImagePicker().pickImage(source: source);
     if (picked == null || !mounted) return;
 
-    setState(() => _photo = File(picked.path));
+    setState(() => _photo = picked);
   }
 
   /// อัปโหลดรูป (ถ้ามี) แล้วค่อยเปิดใบ
@@ -377,10 +376,7 @@ class _RepairFormPageState extends State<RepairFormPage> {
               ),
               Text(
                 'ไม่บังคับ',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: scheme.onSurfaceVariant,
-                ),
+                style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
               ),
             ],
           ),
@@ -389,11 +385,10 @@ class _RepairFormPageState extends State<RepairFormPage> {
           if (photo != null) ...[
             ClipRRect(
               borderRadius: BorderRadius.circular(10),
-              child: Image.file(
-                photo,
+              child: LocalImageView(
+                file: photo,
                 height: 160,
                 width: double.infinity,
-                fit: BoxFit.cover,
               ),
             ),
             const SizedBox(height: 10),

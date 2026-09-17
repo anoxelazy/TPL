@@ -1,11 +1,10 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'package:claim/page/repair/repair_api.dart';
 import 'package:claim/page/repair/repair_history_page.dart';
 import 'package:claim/utils/app_colors.dart';
+import 'package:claim/widgets/local_image_view.dart';
 import 'package:claim/utils/app_icons.dart';
 import 'package:claim/utils/role_service.dart';
 import 'package:claim/widgets/app_card.dart';
@@ -51,7 +50,7 @@ class _AssetFormPageState extends State<AssetFormPage> {
   String _warrantyStart = '';
   String _warrantyEnd = '';
   String _imageUrl = '';
-  File? _newPhoto;
+  XFile? _newPhoto;
   bool _saving = false;
 
   bool get _isEdit => widget.asset != null;
@@ -158,7 +157,7 @@ class _AssetFormPageState extends State<AssetFormPage> {
     final picked = await ImagePicker().pickImage(source: source);
     if (picked == null || !mounted) return;
 
-    setState(() => _newPhoto = File(picked.path));
+    setState(() => _newPhoto = picked);
   }
 
   Future<void> _pickDate({required bool isStart}) async {
@@ -357,7 +356,7 @@ class _AssetFormPageState extends State<AssetFormPage> {
             ),
             clipBehavior: Clip.antiAlias,
             child: photo != null
-                ? Image.file(photo, fit: BoxFit.cover)
+                ? LocalImageView(file: photo)
                 : _imageUrl.isEmpty
                 ? Icon(
                     Icons.photo_camera_outlined,

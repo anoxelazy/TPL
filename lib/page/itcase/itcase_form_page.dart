@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -10,6 +8,7 @@ import 'package:claim/page/itcase/itcase_appbar.dart';
 import 'package:claim/page/itcase/itcase_job_detail_page.dart';
 import 'package:claim/page/itcase/itcase_status_page.dart';
 import 'package:claim/utils/app_colors.dart';
+import 'package:claim/widgets/local_image_view.dart';
 import 'package:claim/utils/app_icons.dart';
 import 'package:claim/utils/mobile_api.dart';
 import 'package:claim/widgets/app_card.dart';
@@ -593,7 +592,7 @@ class _ItCaseFormPageState extends State<ItCaseFormPage> {
           borderRadius: BorderRadius.circular(_kImageRadius),
           child: Stack(
             children: [
-              _Preview(file: image),
+              LocalImageView(file: image, height: 150, width: double.infinity),
               Positioned(
                 top: 8,
                 right: 8,
@@ -873,42 +872,6 @@ class _CaseNumberBoxState extends State<_CaseNumberBox> {
           ),
         ),
       ),
-    );
-  }
-}
-
-/// รูปที่เลือกไว้ก่อนส่ง
-///
-/// อ่านเป็นไบต์แล้ววาดด้วย [Image.memory] แทน `Image.file` เพราะบนเว็บไม่มี
-/// `dart:io` ให้สร้าง File และ path ของ [XFile] ฝั่งเว็บเป็น blob ที่เปิดแบบ
-/// ไฟล์ไม่ได้ ทางนี้ใช้ได้เหมือนกันทั้งสองฝั่ง
-class _Preview extends StatelessWidget {
-  final XFile file;
-
-  const _Preview({required this.file});
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<Uint8List>(
-      // อ่านใหม่เมื่อเปลี่ยนรูป ไม่ใช่ค้างรูปเดิมเพราะ future ตัวเก่ายังอยู่
-      key: ValueKey(file.path),
-      future: file.readAsBytes(),
-      builder: (context, snapshot) {
-        final bytes = snapshot.data;
-        if (bytes == null) {
-          return const SizedBox(
-            height: 150,
-            child: Center(child: CircularProgressIndicator()),
-          );
-        }
-
-        return Image.memory(
-          bytes,
-          height: 150,
-          width: double.infinity,
-          fit: BoxFit.cover,
-        );
-      },
     );
   }
 }

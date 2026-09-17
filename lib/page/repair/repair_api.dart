@@ -1,8 +1,7 @@
-import 'dart:io';
-
+import 'package:cross_file/cross_file.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
-import 'package:claim/utils/image_encode_io.dart';
+import 'package:claim/utils/image_encode.dart';
 import 'package:claim/utils/supabase_config.dart';
 
 const String _function = '/functions/v1/get-asset';
@@ -352,32 +351,26 @@ Future<void> deleteAsset({required int? id, required String sn}) async {
 // -------------------------------------------------------------------- รูปแนบ
 
 /// อัปโหลดรูปเครื่องในทะเบียนแล้วคืน public URL
-Future<String> uploadAssetPhoto({
-  required File file,
-  required String sn,
-}) => _uploadPhoto(file: file, path: _safeSn(sn));
+Future<String> uploadAssetPhoto({required XFile file, required String sn}) =>
+    _uploadPhoto(file: file, path: _safeSn(sn));
 
 /// อัปโหลดรูปปัญหาที่แนบมากับใบแจ้งซ่อม แล้วคืน public URL
 ///
 /// อยู่ bucket เดียวกับรูปเครื่องแต่แยกโฟลเดอร์ `repairs/` ไว้ รูปทะเบียนเครื่อง
 /// เป็นของถาวรของเครื่องนั้น ส่วนรูปนี้เป็นของใบ ๆ เดียว ปนกันแล้วตอนล้าง
 /// ของเก่าจะแยกไม่ออกว่าอันไหนลบได้
-Future<String> uploadRepairPhoto({
-  required File file,
-  required String sn,
-}) => _uploadPhoto(file: file, path: 'repairs/${_safeSn(sn)}');
+Future<String> uploadRepairPhoto({required XFile file, required String sn}) =>
+    _uploadPhoto(file: file, path: 'repairs/${_safeSn(sn)}');
 
 /// อัปโหลดรูปหนึ่งใบเข้า [path] (โฟลเดอร์) แล้วคืน public URL
 ///
 /// ย่อก่อนเสมอตามสเปกเดียวกับเว็บ (ด้านยาวสุด 1280 คุณภาพ 80)
 /// ไม่งั้นรูปจากกล้อง 3-5 MB จะกินพื้นที่ bucket และทำให้หน้ารายการโหลดช้า
-Future<String> _uploadPhoto({
-  required File file,
-  required String path,
-}) async {
+Future<String> _uploadPhoto({required XFile file, required String path}) async {
   await _requireKey();
 
-  final bytes = await compressImageForUpload(file, maxEdge: 1280, quality: 80);
+  final picked = await file.readAsBytes();
+  final bytes = await compressImageBytes(picked, maxEdge: 1280, quality: 80);
   final fullPath = '$path/${DateTime.now().millisecondsSinceEpoch}.jpg';
 
   try {
