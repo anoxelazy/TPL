@@ -4,6 +4,7 @@ import 'package:claim/page/repair/repair_appbar.dart';
 import 'package:claim/utils/app_colors.dart';
 
 import 'package:claim/page/chat/chat_page.dart';
+import 'package:claim/page/chat/line_invite_bar.dart';
 import 'package:claim/page/repair/asset_page.dart';
 import 'package:claim/page/repair/repair_api.dart';
 import 'package:claim/page/repair/repair_card.dart';
@@ -127,7 +128,13 @@ class _RepairPageState extends State<RepairPage> {
         icon: const Icon(Icons.add),
         label: const Text('แจ้งซ่อม'),
       ),
-      body: _body(),
+      body: Column(
+        children: [
+          // ชวนแอด LINE เฉพาะคนที่ยังไม่ได้ผูกบัญชี ผูกแล้วไม่กินที่เลย
+          const LineInviteBar(),
+          Expanded(child: _body()),
+        ],
+      ),
     );
   }
 

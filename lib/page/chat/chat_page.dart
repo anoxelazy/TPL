@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:claim/page/chat/chat_api.dart';
+import 'package:claim/page/chat/line_invite_bar.dart';
 import 'package:claim/page/repair/repair_api.dart';
 import 'package:claim/page/repair/repair_appbar.dart';
 import 'package:claim/page/repair/repair_style.dart';
@@ -150,7 +151,9 @@ class _ChatPageState extends State<ChatPage> {
       appBar: repairAppBar(title: 'ติดตามสถานะซ่อม'),
       body: Column(
         children: [
-          const _LineBar(),
+          const LineInviteBar(
+            message: 'ทักบอทตัวนี้ใน LINE ได้ ไม่ต้องเปิดแอปมาถาม',
+          ),
           Expanded(
             child: ListView.builder(
               controller: _scroll,
@@ -669,84 +672,6 @@ class _QuickReplyBar extends StatelessWidget {
             visualDensity: VisualDensity.compact,
           );
         },
-      ),
-    );
-  }
-}
-
-/// แถบชวนแอด LINE เหนือห้องแชท
-///
-/// คนที่เปิดหน้านี้คือคนที่อยากรู้ความคืบหน้าอยู่พอดี เป็นจังหวะที่บอกว่า
-/// "ไม่ต้องเปิดแอปมาถามก็ได้" แล้วเข้าใจทันที ต่างจากบนหน้าหลักที่เป็นการชวนลอย ๆ
-///
-/// เตี้ยกว่าแถบบนหน้าหลักมาก เพราะห้องแชทต้องเหลือที่ให้ข้อความเป็นหลัก
-/// เกณฑ์ว่าจะโชว์ไหมใช้ [shouldInviteLine] ตัวเดียวกับหน้าหลัก
-class _LineBar extends StatefulWidget {
-  const _LineBar();
-
-  @override
-  State<_LineBar> createState() => _LineBarState();
-}
-
-class _LineBarState extends State<_LineBar> {
-  bool _show = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _check();
-  }
-
-  Future<void> _check() async {
-    final invite = await shouldInviteLine();
-    if (!mounted || !invite) return;
-
-    setState(() => _show = true);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (!_show) return const SizedBox.shrink();
-
-    final scheme = Theme.of(context).colorScheme;
-
-    return Material(
-      color: AppColors.lineGreen.withValues(alpha: 0.10),
-      child: InkWell(
-        onTap: openLineAddFriend,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 9, 14, 9),
-          child: Row(
-            children: [
-              const Icon(
-                Icons.chat_bubble,
-                size: 17,
-                color: AppColors.lineGreen,
-              ),
-              const SizedBox(width: 9),
-              Expanded(
-                child: Text(
-                  'ทักบอทตัวนี้ใน LINE ได้ ไม่ต้องเปิดแอปมาถาม',
-                  style: TextStyle(fontSize: 12.5, color: scheme.onSurface),
-                ),
-              ),
-              const SizedBox(width: 8),
-              const Text(
-                'เพิ่มเพื่อน',
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.lineGreen,
-                ),
-              ),
-              const Icon(
-                Icons.chevron_right,
-                size: 16,
-                color: AppColors.lineGreen,
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

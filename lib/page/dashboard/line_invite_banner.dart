@@ -113,7 +113,7 @@ class _LineInviteBannerState extends State<LineInviteBanner>
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'แอดบอทไว้ แล้วทักถามสถานะเคสได้เลย ไม่ต้องเปิดแอป',
+                        'แอดบอทไว้ แล้วทักถามสถานะเคสได้เลย',
                         style: TextStyle(
                           fontSize: 12,
                           height: 1.35,
