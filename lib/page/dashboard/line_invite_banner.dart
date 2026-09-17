@@ -1,10 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:url_launcher/url_launcher.dart';
-
 import 'package:claim/page/chat/chat_api.dart';
 import 'package:claim/utils/app_colors.dart';
-import 'package:claim/utils/app_config.dart';
 
 /// แถบชวนแอด LINE OA เพื่อรับแจ้งเตือนสถานะงานซ่อม
 ///
@@ -48,46 +44,15 @@ class _LineInviteBannerState extends State<LineInviteBanner>
     if (state == AppLifecycleState.resumed) _check();
   }
 
-  /// เช็คว่าควรโชว์ไหม พังก็ไม่โชว์ แต่บอกเหตุผลลง log ทุกทาง
+  /// เช็คว่าควรโชว์ไหม เกณฑ์อยู่ที่ [shouldInviteLine] ที่เดียว
   ///
-  /// อ่าน driverID จาก prefs ตรง ๆ ไม่ผ่าน RoleService เพราะตัวนั้นอ่านค่า
-  /// ตอนเปิดแอปครั้งเดียว ถ้าหน้าจอนี้ถูกสร้างก่อนมันอ่านเสร็จจะได้ค่าว่าง
-  /// แล้วแถบจะเงียบไปตลอดโดยไม่มีอะไรบอก
+  /// แถบในหน้าแชทใช้ตัวเดียวกัน แยกกันเขียนแล้ววันหลังแก้เกณฑ์จะแก้ไม่ครบ
+  /// แล้วสองที่ตอบไม่ตรงกัน
   Future<void> _check() async {
-    final prefs = await SharedPreferences.getInstance();
-    final empId = prefs.getString('driverID')?.trim() ?? '';
+    final invite = await shouldInviteLine();
+    if (!mounted || _show == invite) return;
 
-    if (empId.isEmpty) {
-      debugPrint('line banner: ไม่มี driverID ใน prefs ยังไม่ได้ล็อกอิน?');
-      return;
-    }
-
-    final empNumber = int.tryParse(empId);
-    if (empNumber == null) {
-      debugPrint('line banner: driverID "$empId" ไม่ใช่ตัวเลข');
-      return;
-    }
-
-    final linked = await isLineLinked(empNumber);
-    if (!mounted) return;
-
-    debugPrint(
-      'line banner: emp $empNumber ${linked ? 'ผูกแล้ว ซ่อน' : 'ยังไม่ผูก โชว์'}',
-    );
-    if (_show == !linked) return;
-
-    setState(() => _show = !linked);
-  }
-
-  /// เปิดหน้าเพิ่มเพื่อนของ LINE
-  ///
-  /// ต้องเปิดออกนอกแอป ไม่ใช่ webview ในตัว ระบบปฏิบัติการจะได้เด้งเข้าแอป LINE
-  /// ให้เอง ถ้าเปิดใน webview จะค้างอยู่ที่หน้าเว็บแล้วกดเพิ่มเพื่อนไม่ได้
-  Future<void> _addFriend() async {
-    final uri = Uri.tryParse(AppConfig.repairLineOaUrl);
-    if (uri == null) return;
-
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
+    setState(() => _show = invite);
   }
 
   @override
@@ -104,7 +69,7 @@ class _LineInviteBannerState extends State<LineInviteBanner>
         borderRadius: BorderRadius.circular(AppSizes.cardRadius),
         child: InkWell(
           // แตะที่แถบก็เพิ่มเพื่อนได้ ไม่ต้องเล็งปุ่มเล็ก ๆ
-          onTap: _addFriend,
+          onTap: openLineAddFriend,
           borderRadius: BorderRadius.circular(AppSizes.cardRadius),
           child: Ink(
             padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
@@ -159,7 +124,7 @@ class _LineInviteBannerState extends State<LineInviteBanner>
                       SizedBox(
                         height: 34,
                         child: FilledButton.icon(
-                          onPressed: _addFriend,
+                          onPressed: openLineAddFriend,
                           style: FilledButton.styleFrom(
                             backgroundColor: AppColors.lineGreen,
                             foregroundColor: Colors.white,

@@ -1,6 +1,9 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import 'package:claim/utils/app_config.dart';
 
 import 'package:claim/utils/role_service.dart';
 import 'package:claim/utils/supabase_config.dart';
@@ -251,4 +254,45 @@ Future<bool> isLineLinked(int empNumber) async {
     debugPrint('line link: ถามไม่สำเร็จ $e');
     return true;
   }
+}
+
+/// ควรชวนให้แอด LINE ไหม
+///
+/// รวมการเช็คไว้ที่เดียว ทั้งแถบบนหน้าหลักและแถบในหน้าแชทใช้ตัวนี้ตัวเดียวกัน
+/// ถ้าแยกกันเขียนแล้ววันหลังแก้เกณฑ์ จะแก้ไม่ครบแล้วสองที่ตอบไม่ตรงกัน
+///
+/// อ่าน driverID จาก prefs ตรง ๆ ไม่ผ่าน [RoleService] เพราะตัวนั้นอ่านค่าตอน
+/// เปิดแอปครั้งเดียว หน้าจอที่ถูกสร้างก่อนมันอ่านเสร็จจะได้ค่าว่าง แล้วแถบจะ
+/// เงียบไปตลอดโดยไม่มีอะไรบอก
+///
+/// ทางไหนที่ตอบไม่ได้คืน false คือไม่ชวน ดีกว่าไปเด้งใส่คนที่ผูกไปแล้ว
+Future<bool> shouldInviteLine() async {
+  final prefs = await SharedPreferences.getInstance();
+  final empId = prefs.getString('driverID')?.trim() ?? '';
+
+  if (empId.isEmpty) {
+    debugPrint('line invite: ไม่มี driverID ใน prefs ยังไม่ได้ล็อกอิน?');
+    return false;
+  }
+
+  final empNumber = int.tryParse(empId);
+  if (empNumber == null) {
+    debugPrint('line invite: driverID "$empId" ไม่ใช่ตัวเลข');
+    return false;
+  }
+
+  final linked = await isLineLinked(empNumber);
+  debugPrint('line invite: emp $empNumber ${linked ? 'ผูกแล้ว' : 'ยังไม่ผูก'}');
+  return !linked;
+}
+
+/// เปิดหน้าเพิ่มเพื่อนของ LINE OA ระบบแจ้งซ่อม
+///
+/// ต้องเปิดออกนอกแอป ไม่ใช่ webview ในตัว ระบบปฏิบัติการจะได้เด้งเข้าแอป LINE
+/// ให้เอง ถ้าเปิดใน webview จะค้างอยู่ที่หน้าเว็บแล้วกดเพิ่มเพื่อนไม่ได้
+Future<void> openLineAddFriend() async {
+  final uri = Uri.tryParse(AppConfig.repairLineOaUrl);
+  if (uri == null) return;
+
+  await launchUrl(uri, mode: LaunchMode.externalApplication);
 }
