@@ -107,20 +107,4 @@ void main() {
       expect(find.byType(GestureDetector), findsOneWidget);
     });
   });
-
-  testWidgets('กรอบสำรองบอกสภาพได้ทั้งกำลังโหลดและโหลดไม่ได้', (tester) async {
-    await tester.pumpWidget(
-      const MaterialApp(home: Scaffold(body: BannerPlaceholder(loading: true))),
-    );
-    expect(find.text('กำลังโหลดแบนเนอร์...'), findsOneWidget);
-
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(
-          body: BannerPlaceholder(message: 'โหลดแบนเนอร์ไม่สำเร็จ'),
-        ),
-      ),
-    );
-    expect(find.text('โหลดแบนเนอร์ไม่สำเร็จ'), findsOneWidget);
-  });
 }

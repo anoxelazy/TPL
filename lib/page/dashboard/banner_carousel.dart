@@ -5,7 +5,6 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'package:claim/page/dashboard/banner_api.dart';
 import 'package:claim/utils/app_colors.dart';
-import 'package:claim/widgets/app_card.dart';
 
 /// อัตราส่วนของแบนเนอร์ ทรงยาวแบบแถบ
 ///
@@ -198,53 +197,6 @@ class _Dots extends StatelessWidget {
             ),
           ),
       ],
-    );
-  }
-}
-
-/// กรอบขนาดเท่าแบนเนอร์ ใช้ตอนกำลังโหลด โหลดไม่ได้ หรือยังไม่มีแบนเนอร์
-class BannerPlaceholder extends StatelessWidget {
-  final bool loading;
-  final String? message;
-
-  const BannerPlaceholder({super.key, this.loading = false, this.message});
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
-    return AppCard(
-      padding: EdgeInsets.zero,
-      child: AspectRatio(
-        aspectRatio: _bannerRatio,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (loading)
-              const SizedBox(
-                width: 28,
-                height: 28,
-                child: CircularProgressIndicator(strokeWidth: 2.5),
-              )
-            else
-              Icon(
-                message == null
-                    ? Icons.image_outlined
-                    : Icons.image_not_supported_outlined,
-                size: 40,
-                color: scheme.onSurfaceVariant,
-              ),
-            const SizedBox(height: 10),
-            Text(
-              loading
-                  ? 'กำลังโหลดแบนเนอร์...'
-                  : (message ?? 'ยังไม่มีแบนเนอร์'),
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, color: scheme.onSurfaceVariant),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

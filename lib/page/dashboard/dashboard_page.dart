@@ -24,9 +24,10 @@ class DashboardPage extends StatefulWidget {
 class _DashboardPageState extends State<DashboardPage> {
   String _userName = '';
 
+  /// แบนเนอร์ที่มีรูปจริงใน banner.json ว่างแปลว่าไม่ต้องโชว์อะไรเลย
+  ///
+  /// [fetchBanners] คัดแถวที่ไม่มี image_url ออกให้แล้ว ที่เหลือจึงโชว์ได้หมด
   List<BannerItem> _banners = [];
-  bool _isLoadingBanners = true;
-  String? _bannerError;
 
   @override
   void initState() {
@@ -60,20 +61,17 @@ class _DashboardPageState extends State<DashboardPage> {
     setState(() => _userName = name);
   }
 
+  /// โหลดแบนเนอร์เงียบ ๆ พังก็แค่ไม่มีแบนเนอร์
+  ///
+  /// เดิมขึ้นกล่องเทาบอกว่าโหลดไม่สำเร็จคาไว้กลางหน้าหลัก ซึ่งคนใช้ทำอะไรกับมัน
+  /// ไม่ได้อยู่ดี ได้แต่มองว่าแอปเสีย ทั้งที่เมนูข้างล่างใช้ได้ปกติทุกอัน
   Future<void> _loadBanners() async {
     try {
       final banners = await fetchBanners();
       if (!mounted) return;
-      setState(() {
-        _banners = banners;
-        _isLoadingBanners = false;
-      });
+      setState(() => _banners = banners);
     } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _isLoadingBanners = false;
-        _bannerError = e.toString().replaceFirst('Exception: ', '');
-      });
+      debugPrint('banner: $e');
     }
   }
 
@@ -92,13 +90,6 @@ class _DashboardPageState extends State<DashboardPage> {
   //   );
   // }
 
-  Widget _buildBanner() {
-    if (_isLoadingBanners) return const BannerPlaceholder(loading: true);
-    if (_bannerError != null) return BannerPlaceholder(message: _bannerError);
-    if (_banners.isEmpty) return const BannerPlaceholder();
-    return BannerCarousel(banners: _banners);
-  }
-
   @override
   Widget build(BuildContext context) {
     return ListView(
@@ -106,8 +97,14 @@ class _DashboardPageState extends State<DashboardPage> {
       children: [
         _Greeting(name: _userName),
         const SizedBox(height: 16),
-        _buildBanner(),
-        const SizedBox(height: 16),
+
+        // ไม่มีรูปใน banner.json ก็ไม่ต้องกินที่เลย ไม่ใช่ขึ้นกล่องเทาเปล่า ๆ
+        // ที่คนใช้ทำอะไรกับมันไม่ได้ ระหว่างโหลดก็ยังไม่โชว์ ขึ้นมาตอนได้รูปจริง
+        if (_banners.isNotEmpty) ...[
+          BannerCarousel(banners: _banners),
+          const SizedBox(height: 16),
+        ],
+
         const ItCaseBanner(),
         const SizedBox(height: 16),
         ValueListenableBuilder<bool>(
