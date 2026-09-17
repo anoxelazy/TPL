@@ -270,6 +270,8 @@ const Map<String, String> _fieldLabels = {
   'startdate': 'เริ่มทำเมื่อ',
   'finishdate': 'เสร็จเมื่อ',
   'closedate': 'ปิดงานเมื่อ',
+  'recivedate': 'รับงานเมื่อ',
+  'createby': 'ผู้แจ้ง',
   'updatedate': 'อัปเดตล่าสุด',
 };
 
@@ -339,6 +341,10 @@ const List<String> _createdKeys = [
   'date',
 ];
 const List<String> _officerKeys = [
+  // `recive_by` ไม่ใช่พิมพ์ผิดตรงนี้ API สะกดตก e ไปตัวหนึ่งจริง ๆ
+  // ตัวที่สะกดถูกใส่ไว้ด้วยเผื่อวันหลัง backend แก้คำ
+  'reciveby',
+  'recivename',
   'officername',
   'solvername',
   'operatorname',
