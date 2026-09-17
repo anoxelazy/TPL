@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:claim/page/repair/repair_appbar.dart';
+
 import 'package:claim/page/repair/asset_form_page.dart';
 import 'package:claim/page/repair/asset_tile.dart';
 import 'package:claim/page/repair/repair_api.dart';
@@ -89,7 +91,7 @@ class _AssetPageState extends State<AssetPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('ทะเบียนเครื่อง')),
+      appBar: repairAppBar(title: 'ทะเบียนเครื่อง'),
       floatingActionButton: _isIt
           ? FloatingActionButton.extended(
               onPressed: () => _openForm(),

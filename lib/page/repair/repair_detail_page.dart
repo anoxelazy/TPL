@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import 'package:claim/page/repair/repair_appbar.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -91,7 +93,7 @@ class _RepairDetailPageState extends State<RepairDetailPage> {
         if (!didPop) Navigator.of(context).pop(_changed);
       },
       child: Scaffold(
-        appBar: AppBar(title: const Text('รายละเอียดใบแจ้งซ่อม')),
+        appBar: repairAppBar(title: 'รายละเอียดใบแจ้งซ่อม'),
         body: ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
           children: [

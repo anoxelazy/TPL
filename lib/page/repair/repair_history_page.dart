@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:claim/page/repair/repair_appbar.dart';
+
 import 'package:claim/page/repair/repair_api.dart';
 import 'package:claim/page/repair/repair_card.dart';
 import 'package:claim/page/repair/repair_detail_page.dart';
@@ -63,8 +65,8 @@ class _RepairHistoryPageState extends State<RepairHistoryPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('ประวัติการซ่อม'),
+      appBar: repairAppBar(
+        title: 'ประวัติการซ่อม',
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(24),
           child: Align(

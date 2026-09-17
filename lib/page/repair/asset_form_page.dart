@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import 'package:claim/page/repair/repair_appbar.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'package:claim/page/repair/repair_api.dart';
@@ -284,8 +286,8 @@ class _AssetFormPageState extends State<AssetFormPage> {
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_isEdit ? 'ข้อมูลเครื่อง' : 'เพิ่มเครื่อง'),
+      appBar: repairAppBar(
+        title: _isEdit ? 'ข้อมูลเครื่อง' : 'เพิ่มเครื่อง',
         actions: [
           if (_isEdit && !_readOnly)
             IconButton(
@@ -331,6 +333,8 @@ class _AssetFormPageState extends State<AssetFormPage> {
                     : const Icon(Icons.save_outlined),
                 label: Text(_saving ? 'กำลังบันทึก...' : 'บันทึก'),
                 style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.repairIcon,
+                  foregroundColor: Colors.white,
                   minimumSize: const Size.fromHeight(48),
                 ),
               ),

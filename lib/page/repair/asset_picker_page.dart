@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:claim/page/repair/repair_appbar.dart';
+
 import 'package:claim/page/repair/asset_tile.dart';
 import 'package:claim/page/repair/repair_api.dart';
 import 'package:claim/utils/app_icons.dart';
@@ -91,7 +93,7 @@ class _AssetPickerPageState extends State<AssetPickerPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('เลือกเครื่องที่จะแจ้งซ่อม')),
+      appBar: repairAppBar(title: 'เลือกเครื่องที่จะแจ้งซ่อม'),
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
         child: _body(),

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import 'package:claim/page/repair/repair_appbar.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -176,7 +178,7 @@ class _RepairFormPageState extends State<RepairFormPage> {
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('แจ้งซ่อม')),
+      appBar: repairAppBar(title: 'แจ้งซ่อม'),
       // แตะที่ว่างเพื่อปิดคีย์บอร์ด ฟอร์มนี้มีช่องพิมพ์หลายช่อง
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
@@ -194,6 +196,8 @@ class _RepairFormPageState extends State<RepairFormPage> {
             FilledButton.icon(
               onPressed: _canSend ? _send : null,
               style: FilledButton.styleFrom(
+                backgroundColor: AppColors.repairIcon,
+                foregroundColor: Colors.white,
                 minimumSize: const Size.fromHeight(48),
               ),
               icon: _sending

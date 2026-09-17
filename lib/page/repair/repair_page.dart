@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'package:claim/page/repair/repair_appbar.dart';
+import 'package:claim/utils/app_colors.dart';
+
 import 'package:claim/page/chat/chat_page.dart';
 import 'package:claim/page/repair/asset_page.dart';
 import 'package:claim/page/repair/repair_api.dart';
@@ -89,8 +92,8 @@ class _RepairPageState extends State<RepairPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('แจ้งซ่อม'),
+      appBar: repairAppBar(
+        title: 'แจ้งซ่อม',
         actions: [
           IconButton(
             tooltip: 'ถามบอทเรื่องสถานะซ่อม',
@@ -119,6 +122,8 @@ class _RepairPageState extends State<RepairPage> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _openForm,
+        backgroundColor: AppColors.repairIcon,
+        foregroundColor: Colors.white,
         icon: const Icon(Icons.add),
         label: const Text('แจ้งซ่อม'),
       ),

@@ -4,9 +4,9 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'package:claim/page/chat/chat_api.dart';
 import 'package:claim/page/repair/repair_api.dart';
+import 'package:claim/page/repair/repair_appbar.dart';
 import 'package:claim/page/repair/repair_style.dart';
 import 'package:claim/utils/app_colors.dart';
-import 'package:claim/utils/theme.dart';
 import 'package:claim/widgets/app_card.dart';
 
 /// หน้าแชทติดตามสถานะงานซ่อม
@@ -124,13 +124,7 @@ class _ChatPageState extends State<ChatPage> {
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       backgroundColor: scheme.surfaceContainerLowest,
-      appBar: AppBar(
-        title: const Text('ติดตามสถานะซ่อม'),
-        backgroundColor: AppColors.repairIcon,
-        foregroundColor: Colors.white,
-        iconTheme: const IconThemeData(color: Colors.white),
-        systemOverlayStyle: AppTheme.statusBarStyleFor(AppColors.repairIcon),
-      ),
+      appBar: repairAppBar(title: 'ติดตามสถานะซ่อม'),
       body: Column(
         children: [
           Expanded(
