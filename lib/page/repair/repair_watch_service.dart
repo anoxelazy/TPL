@@ -37,8 +37,8 @@ class RepairWatchService {
   /// [tickets] ส่งมาได้เมื่อหน้าจอเพิ่งโหลดรายการไปแล้ว จะได้ไม่ยิง API ซ้ำ
   /// [force] ข้ามตัวกันยิงถี่ ใช้ตอนผู้ใช้เปิดหน้าแจ้งซ่อมเอง
   Future<void> check({List<RepairTicket>? tickets, bool force = false}) async {
-    if (!SupabaseConfig.isConfigured) {
-      debugPrint('repair watch: ยังไม่ได้ตั้งคีย์ Supabase');
+    if (!await SupabaseConfig.ensureKey()) {
+      debugPrint('repair watch: ยังไม่มีคีย์ Supabase');
       return;
     }
 

@@ -85,6 +85,18 @@ class AnnouncementService {
 
   bool _showing = false;
 
+  /// ล้างของที่จำไว้ในรอบนี้ ใช้ตอน logout และในเทสต์
+  ///
+  /// คนถัดไปที่ล็อกอินในแอปรอบเดียวกันต้องได้เห็นประกาศของตัวเอง
+  /// ไม่ใช่โดนกลืนเพราะคนก่อนหน้าเพิ่งเห็นไป ส่วนที่กด "ไม่แสดงอีก"
+  /// เก็บแยกตามรหัสพนักงานอยู่แล้ว ตรงนั้นไม่ต้องล้าง
+  void forgetCurrentUser() {
+    _shownThisSession.clear();
+    // logout ทั้งที่ประกาศยังค้างอยู่บนจอ ปล่อยธงไว้แอปจะไม่เด้งประกาศอีกเลย
+    // จนกว่าจะปิดแอป
+    _showing = false;
+  }
+
   /// หาประกาศที่เข้าเงื่อนไขแล้วแสดง ไม่มีก็เงียบ
   ///
   /// ไม่ throw เพราะเป็นงานเสริม โหลดไม่ได้ต้องไม่กระทบการเปิดแอป
@@ -93,10 +105,16 @@ class AnnouncementService {
     _showing = true;
 
     try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // ยังไม่ล็อกอินห้ามเด้ง หน้า login กับ splash ไม่ใช่ที่ของประกาศ
+      // และยังไม่รู้ว่าใครเข้ามา จะเช็คสาขา/สิทธิ์ หรือจำว่าใครกดปิดก็ไม่ได้
+      // เช็คก่อนโหลดด้วย จะได้ไม่เสียเน็ตยิง json ทิ้งตอนยังไม่ได้เข้าระบบ
+      if ((prefs.getString('token') ?? '').isEmpty) return;
+
       final list = await _load();
       if (list.isEmpty) return;
 
-      final prefs = await SharedPreferences.getInstance();
       final empId = prefs.getString('driverID') ?? '';
       final dismissed = prefs.getStringList(_dismissedFor(empId)) ?? const [];
       final version = await _currentVersion();

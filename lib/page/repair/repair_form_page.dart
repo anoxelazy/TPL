@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:claim/page/repair/asset_picker_page.dart';
@@ -23,6 +26,12 @@ class _RepairFormPageState extends State<RepairFormPage> {
   RepairAsset? _asset;
   bool _looking = false;
   bool _sending = false;
+
+  /// รูปอาการเสียที่แนบมา ยังไม่ได้อัปโหลด รอตอนกดส่ง
+  ///
+  /// แนบได้ใบละหนึ่งรูป รูปเดียวพอให้ช่างเห็นว่าของจริงเป็นยังไงก่อนไปถึงหน้างาน
+  /// ส่วนคอลัมน์ฝั่ง DB เป็น array อยู่แล้ว วันหลังจะแนบหลายรูปก็ไม่ต้องแก้ตาราง
+  File? _photo;
 
   String _requesterName = '';
 
@@ -96,16 +105,58 @@ class _RepairFormPageState extends State<RepairFormPage> {
     }
   }
 
+  /// เลือกรูปอาการเสีย ถ่ายใหม่หรือหยิบจากคลังก็ได้ แบบเดียวกับฟอร์มทะเบียนเครื่อง
+  Future<void> _pickPhoto() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('ถ่ายรูป'),
+              onTap: () => Navigator.of(context).pop(ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('เลือกจากคลังรูป'),
+              onTap: () => Navigator.of(context).pop(ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null) return;
+
+    final picked = await ImagePicker().pickImage(source: source);
+    if (picked == null || !mounted) return;
+
+    setState(() => _photo = File(picked.path));
+  }
+
+  /// อัปโหลดรูป (ถ้ามี) แล้วค่อยเปิดใบ
+  ///
+  /// อัปโหลดก่อนเสมอ เพราะคอลัมน์ `image_urls` ต้องได้ URL ตอน insert
+  /// อัปโหลดไม่ผ่านก็หยุดตรงนั้น ไม่เปิดใบที่อ้างรูปซึ่งไม่มีอยู่จริง ผู้ใช้
+  /// กดส่งใหม่ได้ ของที่กรอกไว้ยังอยู่ครบ
   Future<void> _send() async {
     if (!_canSend) return;
     setState(() => _sending = true);
 
     try {
+      final photo = _photo;
+      final urls = <String>[
+        if (photo != null)
+          await uploadRepairPhoto(file: photo, sn: _asset!.sn.trim()),
+      ];
+
       await createRepair(
         asset: _asset!,
         issueDescription: _issueField.text.trim(),
         requesterName: _requesterName,
         branch: _branch,
+        imageUrls: urls,
       );
       if (!mounted) return;
       _message('ส่งใบแจ้งซ่อมเรียบร้อย');
@@ -136,6 +187,8 @@ class _RepairFormPageState extends State<RepairFormPage> {
             _snCard(scheme),
             const SizedBox(height: AppSizes.gap),
             _issueCard(scheme),
+            const SizedBox(height: AppSizes.gap),
+            _photoCard(scheme),
             const SizedBox(height: AppSizes.gap),
             _requesterCard(scheme),
             const SizedBox(height: 20),
@@ -296,6 +349,89 @@ class _RepairFormPageState extends State<RepairFormPage> {
               alignLabelWithHint: true,
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  /// ช่องแนบรูปอาการเสีย ไม่บังคับ
+  ///
+  /// อาการบางอย่างพิมพ์ยังไงก็ไม่ตรงเท่ารูป (จอเป็นเส้น ขอบบวม สายขาด)
+  /// ช่างเห็นรูปก่อนจะเตรียมของไปถูกตั้งแต่เที่ยวแรก จึงเปิดช่องไว้ แต่ไม่บังคับ
+  /// คนที่รีบแจ้งจะได้ไม่ต้องรอถ่ายรูปก่อน
+  Widget _photoCard(ColorScheme scheme) {
+    final photo = _photo;
+
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _cardTitle(
+                  scheme,
+                  Icons.photo_camera_outlined,
+                  'รูปอาการเสีย',
+                ),
+              ),
+              Text(
+                'ไม่บังคับ',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          if (photo != null) ...[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Image.file(
+                photo,
+                height: 160,
+                width: double.infinity,
+                fit: BoxFit.cover,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _sending ? null : _pickPhoto,
+                    icon: const Icon(Icons.autorenew, size: 18),
+                    label: const Text('เปลี่ยนรูป'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                // เอารูปออกได้ ถ่ายผิดเครื่องแล้วต้องมีทางถอย ไม่ใช่ต้องปิดฟอร์ม
+                // แล้วกรอกใหม่ทั้งใบ
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _sending
+                        ? null
+                        : () => setState(() => _photo = null),
+                    icon: const Icon(Icons.delete_outline, size: 18),
+                    label: const Text('เอารูปออก'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.danger,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ] else
+            OutlinedButton.icon(
+              onPressed: _sending ? null : _pickPhoto,
+              icon: const Icon(Icons.add_a_photo_outlined),
+              label: const Text('แนบรูป'),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(42),
+              ),
+            ),
         ],
       ),
     );

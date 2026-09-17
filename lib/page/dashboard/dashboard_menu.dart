@@ -17,20 +17,16 @@ import 'package:claim/utils/permission_service.dart';
 import 'package:claim/utils/pm_access_service.dart';
 import 'package:claim/utils/app_icons.dart';
 
-/// เมนู 1 รายการบนหน้าหลัก
 class DashboardMenuItem {
   final IconData icon;
   final String label;
   final Color iconColor;
   final Color iconBg;
 
-  /// null เมื่อยังไม่มีหน้าให้ไป
   final VoidCallback? onTap;
 
-  /// เห็นเมนูได้ แต่ยังไม่มีสิทธิ์เข้าใช้งาน
   final bool locked;
 
-  /// เมนูที่วางไว้ก่อน ยังไม่ได้ทำหน้าจอ
   final bool comingSoon;
 
   const DashboardMenuItem({
@@ -43,7 +39,6 @@ class DashboardMenuItem {
     this.comingSoon = false,
   });
 
-  /// กดเข้าไม่ได้ ไม่ว่าจะเพราะไม่มีสิทธิ์หรือยังไม่ได้ทำหน้าจอ
   bool get isBlocked => locked || onTap == null;
 }
 
@@ -80,7 +75,6 @@ List<DashboardMenuItem> buildDashboardMenu(BuildContext context) {
       label: 'เช็คสถานะพัสดุ',
       iconColor: AppColors.trackingIcon,
       iconBg: AppColors.trackingBg,
-      // อ่านอย่างเดียว ไม่ผูกสิทธิ์ module ใคร login เข้ามาก็เช็คได้
       onTap: () => go(const TrackingPage()),
     ),
     DashboardMenuItem(
@@ -134,10 +128,6 @@ List<DashboardMenuItem> buildDashboardMenu(BuildContext context) {
   return _byAvailability(items);
 }
 
-/// เรียงเมนูที่ใช้ได้จริงขึ้นก่อน แล้วตัวที่ยังไม่มีสิทธิ์ ปิดท้ายด้วยตัวที่ยังไม่เปิด
-///
-/// คนที่เปิดสิทธิ์ไว้ไม่กี่โมดูลจะได้ไม่ต้องเลื่อนผ่านเมนูที่กดไม่ได้
-/// พ่วง index เดิมไปด้วย ลำดับภายในกลุ่มเดียวกันจึงไม่สลับไปมาเอง
 List<DashboardMenuItem> _byAvailability(List<DashboardMenuItem> items) {
   final ranked = <MapEntry<int, DashboardMenuItem>>[
     for (var i = 0; i < items.length; i++) MapEntry(i, items[i]),
@@ -151,7 +141,6 @@ List<DashboardMenuItem> _byAvailability(List<DashboardMenuItem> items) {
   return [for (final entry in ranked) entry.value];
 }
 
-/// 0 = กดเข้าได้ 1 = ยังไม่มีสิทธิ์ 2 = ยังไม่ได้ทำหน้าจอ
 int _rank(DashboardMenuItem item) {
   if (item.comingSoon) return 2;
   if (item.isBlocked) return 1;

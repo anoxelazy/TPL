@@ -48,6 +48,26 @@ void main() {
     });
   });
 
+  group('ฟอร์มแจ้งซ่อม: รูปอาการเสีย', () {
+    testWidgets('มีช่องแนบรูป และบอกชัดว่าไม่บังคับ', (tester) async {
+      await tester.pumpWidget(const MaterialApp(home: RepairFormPage()));
+      await tester.pump();
+
+      expect(find.text('รูปอาการเสีย'), findsOneWidget);
+      expect(find.text('แนบรูป'), findsOneWidget);
+      // คนที่รีบแจ้งต้องรู้ว่าข้ามได้ ไม่ใช่นึกว่าต้องถ่ายรูปก่อนถึงจะส่งได้
+      expect(find.text('ไม่บังคับ'), findsOneWidget);
+    });
+
+    testWidgets('ยังไม่แนบรูป ไม่มีปุ่มเอารูปออกให้กดสับสน', (tester) async {
+      await tester.pumpWidget(const MaterialApp(home: RepairFormPage()));
+      await tester.pump();
+
+      expect(find.text('เอารูปออก'), findsNothing);
+      expect(find.text('เปลี่ยนรูป'), findsNothing);
+    });
+  });
+
   group('createRepair: กันใบที่ผูกเครื่องไม่ได้', () {
     test('เครื่องไม่มี S/N ต้องไม่ยิง API และบอกให้แจ้ง IT', () async {
       const noSn = RepairAsset(id: 1, assetCode: 'IT-001', brand: 'Dell');

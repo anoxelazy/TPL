@@ -5,13 +5,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:claim/utils/app_colors.dart';
 import 'package:claim/utils/permission_service.dart';
-import 'package:claim/utils/claim_store.dart';
-import 'package:claim/utils/claim_reminder_service.dart';
-import 'package:claim/page/repair/repair_watch_service.dart';
-import 'package:claim/utils/pm_access_service.dart';
-import 'package:claim/utils/profile_avatar_service.dart';
-import 'package:claim/utils/rank_service.dart';
-import 'package:claim/utils/role_service.dart';
+import 'package:claim/utils/session_reset.dart';
 import 'package:claim/page/profile/avatar_picker_page.dart';
 import 'package:claim/widgets/app_card.dart';
 import 'package:claim/widgets/profile_avatar_view.dart';
@@ -73,22 +67,9 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _logout() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.remove("token");
-    await prefs.remove("fullname");
-    await prefs.remove("driverID");
-    await prefs.remove("username");
-
-    await PermissionService.I.clear();
-    // รูปโปรไฟล์เก็บแยกตามรหัสพนักงาน ไม่ต้องลบตอน logout
-    // แค่เอาออกจากหน้าจอ กลับมา login เดิมจะได้รูปเดิมคืน
-    ProfileAvatarService.I.forgetCurrentUser();
-    RoleService.I.forgetCurrentUser();
-    RankService.I.forgetCurrentUser();
-    PmAccessService.I.forgetCurrentUser();
-    RepairWatchService.I.forgetCurrentUser();
-    await ClaimStore.I.clear();
-    await ClaimReminderService.I.cancel();
+    // รายการที่ต้องล้างอยู่ที่ forgetSignedInUser ที่เดียว หน้านี้แค่สั่งกับพาไป
+    // หน้า login ต่อ เพิ่ม service ใหม่แล้วไม่ต้องมาไล่แก้ทุกที่ที่ logout ได้
+    await forgetSignedInUser();
 
     if (!mounted) return;
     Navigator.pushReplacement(

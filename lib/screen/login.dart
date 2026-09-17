@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:claim/page/home.dart';
+import 'package:claim/utils/announcement_service.dart';
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -209,9 +212,17 @@ class _LoginPageState extends State<LoginPage> {
         if (!mounted) return;
 
         // แทนหน้า login ไปเลย ไม่เหลือไว้ใน stack ให้กด back ย้อนมาได้
-        Navigator.of(
-          context,
-        ).pushReplacement(MaterialPageRoute(builder: (_) => const HomePage()));
+        final navigator = Navigator.of(context);
+        navigator.pushReplacement(
+          MaterialPageRoute(builder: (_) => const HomePage()),
+        );
+
+        // ประกาศเด้งตรงนี้ ไม่ต้องรอเปิดแอปรอบหน้า
+        //
+        // ตอนเปิดแอปยังไม่มี token ตัวเช็คเลยข้ามไป คนที่เพิ่งล็อกอินจะพลาด
+        // ประกาศไปทั้งรอบถ้าไม่ยิงซ้ำที่นี่ ใช้ context ของ navigator
+        // เพราะหน้า login ถูกแทนที่ไปแล้ว context ของมันใช้ต่อไม่ได้
+        unawaited(AnnouncementService.I.showIfAny(navigator.context));
         return;
       } else {
         await AppLogger.I.log(

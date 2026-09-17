@@ -249,6 +249,7 @@ Future<void> createRepair({
   required String issueDescription,
   required String requesterName,
   required String branch,
+  List<String> imageUrls = const [],
 }) async {
   final sn = asset.sn.trim();
   if (sn.isEmpty) {
@@ -267,6 +268,9 @@ Future<void> createRepair({
       'device_name': asset.displayName,
       'issue_description': issueDescription,
       'requester_name': requesterName,
+      // คอลัมน์ image_urls เป็น array ส่งเป็นลิสต์ตรง ๆ ไม่ใช่สตริงคั่นคอมมา
+      // ไม่มีรูปก็ไม่ส่งช่องนี้เลย ปล่อยให้เป็นค่าตั้งต้นของคอลัมน์
+      if (imageUrls.isNotEmpty) 'image_urls': imageUrls,
     },
   );
 }
@@ -331,7 +335,7 @@ Future<void> updateAsset(RepairAsset asset) async {
 
 /// DELETE ตัวนี้มี body ไม่ใช่ query
 Future<void> deleteAsset({required int? id, required String sn}) async {
-  _requireKey();
+  await _requireKey();
 
   try {
     final response = await supabaseDio.delete(
@@ -345,24 +349,40 @@ Future<void> deleteAsset({required int? id, required String sn}) async {
   }
 }
 
-// ------------------------------------------------------------------ รูปเครื่อง
+// -------------------------------------------------------------------- รูปแนบ
 
-/// อัปโหลดรูปเครื่องแล้วคืน public URL
-///
-/// ย่อก่อนเสมอตามสเปกเดียวกับเว็บ (ด้านยาวสุด 1280 คุณภาพ 80)
-/// ไม่งั้นรูปจากกล้อง 3-5 MB จะกินพื้นที่ bucket และทำให้หน้ารายการโหลดช้า
+/// อัปโหลดรูปเครื่องในทะเบียนแล้วคืน public URL
 Future<String> uploadAssetPhoto({
   required File file,
   required String sn,
+}) => _uploadPhoto(file: file, path: _safeSn(sn));
+
+/// อัปโหลดรูปปัญหาที่แนบมากับใบแจ้งซ่อม แล้วคืน public URL
+///
+/// อยู่ bucket เดียวกับรูปเครื่องแต่แยกโฟลเดอร์ `repairs/` ไว้ รูปทะเบียนเครื่อง
+/// เป็นของถาวรของเครื่องนั้น ส่วนรูปนี้เป็นของใบ ๆ เดียว ปนกันแล้วตอนล้าง
+/// ของเก่าจะแยกไม่ออกว่าอันไหนลบได้
+Future<String> uploadRepairPhoto({
+  required File file,
+  required String sn,
+}) => _uploadPhoto(file: file, path: 'repairs/${_safeSn(sn)}');
+
+/// อัปโหลดรูปหนึ่งใบเข้า [path] (โฟลเดอร์) แล้วคืน public URL
+///
+/// ย่อก่อนเสมอตามสเปกเดียวกับเว็บ (ด้านยาวสุด 1280 คุณภาพ 80)
+/// ไม่งั้นรูปจากกล้อง 3-5 MB จะกินพื้นที่ bucket และทำให้หน้ารายการโหลดช้า
+Future<String> _uploadPhoto({
+  required File file,
+  required String path,
 }) async {
-  _requireKey();
+  await _requireKey();
 
   final bytes = await compressImageForUpload(file, maxEdge: 1280, quality: 80);
-  final path = '${_safeSn(sn)}/${DateTime.now().millisecondsSinceEpoch}.jpg';
+  final fullPath = '$path/${DateTime.now().millisecondsSinceEpoch}.jpg';
 
   try {
     final response = await supabaseDio.post(
-      '/storage/v1/object/$_bucket/$path',
+      '/storage/v1/object/$_bucket/$fullPath',
       data: Stream.fromIterable([bytes]),
       options: Options(
         headers: {
@@ -378,7 +398,7 @@ Future<String> uploadAssetPhoto({
       throw Exception('อัปโหลดรูปไม่สำเร็จ (HTTP ${response.statusCode})');
     }
 
-    return '${SupabaseConfig.baseUrl}/storage/v1/object/public/$_bucket/$path';
+    return '${SupabaseConfig.baseUrl}/storage/v1/object/public/$_bucket/$fullPath';
   } on DioException catch (e) {
     throw Exception(_networkMessage(e));
   }
@@ -416,7 +436,7 @@ Future<dynamic> _get(
   Map<String, dynamic> query, {
   bool notFoundIsNull = false,
 }) async {
-  _requireKey();
+  await _requireKey();
 
   try {
     final response = await supabaseDio.get(
@@ -436,7 +456,7 @@ Future<dynamic> _post({
   required Map<String, dynamic> query,
   required Map<String, dynamic> body,
 }) async {
-  _requireKey();
+  await _requireKey();
 
   try {
     final response = await supabaseDio.post(
@@ -455,7 +475,7 @@ Future<dynamic> _put({
   required Map<String, dynamic> query,
   required Map<String, dynamic> body,
 }) async {
-  _requireKey();
+  await _requireKey();
 
   try {
     final response = await supabaseDio.put(
@@ -485,9 +505,10 @@ dynamic _unwrap(Response<dynamic> response) {
   throw Exception('ทำรายการไม่สำเร็จ (HTTP ${response.statusCode})');
 }
 
-void _requireKey() {
-  if (SupabaseConfig.isConfigured) return;
-  throw Exception('ยังไม่ได้ตั้งค่าคีย์ระบบแจ้งซ่อม กรุณาแจ้งฝ่าย IT');
+/// รอคีย์มาก่อนค่อยยิง เปิดหน้าแจ้งซ่อมทันทีที่เปิดแอปจะได้ไม่ชนกับตอนโหลดคีย์
+Future<void> _requireKey() async {
+  if (await SupabaseConfig.ensureKey()) return;
+  throw Exception('โหลดคีย์ระบบแจ้งซ่อมไม่ได้ กรุณาตรวจสอบอินเทอร์เน็ต');
 }
 
 String _networkMessage(DioException e) {

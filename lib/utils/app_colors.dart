@@ -51,11 +51,21 @@ class AppColors {
   static const Color rankBronze = Color(0xFFB5713C);
   static const Color rankDiamond = Color(0xFF2AA9C7);
 
+  /// อันดับ 4-10 ยังติดสิบอันดับ แต่ไม่ใช่เหรียญ
+  ///
+  /// เลือกน้ำเงินอมม่วงเพราะต้องไม่ถูกเข้าใจผิดว่าเป็นเหรียญเงิน
+  /// ที่จางและออกเทากว่านี้
+  static const Color rankTop10 = Color(0xFF5A6EA8);
+
   /// สีแบรนด์ LINE ใช้กับปุ่มติดต่อผู้ดูแล
   static const Color lineGreen = Color(0xFF06C755);
 
   static const Color repairIcon = Color(0xFF8D6E63);
   static const Color repairBg = Color(0xFFEFEBE9);
+
+  /// แจ้งเคสให้ทีม IT คนละเมนูกับแจ้งซ่อม สีจึงต้องแยกจากกันให้เห็น
+  static const Color caseIcon = Color(0xFF5B21B6);
+  static const Color caseBg = Color(0xFFEDE9FE);
 }
 
 /// ค่ามาตรฐานของการ์ดและระยะห่าง ให้ทุกหน้าหน้าตาเท่ากัน

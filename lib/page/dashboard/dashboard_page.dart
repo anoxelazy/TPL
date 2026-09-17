@@ -4,6 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:claim/page/dashboard/banner_api.dart';
 import 'package:claim/page/dashboard/banner_carousel.dart';
 import 'package:claim/page/dashboard/dashboard_menu.dart';
+import 'package:claim/page/dashboard/it_case_banner.dart';
+import 'package:claim/page/dashboard/it_case_open_cards.dart';
 import 'package:claim/page/dashboard/line_support.dart';
 import 'package:claim/page/dashboard/support_links.dart';
 import 'package:claim/utils/pm_access_service.dart';
@@ -104,16 +106,16 @@ class _DashboardPageState extends State<DashboardPage> {
       children: [
         _Greeting(name: _userName),
         const SizedBox(height: 16),
-        // _SearchButton(onTap: _openSearch),
-        // const SizedBox(height: 16),
         _buildBanner(),
         const SizedBox(height: 16),
-        // เมนูต้องวาดใหม่เมื่อรู้ผลสิทธิ์ PM ไม่งั้นค้างเป็นล็อกจนกว่าจะสลับหน้า
+        const ItCaseBanner(),
+        const SizedBox(height: 16),
         ValueListenableBuilder<bool>(
           valueListenable: PmAccessService.I.allowed,
           builder: (context, _, _) =>
               _MenuGrid(items: buildDashboardMenu(context)),
         ),
+        const ItCaseOpenCases(),
       ],
     );
   }
@@ -131,7 +133,7 @@ class _Greeting extends StatelessWidget {
 
     return Row(
       children: [
-        const ProfileAvatarView(radius: 18),
+        const ProfileAvatarView(radius: 18, tapOpensRank: true),
         const SizedBox(width: 10),
         Expanded(
           child: Column(
@@ -203,38 +205,161 @@ class _Greeting extends StatelessWidget {
 //   }
 // }
 
-/// การ์ดรวมเมนูแบบไอคอนกลม 4 ช่องต่อแถว
-class _MenuGrid extends StatelessWidget {
-  final List<DashboardMenuItem> items;
+/// จำนวนเมนูสูงสุดต่อหนึ่งหน้า เกินนี้เลื่อนไปหน้าถัดไป
+///
+/// 8 = 4 ช่องสองแถว พอดีกับที่ตามองเห็นทีเดียวโดยไม่ต้องกวาดหา
+/// ยัดทุกเมนูไว้หน้าเดียวแล้วการ์ดจะยาวจนดันของข้างล่างตกจอ
+const int kMenuPerPage = 8;
 
-  static const int _columns = 4;
-  static const double _gap = 8;
+/// การ์ดรวมเมนูแบบไอคอนกลม 4 ช่องต่อแถว แบ่งหน้าเมื่อเกิน [kMenuPerPage]
+class _MenuGrid extends StatefulWidget {
+  final List<DashboardMenuItem> items;
 
   const _MenuGrid({required this.items});
 
   @override
+  State<_MenuGrid> createState() => _MenuGridState();
+}
+
+class _MenuGridState extends State<_MenuGrid> {
+  static const int _columns = 4;
+  static const double _gap = 8;
+  static const double _rowGap = 20;
+  static const double _iconSize = 54;
+  static const double _iconLabelGap = 8;
+  static const double _labelSize = 11.5;
+  static const double _labelHeight = 1.3;
+
+  final PageController _controller = PageController();
+  int _page = 0;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  int get _pageCount => (widget.items.length / kMenuPerPage).ceil();
+
+  /// เมนูของหน้าที่ [page] หน้าสุดท้ายมีไม่ครบก็ไม่เป็นไร
+  List<DashboardMenuItem> _itemsOf(int page) {
+    final from = page * kMenuPerPage;
+    final to = (from + kMenuPerPage).clamp(0, widget.items.length);
+    return widget.items.sublist(from, to);
+  }
+
+  /// ความสูงของป้ายชื่อที่ยาวที่สุด ที่ความกว้างช่องเท่านี้
+  ///
+  /// PageView ต้องรู้ความสูงล่วงหน้า จะปล่อยให้ยืดตามเนื้อหาเหมือน Wrap ไม่ได้
+  /// วัดจากป้ายจริงทุกอัน แทนที่จะตั้งความสูงตายตัวเผื่อสามบรรทัดไว้ก่อน
+  /// ซึ่งจะเหลือที่ว่างใต้ไอคอนเป็นแถบใหญ่เมื่อป้ายสั้นกันหมด
+  ///
+  /// เอาความสูงที่วัดได้ตรง ๆ ไม่ใช่ จำนวนบรรทัด x ขนาดฟอนต์ x height
+  /// เพราะฟอนต์ปัดเศษไม่ตรงกับสูตร คำนวณเองแล้วเตี้ยกว่าของจริงอยู่เศษพิกเซล
+  /// พอไปอยู่ใน SizedBox ความสูงตายตัวก็ overflow
+  double _maxLabelHeight(double width) {
+    var height = 0.0;
+
+    for (final item in widget.items) {
+      final painter = TextPainter(
+        text: TextSpan(
+          text: item.label,
+          style: const TextStyle(fontSize: _labelSize, height: _labelHeight),
+        ),
+        textDirection: TextDirection.ltr,
+        textAlign: TextAlign.center,
+        maxLines: 3,
+      )..layout(maxWidth: width);
+
+      if (painter.height > height) height = painter.height;
+    }
+
+    return height;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final pages = _pageCount;
+
     return AppCard(
-      // คำนวณความกว้างช่องเองแล้วใช้ Wrap ความสูงแต่ละช่องจึงยืดตามป้ายชื่อ
-      // ที่ยาวไม่เท่ากันได้ ไม่ล้นกรอบเหมือน GridView ที่บังคับ aspect ratio
       child: LayoutBuilder(
         builder: (context, constraints) {
           final itemWidth =
               (constraints.maxWidth - _gap * (_columns - 1)) / _columns;
 
-          return Wrap(
-            spacing: _gap,
-            runSpacing: 20,
+          final tileHeight =
+              _iconSize + _iconLabelGap + _maxLabelHeight(itemWidth);
+
+          // หน้าที่เต็มมีกี่แถว ทุกหน้าสูงเท่ากันหมด หน้าสุดท้ายที่มีแถวเดียว
+          // จะเหลือที่ว่างข้างล่าง ดีกว่าการ์ดกระโดดสูงต่ำตอนเลื่อนหน้า
+          final rows = (widget.items.length.clamp(0, kMenuPerPage) / _columns)
+              .ceil()
+              .clamp(1, 2);
+          final pageHeight = rows * tileHeight + (rows - 1) * _rowGap;
+
+          return Column(
             children: [
-              for (final item in items)
-                SizedBox(
-                  width: itemWidth,
-                  child: _MenuButton(item: item),
+              SizedBox(
+                height: pageHeight,
+                child: PageView.builder(
+                  controller: _controller,
+                  itemCount: pages,
+                  onPageChanged: (page) => setState(() => _page = page),
+                  itemBuilder: (context, page) => Wrap(
+                    spacing: _gap,
+                    runSpacing: _rowGap,
+                    children: [
+                      for (final item in _itemsOf(page))
+                        SizedBox(
+                          width: itemWidth,
+                          height: tileHeight,
+                          child: _MenuButton(item: item),
+                        ),
+                    ],
+                  ),
                 ),
+              ),
+              if (pages > 1) ...[
+                const SizedBox(height: 14),
+                _PageDots(count: pages, current: _page.clamp(0, pages - 1)),
+              ],
             ],
           );
         },
       ),
+    );
+  }
+}
+
+/// จุดบอกหน้าใต้ตารางเมนู
+///
+/// หน้าที่อยู่เป็นขีดยาว ไม่ใช่จุดกลมสีเข้ม ต่างกันด้วยรูปร่างไม่ใช่แค่สี
+class _PageDots extends StatelessWidget {
+  final int count;
+  final int current;
+
+  const _PageDots({required this.count, required this.current});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        for (var i = 0; i < count; i++)
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOut,
+            margin: const EdgeInsets.symmetric(horizontal: 3),
+            width: i == current ? 18 : 6,
+            height: 6,
+            decoration: BoxDecoration(
+              color: i == current ? scheme.primary : scheme.outlineVariant,
+              borderRadius: BorderRadius.circular(3),
+            ),
+          ),
+      ],
     );
   }
 }

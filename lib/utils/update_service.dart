@@ -8,6 +8,24 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:claim/page/claim/claim_api.dart' as claim_api;
 
+/// ที่อยู่ของ update.json เรียงตามลำดับที่จะลอง
+///
+/// **ทั้งสองอันคือไฟล์เดียวกัน** `anoxelazy/TPL` เปิด GitHub Pages จาก main
+/// root ตัวแรกจึงเป็นไฟล์เดิมที่อ่านผ่าน raw ส่วนตัวหลังคืออันเดียวกันที่อ่าน
+/// ผ่าน Pages (เทียบไบต์แล้วตรงกันทุกตัว)
+///
+/// ที่ต้องเป็นไฟล์เดียวกัน เพราะที่อยู่ถูกคอมไพล์ติดไปกับ APK เครื่องที่ลง
+/// เวอร์ชันเก่าจะอ่านแต่ที่อยู่ Pages ตลอดไป ไม่มีทางรู้ว่าเราย้ายไฟล์
+/// ถ้าแยกเป็นคนละไฟล์เมื่อไหร่ ต้องคอยอัปสองที่ตลอด ลืมเมื่อไหร่เครื่องเก่า
+/// จะค้างอยู่กับเวอร์ชันเดิมถาวร แบบนี้**แก้ไฟล์เดียวจบ ทุกเครื่องเห็นเท่ากัน**
+///
+/// เอา raw ขึ้นก่อนเพราะเห็นการแก้ทันทีที่ commit ส่วน Pages ต้องรอ build
+/// อีกพักหนึ่ง และเก็บ Pages ไว้เป็นตัวสำรองเผื่อ raw ล่ม
+const List<String> kUpdateJsonUrls = [
+  'https://raw.githubusercontent.com/anoxelazy/TPL/main/update.json',
+  'https://anoxelazy.github.io/TPL/update.json',
+];
+
 class UpdateService {
   static Future<bool> launchExternalUrl(String url) async {
     try {
@@ -44,19 +62,37 @@ class UpdateService {
     }
   }
 
+  /// โหลด update.json ไล่ตาม [kUpdateJsonUrls] เจอที่ไหนใช้ที่นั่น
+  ///
+  /// คืน null เมื่อไม่มีที่ไหนตอบเลย ผู้เรียกจะได้ปล่อยผ่าน ไม่บล็อกการเปิดแอป
+  ///
+  /// `?t=` ไล่ cache ของ CDN ออก ทั้ง GitHub Pages และ raw.githubusercontent
+  /// แคชไฟล์ไว้หลายนาที ไม่ใส่แล้วคนจะได้เวอร์ชันเก่าไปอีกพักใหญ่หลังอัปไฟล์
+  static Future<String?> _fetchUpdateJson() async {
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+
+    for (final url in kUpdateJsonUrls) {
+      try {
+        final response = await http
+            .get(Uri.parse('$url?t=$timestamp'))
+            .timeout(const Duration(seconds: 5));
+
+        if (response.statusCode == 200) return response.body;
+        debugPrint('update.json: $url ตอบ HTTP ${response.statusCode}');
+      } catch (e) {
+        debugPrint('update.json: $url ไม่ตอบ $e');
+      }
+    }
+
+    return null;
+  }
+
   static Future<bool> _checkForUpdates(BuildContext context) async {
     try {
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final response = await http
-          .get(
-            Uri.parse(
-              'https://anoxelazy.github.io/TPL/update.json?t=$timestamp',
-            ),
-          )
-          .timeout(const Duration(seconds: 5));
+      final body = await _fetchUpdateJson();
 
-      if (response.statusCode == 200) {
-        final updateData = jsonDecode(response.body);
+      if (body != null) {
+        final updateData = jsonDecode(body);
 
         final latestVersion = updateData['latest_version'] ?? '';
         final forceUpdate = updateData['force_update'] ?? false;

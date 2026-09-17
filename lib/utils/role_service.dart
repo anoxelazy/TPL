@@ -76,7 +76,7 @@ class RoleService {
   /// ถ้าเมนูหายกลางทางจะทำงานต่อไม่ได้
   Future<void> refresh() async {
     final empId = _empId;
-    if (empId == null || !SupabaseConfig.isConfigured) return;
+    if (empId == null || !await SupabaseConfig.ensureKey()) return;
 
     // employee_number ในตารางเป็น int ส่งค่าที่ไม่ใช่ตัวเลขไป PostgREST ตอบ 400
     if (int.tryParse(empId) == null) {

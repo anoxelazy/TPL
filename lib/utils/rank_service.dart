@@ -11,19 +11,26 @@ const String kRankJsonUrl =
 
 const String _cacheKey = 'user_rank_json';
 
+/// จำนวนแถวสูงสุดของตารางอันดับ json ส่งมาเกินนี้ก็ตัดทิ้ง
+const int kRankBoardSize = 10;
+
 /// ชั้นของป้ายบนรูปโปรไฟล์
 enum RankTier {
   /// ผู้สร้างแอป ป้ายถาวร ไม่เกี่ยวกับรอบสำรวจ
   diamond,
   gold,
   silver,
-  bronze;
+  bronze,
 
+  /// อันดับ 4 ถึง [kRankBoardSize] ติดสิบอันดับแต่ไม่ได้เหรียญ
+  top10;
+
+  /// เกินสิบอันดับคืน null เพราะตารางเก็บแค่สิบ ป้ายจึงไม่มีอะไรจะบอก
   static RankTier? fromRank(int rank) => switch (rank) {
     1 => RankTier.gold,
     2 => RankTier.silver,
     3 => RankTier.bronze,
-    _ => null,
+    _ => rank >= 4 && rank <= kRankBoardSize ? RankTier.top10 : null,
   };
 }
 
@@ -52,22 +59,70 @@ class UserRank {
       isDiamond ? 'ผู้สร้างแอป' : 'ผู้ส่งบันทึกสินค้าเสียหายสูญหายอันดับ $rank';
 }
 
+/// หนึ่งแถวของตารางอันดับ ไม่ผูกกับผู้ใช้ที่ล็อกอินอยู่
+class RankEntry {
+  final String empId;
+
+  /// ชื่อจาก json ช่อง full_name หรือ name ว่างได้ ไม่มีก็โชว์รหัสพนักงานแทน
+  final String name;
+
+  /// สาขาหรือจังหวัด ว่างได้ json รอบเก่าไม่มีช่องนี้
+  final String location;
+  final int rank;
+  final int reports;
+  final int images;
+
+  const RankEntry({
+    required this.empId,
+    required this.name,
+    required this.rank,
+    required this.reports,
+    required this.images,
+    this.location = '',
+  });
+
+  /// มีสีประจำชั้นเฉพาะสามอันดับแรก ที่เหลือ null ใช้สีกลางของธีม
+  RankTier? get tier => RankTier.fromRank(rank);
+
+  String get label => name.isEmpty ? 'รหัส $empId' : name;
+}
+
+/// ตารางอันดับทั้งรอบ เรียงจากอันดับ 1 ลงมา
+class RankBoard {
+  /// รอบที่สำรวจ เช่น "กันยายน 2569" ว่างได้
+  final String period;
+  final List<RankEntry> entries;
+
+  const RankBoard({required this.period, required this.entries});
+}
+
 class RankService {
   RankService._();
 
   static final RankService I = RankService._();
   final ValueNotifier<UserRank?> rank = ValueNotifier(null);
+
+  /// ตารางสิบอันดับ มาจาก json ไฟล์เดียวกับ [rank] ใช้ที่หน้าตารางอันดับ
+  final ValueNotifier<RankBoard?> board = ValueNotifier(null);
+
+  String _empId = '';
+
+  /// รหัสพนักงานที่ล็อกอินอยู่ หน้าตารางเอาไปไฮไลต์แถวของตัวเอง
+  String get currentEmpId => _empId;
+
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
     final empId = prefs.getString('driverID')?.trim() ?? '';
+    _empId = empId;
 
     if (empId.isEmpty) {
       rank.value = null;
+      board.value = null;
       return;
     }
 
     if (prefs.containsKey(_cacheKey)) {
-      rank.value = _parse(prefs.getString(_cacheKey), empId);
+      _apply(prefs.getString(_cacheKey), empId);
     }
 
     try {
@@ -87,56 +142,151 @@ class RankService {
           ? response.data as String
           : jsonEncode(response.data);
 
-      rank.value = _parse(body, empId);
+      _apply(body, empId);
       await prefs.setString(_cacheKey, body);
     } catch (e) {
       debugPrint('rank.json error: $e');
     }
   }
 
-  void forgetCurrentUser() => rank.value = null;
+  void forgetCurrentUser() {
+    _empId = '';
+    rank.value = null;
+    board.value = null;
+  }
 
-  UserRank? _parse(String? body, String empId) {
+  /// json ก้อนเดียวป้อนได้ทั้งป้ายของผู้ใช้และตารางอันดับ แกะทีเดียวพอ
+  void _apply(String? body, String empId) {
+    final decoded = _decode(body);
+    final entries = _entriesOf(decoded);
+    rank.value = _parse(decoded, entries, empId);
+    board.value = _board(decoded, entries);
+  }
+
+  Map? _decode(String? body) {
     if (body == null || body.trim().isEmpty) return null;
 
     try {
       final decoded = jsonDecode(body);
-      if (decoded is! Map) return null;
-
-      final period = decoded['period']?.toString().trim() ?? '';
-
-      if (_isCreator(decoded['creator'], empId)) {
-        final stats = _statsOf(decoded['ranks'], empId);
-        return UserRank(
-          rank: null,
-          tier: RankTier.diamond,
-          reports: stats?.$1 ?? 0,
-          images: stats?.$2 ?? 0,
-          period: period,
-        );
-      }
-
-      final ranks = decoded['ranks'];
-      if (ranks is! Map) return null;
-
-      final entry = ranks[empId];
-      if (entry is! Map) return null;
-
-      final number = _int(entry['rank']);
-      final tier = number == null ? null : RankTier.fromRank(number);
-      if (tier == null) return null;
-
-      return UserRank(
-        rank: number,
-        tier: tier,
-        reports: _int(entry['reports']) ?? 0,
-        images: _int(entry['images']) ?? 0,
-        period: period,
-      );
+      return decoded is Map ? decoded : null;
     } catch (e) {
       debugPrint('rank.json parse error: $e');
       return null;
     }
+  }
+
+  /// ป้ายของผู้ใช้อ่านจากแถวชุดเดียวกับตาราง อันดับจะได้ไม่เพี้ยนกันเอง
+  UserRank? _parse(Map? decoded, List<RankEntry> entries, String empId) {
+    if (decoded == null) return null;
+
+    final period = decoded['period']?.toString().trim() ?? '';
+    final mine = _entryOf(entries, empId);
+
+    /// ผู้สร้างอาจติดอันดับด้วย ถ้ามีตัวเลขก็เอามาโชว์บนการ์ดเพชร
+    if (_isCreator(decoded['creator'], empId)) {
+      return UserRank(
+        rank: null,
+        tier: RankTier.diamond,
+        reports: mine?.reports ?? 0,
+        images: mine?.images ?? 0,
+        period: period,
+      );
+    }
+
+    if (mine == null) return null;
+
+    final tier = RankTier.fromRank(mine.rank);
+    if (tier == null) return null;
+
+    return UserRank(
+      rank: mine.rank,
+      tier: tier,
+      reports: mine.reports,
+      images: mine.images,
+      period: period,
+    );
+  }
+
+  RankEntry? _entryOf(List<RankEntry> entries, String empId) {
+    for (final entry in entries) {
+      if (entry.empId == empId) return entry;
+    }
+    return null;
+  }
+
+  /// แถวทั้งหมดของรอบ เรียงจากอันดับ 1 ลงมา ยังไม่ตัดที่สิบ
+  ///
+  /// รอบใหม่ส่ง ranks มาเป็น array ที่พก emp_id มาในแถว รอบเก่าส่งเป็น map
+  /// ที่ใช้รหัสพนักงานเป็น key รับทั้งคู่ json เก่าที่ cache ไว้จะได้ยังอ่านออก
+  List<RankEntry> _entriesOf(Map? decoded) {
+    if (decoded == null) return const [];
+
+    try {
+      final ranks = decoded['ranks'];
+      final rows = <RankEntry>[];
+
+      if (ranks is List) {
+        for (final row in ranks) {
+          if (row is! Map) continue;
+          final entry = _entry(row['emp_id'] ?? row['empId'], row);
+          if (entry != null) rows.add(entry);
+        }
+      } else if (ranks is Map) {
+        ranks.forEach((key, value) {
+          if (value is! Map) return;
+          final entry = _entry(key, value);
+          if (entry != null) rows.add(entry);
+        });
+      }
+
+      return _dedupe(rows);
+    } catch (e) {
+      debugPrint('rank.json board parse error: $e');
+      return const [];
+    }
+  }
+
+  RankEntry? _entry(dynamic empId, Map row) {
+    final id = empId?.toString().trim() ?? '';
+    if (id.isEmpty) return null;
+
+    final number = _int(row['rank']);
+    if (number == null) return null;
+
+    return RankEntry(
+      empId: id,
+      name: _name(row['full_name'] ?? row['name']),
+      location: _name(row['location']),
+      rank: number,
+      reports: _int(row['reports']) ?? 0,
+      images: _int(row['images']) ?? 0,
+    );
+  }
+
+  /// คนเดียวโผล่หลายแถวได้ ถ้า json นับรายเอกสารแทนรายคน เก็บอันดับดีสุดพอ
+  /// ปล่อยไว้ตารางสิบอันดับจะมีคนเดิมซ้ำสองสามบรรทัด แล้วเบียดคนอื่นตกไป
+  List<RankEntry> _dedupe(List<RankEntry> rows) {
+    final best = <String, RankEntry>{};
+
+    for (final row in rows) {
+      final current = best[row.empId];
+      if (current == null || row.rank < current.rank) best[row.empId] = row;
+    }
+
+    final entries = best.values.toList()
+      ..sort((a, b) => a.rank.compareTo(b.rank));
+
+    return List.unmodifiable(entries);
+  }
+
+  /// ตารางอันดับใช้ร่วมกันทุกคน ไม่ต้องรู้ว่าใครล็อกอินอยู่
+  RankBoard? _board(Map? decoded, List<RankEntry> entries) {
+    if (decoded == null || entries.isEmpty) return null;
+
+    return RankBoard(
+      period: decoded['period']?.toString().trim() ?? '',
+      entries: List.unmodifiable(entries.take(kRankBoardSize)),
+    );
   }
 
   /// รองรับทั้งผู้สร้างคนเดียวและหลายคน
@@ -148,12 +298,14 @@ class RankService {
     return value.toString().trim() == empId;
   }
 
-  /// ผู้สร้างอาจติดอันดับด้วย ถ้ามีตัวเลขก็เอามาโชว์บนการ์ดเพชร
-  (int, int)? _statsOf(dynamic ranks, String empId) {
-    if (ranks is! Map) return null;
-    final entry = ranks[empId];
-    if (entry is! Map) return null;
-    return (_int(entry['reports']) ?? 0, _int(entry['images']) ?? 0);
+  /// บางรอบ json หยิบคอลัมน์ผิด full_name กลายเป็นก้อน url รูปของเอกสารทั้งใบ
+  /// ปล่อยผ่านตารางจะโชว์ลิงก์ยาวเหยียดแทนชื่อคน ทิ้งแล้วตกไปใช้รหัสพนักงานดีกว่า
+  String _name(dynamic value) {
+    final text = value?.toString().trim() ?? '';
+    if (text.isEmpty) return '';
+    if (text.startsWith('[') || text.startsWith('{')) return '';
+    if (text.contains('://')) return '';
+    return text;
   }
 
   int? _int(dynamic value) {
