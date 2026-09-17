@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
-import 'package:claim/page/itcase/itcase_form_page.dart';
+import 'package:claim/page/dashboard/it_case_banner.dart';
+import 'package:claim/page/dashboard/it_case_open_cards.dart';
+import 'package:claim/page/itcase/itcase_appbar.dart';
+import 'package:claim/page/itcase/itcase_status_page.dart';
 import 'package:claim/utils/app_colors.dart';
 import 'package:claim/utils/mobile_api.dart';
 import 'package:claim/utils/theme.dart';
@@ -38,6 +41,15 @@ class ItCaseWebApp extends StatelessWidget {
     title: 'แจ้งเคส IT',
     debugShowCheckedModeBanner: false,
     theme: AppTheme.getLightTheme(),
+    // จอคอมกว้างกว่ามือถือหลายเท่า ปล่อยให้เนื้อหายืดเต็มจอ 24 นิ้วแล้วสายตา
+    // ต้องกวาดไปมาทั้งจอกว่าจะอ่านจบบรรทัด บีบให้เท่าแท็บเล็ตแล้วจัดกลาง
+    // ครอบที่ builder ทีเดียว ทุกหน้าที่ push ต่อไปได้ความกว้างเท่ากันหมด
+    builder: (context, child) => Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 720),
+        child: child,
+      ),
+    ),
     home: const _Gate(),
   );
 }
@@ -58,7 +70,7 @@ class _GateState extends State<_Gate> {
 
   @override
   Widget build(BuildContext context) => _signedIn
-      ? ItCaseFormPage(onSignOut: _signOut)
+      ? _HomePage(onSignOut: _signOut)
       : _LoginPage(onDone: () => setState(() => _signedIn = true));
 
   Future<void> _signOut() async {
@@ -207,6 +219,54 @@ class _LoginPageState extends State<_LoginPage> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// หน้าแรกหลังล็อกอินบนเว็บ
+///
+/// เดิมเข้ามาเจอฟอร์มแจ้งเคสเลย ซึ่งใช้ได้บนมือถือที่กดเข้ามาจากเมนู
+/// "แจ้งเคส" โดยตั้งใจอยู่แล้ว แต่บนเว็บมันคือหน้าแรกหลังล็อกอิน คนเปิดมาเจอ
+/// ฟอร์มเปล่า ๆ จะนึกว่าเว็บมีแค่นี้ ทั้งที่ยังมีรายการเคสกับความคืบหน้าอยู่
+///
+/// เอาของชุดเดียวกับหน้าหลักในแอปมือถือมาวาง คือแถบแจ้งเคสกับการ์ดเคสที่ยัง
+/// ไม่ปิด ไม่ได้ทำหน้าใหม่ให้ต้องดูแลสองที่
+class _HomePage extends StatelessWidget {
+  final VoidCallback onSignOut;
+
+  const _HomePage({required this.onSignOut});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Scaffold(
+      backgroundColor: scheme.surfaceContainerLowest,
+      appBar: itCaseAppBar(
+        title: 'แจ้งเคส IT',
+        actions: [
+          IconButton(
+            tooltip: 'ขั้นตอนการดำเนินงาน',
+            onPressed: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => const ItCaseStatusPage())),
+            icon: const Icon(Icons.list_alt),
+          ),
+          IconButton(
+            tooltip: 'ออกจากระบบ',
+            onPressed: onSignOut,
+            icon: const Icon(Icons.logout),
+          ),
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+        children: [
+          const ItCaseBanner(),
+          // ไม่มีเคสค้าง การ์ดชุดนี้จะไม่กินที่เลย เหลือแถบแจ้งเคสอันเดียว
+          const ItCaseOpenCases(),
+        ],
       ),
     );
   }

@@ -43,13 +43,7 @@ TextEditingValue insertScannedCode(String text, int at, String code) {
 
 /// ช่องเลือกโปรแกรมจึงโผล่มาเฉพาะตอนที่เกี่ยวข้องจริง
 class ItCaseFormPage extends StatefulWidget {
-  /// ใส่มาจากเว็บแอปเพื่อให้มีปุ่มออกจากระบบบนแถบหัว
-  ///
-  /// แอปมือถือไม่ต้องส่ง เพราะออกจากระบบที่หน้าโปรไฟล์อยู่แล้ว ปุ่มซ้ำอีกที่
-  /// รังแต่จะกดพลาด ส่วนเว็บมีแค่หน้านี้หน้าเดียว ไม่มีที่อื่นให้ออก
-  final VoidCallback? onSignOut;
-
-  const ItCaseFormPage({super.key, this.onSignOut});
+  const ItCaseFormPage({super.key});
 
   @override
   State<ItCaseFormPage> createState() => _ItCaseFormPageState();
@@ -301,12 +295,6 @@ class _ItCaseFormPageState extends State<ItCaseFormPage> {
       appBar: itCaseAppBar(
         title: 'แจ้งเคส',
         actions: [
-          if (widget.onSignOut != null)
-            IconButton(
-              tooltip: 'ออกจากระบบ',
-              onPressed: widget.onSignOut,
-              icon: const Icon(Icons.logout),
-            ),
           IconButton(
             tooltip: 'ขั้นตอนการดำเนินงาน',
             onPressed: () => Navigator.of(
