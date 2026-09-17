@@ -209,3 +209,41 @@ DateTime? _date(dynamic value) {
 
   return DateTime.tryParse(text)?.toLocal();
 }
+
+/// ผู้ใช้คนนี้ผูกบัญชี LINE กับระบบแล้วหรือยัง
+///
+/// ใช้ตัดสินว่าจะชวนให้แอด LINE OA ไหม ผูกแล้วก็ไม่ต้องชวนซ้ำ
+///
+/// เกณฑ์คือ "ผูกบัญชีแล้ว" ไม่ใช่ "แอดแล้ว" เพราะ LINE ไม่มี API ให้ถามว่าใคร
+/// แอด OA แล้วบ้างโดยอ้างจากรหัสพนักงาน แต่การผูกบัญชีเริ่มจากการทักบอท
+/// คนที่ผูกแล้วจึงแอดแล้วแน่นอน
+///
+/// ⚠️ ถามไม่สำเร็จคืน true คือถือว่าผูกแล้ว แถบชวนจะได้ไม่โผล่
+/// เน็ตสะดุดทีเดียวแล้วไปเด้งแถบใส่คนที่ผูกไปนานแล้ว น่ารำคาญกว่าประโยชน์ที่ได้
+Future<bool> isLineLinked() async {
+  final empNumber = RoleService.I.empNumber;
+  if (empNumber == null) return true;
+
+  if (!await SupabaseConfig.ensureKey()) return true;
+
+  try {
+    final response = await supabaseDio.post(
+      _chatPath,
+      data: {
+        'action': 'link_status',
+        'employee_number': empNumber,
+        'role': RoleService.I.role.value.name.toUpperCase(),
+      },
+      options: Options(validateStatus: (_) => true),
+    );
+
+    final body = response.data;
+    if (body is! Map || body['success'] != true) return true;
+
+    final data = body['data'];
+    return data is! Map || data['linked'] != false;
+  } catch (e) {
+    debugPrint('line link status error: $e');
+    return true;
+  }
+}

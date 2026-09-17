@@ -2,11 +2,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:claim/page/chat/chat_api.dart';
 
-/// ⚠️ ตัวอย่างในไฟล์นี้อ้างจากเอกสาร TPL Repair API ฉบับ 17 ก.ย. 2569
-/// ไม่ใช่ response ที่ดึงมาจากเซิร์ฟเวอร์จริง
-///
-/// ที่ยืนยันกับของจริงแล้วคือคำสั่ง "ช่วยเหลือ" ซึ่งตอบกลับมาเป็น
-/// text + quickReplies โดยไม่มี tickets
 void main() {
   group('คำตอบของบอท', () {
     test('ข้อความล้วนพร้อมปุ่มลัด แบบที่ "ช่วยเหลือ" ตอบกลับมาจริง', () {

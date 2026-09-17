@@ -252,7 +252,7 @@ class _Bubble extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(left: 2, bottom: 3),
             child: Text(
-              'บอทแจ้งซ่อม',
+              'รายงานจากแผนกไอที',
               style: TextStyle(fontSize: 11.5, color: scheme.onSurfaceVariant),
             ),
           ),

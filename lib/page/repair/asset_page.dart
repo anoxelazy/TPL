@@ -129,30 +129,43 @@ class _AssetPageState extends State<AssetPage> {
 
     final list = _filtered;
 
-    return RefreshIndicator(
-      onRefresh: _load,
-      child: ListView.separated(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
-        itemCount: list.isEmpty ? 2 : list.length + 1,
-        separatorBuilder: (_, _) => const SizedBox(height: 10),
-        itemBuilder: (context, index) {
-          if (index == 0) return _searchField();
-          if (list.isEmpty) {
-            return const Padding(
-              padding: EdgeInsets.only(top: 40),
-              child: EmptyStateView(
-                icon: Icons.search_off,
-                message: 'ไม่พบเครื่องที่ค้นหา',
-              ),
-            );
-          }
-          final asset = list[index - 1];
-          return AssetTile(
-            asset: asset,
-            onTap: () => _openForm(asset: asset),
-          );
-        },
-      ),
+    // ช่องค้นหาอยู่นอกลิสต์ จึงค้างอยู่ด้านบนตลอด ไม่เลื่อนหายไปกับรายการ
+    // ทะเบียนมีเป็นร้อยเครื่อง เลื่อนหาไปสักพักแล้วอยากแก้คำค้น ไม่ต้องเลื่อน
+    // กลับขึ้นมาสุดทางก่อน
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          child: _searchField(),
+        ),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: _load,
+            child: ListView.separated(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
+              itemCount: list.isEmpty ? 1 : list.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 10),
+              itemBuilder: (context, index) {
+                if (list.isEmpty) {
+                  return const Padding(
+                    padding: EdgeInsets.only(top: 40),
+                    child: EmptyStateView(
+                      icon: Icons.search_off,
+                      message: 'ไม่พบเครื่องที่ค้นหา',
+                    ),
+                  );
+                }
+
+                final asset = list[index];
+                return AssetTile(
+                  asset: asset,
+                  onTap: () => _openForm(asset: asset),
+                );
+              },
+            ),
+          ),
+        ),
+      ],
     );
   }
 

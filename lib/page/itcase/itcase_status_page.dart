@@ -8,7 +8,9 @@ import 'package:claim/page/itcase/itcase_close_dialog.dart';
 import 'package:claim/page/itcase/itcase_job_card.dart';
 import 'package:claim/page/itcase/itcase_job_detail_page.dart';
 import 'package:claim/utils/app_colors.dart';
+import 'package:claim/utils/app_icons.dart';
 import 'package:claim/utils/mobile_api.dart';
+import 'package:claim/widgets/barcode_scanner.dart';
 import 'package:claim/widgets/state_views.dart';
 
 /// เคสที่ผู้ใช้คนนี้เคยแจ้งไว้ พร้อมสถานะล่าสุด กดเข้าไปดูความคืบหน้าต่อได้
@@ -232,6 +234,26 @@ class _ItCaseStatusPageState extends State<ItCaseStatusPage>
   /// ไปก็ไม่มีอะไรให้ทำ
   bool get _showSearch => !_loading && _error == null && _jobs.isNotEmpty;
 
+  /// สแกนแล้วเอาโค้ดที่ได้ไปใส่ช่องค้นหา ไม่ได้เลือกเคสให้ทันที
+  ///
+  /// ฟอร์มแจ้งเคสให้สแกนโค้ดบนเครื่องแปะลงในรายละเอียดได้อยู่แล้ว เคสที่แจ้ง
+  /// ด้วยวิธีนั้นจึงมีเลขเครื่องอยู่ในข้อความ สแกนเครื่องตัวเดิมซ้ำตรงนี้
+  /// จะเจอทุกใบที่เคยแจ้งเรื่องเครื่องนั้นไว้
+  Future<void> _scanToSearch() async {
+    final code = await openBarcodeScannerPage(
+      context,
+      title: 'สแกนเพื่อค้นหา',
+      hint: 'วาง QR หรือบาร์โค้ดให้อยู่กลางจอ',
+    );
+    if (code == null || !mounted) return;
+
+    final keyword = code.trim();
+    if (keyword.isEmpty) return;
+
+    _search.text = keyword;
+    setState(() => _query = keyword);
+  }
+
   Widget _searchField(ColorScheme scheme) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
@@ -248,9 +270,11 @@ class _ItCaseStatusPageState extends State<ItCaseStatusPage>
           isDense: true,
           hintText: 'ค้นหาเลขเคส อาการ สถานะ ผู้รับงาน',
           prefixIcon: const Icon(Icons.search, size: 20),
-          suffixIcon: _query.isEmpty
-              ? null
-              : IconButton(
+          suffixIcon: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_query.isNotEmpty)
+                IconButton(
                   tooltip: 'ล้างคำค้น',
                   onPressed: () {
                     _search.clear();
@@ -259,6 +283,15 @@ class _ItCaseStatusPageState extends State<ItCaseStatusPage>
                   },
                   icon: const Icon(Icons.close, size: 20),
                 ),
+              // เว็บไม่มีกล้องให้สแกน ซ่อนปุ่มไปเลยดีกว่ากดแล้วไม่เกิดอะไร
+              if (canScanBarcode)
+                IconButton(
+                  tooltip: 'สแกนเพื่อค้นหา',
+                  onPressed: _scanToSearch,
+                  icon: const Icon(AppIcons.scan, size: 20),
+                ),
+            ],
+          ),
           filled: true,
           fillColor: scheme.surface,
           border: OutlineInputBorder(

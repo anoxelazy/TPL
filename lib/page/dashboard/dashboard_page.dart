@@ -6,6 +6,7 @@ import 'package:claim/page/dashboard/banner_carousel.dart';
 import 'package:claim/page/dashboard/dashboard_menu.dart';
 import 'package:claim/page/dashboard/it_case_banner.dart';
 import 'package:claim/page/dashboard/it_case_open_cards.dart';
+import 'package:claim/page/dashboard/line_invite_banner.dart';
 import 'package:claim/page/dashboard/line_support.dart';
 import 'package:claim/page/dashboard/support_links.dart';
 import 'package:claim/utils/pm_access_service.dart';
@@ -104,6 +105,9 @@ class _DashboardPageState extends State<DashboardPage> {
           BannerCarousel(banners: _banners),
           const SizedBox(height: 16),
         ],
+        // ชวนแอด LINE เฉพาะคนที่ยังไม่ได้ผูกบัญชีกับบอท ผูกแล้วหรือกดปิดแล้ว
+        // จะไม่กินที่เลย ตัวมันเว้นระยะใต้ตัวเองมาให้แล้ว
+        const LineInviteBanner(),
 
         const ItCaseBanner(),
         const SizedBox(height: 16),
