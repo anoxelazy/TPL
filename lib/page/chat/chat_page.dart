@@ -3,7 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:claim/page/chat/chat_api.dart';
-import 'package:claim/page/chat/line_invite_bar.dart';
+import 'package:claim/widgets/state_views.dart';
 import 'package:claim/page/repair/repair_api.dart';
 import 'package:claim/page/repair/repair_appbar.dart';
 import 'package:claim/page/repair/repair_style.dart';
@@ -47,7 +47,7 @@ class _Msg {
   String get body => fromUser ? text : (reply?.text ?? '');
 }
 
-class _ChatPageState extends State<ChatPage> {
+class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   final _input = TextEditingController();
   final _scroll = ScrollController();
 
@@ -56,18 +56,47 @@ class _ChatPageState extends State<ChatPage> {
   bool _busy = false;
   String? _error;
 
+  /// ผูกบัญชีกับบอทแล้วหรือยัง null = ยังเช็คไม่เสร็จ
+  ///
+  /// ยังไม่ผูกแล้วคุยไม่ได้ เพราะบอทหาว่า "เคสของฉัน" คือใบไหนไม่ออก
+  /// จะตอบว่าไม่พบเคสทั้งที่แจ้งไว้จริง คนจะนึกว่าระบบเสีย ปิดทางไว้ตั้งแต่แรก
+  /// แล้วบอกวิธีแก้ ตรงกว่าปล่อยให้เข้ามาเจอคำตอบที่ผิด
+  bool? _linked;
+
   @override
   void initState() {
     super.initState();
-    // เปิดมาถามเมนูให้เลย ผู้ใช้จะได้เห็นว่าพิมพ์อะไรได้บ้างโดยไม่ต้องเดา
-    _send('ช่วยเหลือ', silent: true);
+    WidgetsBinding.instance.addObserver(this);
+    _checkLink();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _input.dispose();
     _scroll.dispose();
     super.dispose();
+  }
+
+  /// กลับเข้าแอปมาแล้วเช็คใหม่ เผื่อเพิ่งไปผูกบัญชีใน LINE มา
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _linked != true) _checkLink();
+  }
+
+  /// เช็คว่าผูกบัญชีแล้วหรือยัง ผูกแล้วค่อยเปิดห้องแชท
+  ///
+  /// [shouldInviteLine] คืน false เมื่อถามไม่สำเร็จหรือยังไม่ได้ล็อกอิน
+  /// กรณีพวกนั้นจึงถือว่าผูกแล้วและปล่อยให้เข้าใช้ ดีกว่าล็อกคนออกเพราะเน็ตสะดุด
+  Future<void> _checkLink() async {
+    final invite = await shouldInviteLine();
+    if (!mounted) return;
+
+    final linked = !invite;
+    setState(() => _linked = linked);
+
+    // เปิดมาถามเมนูให้เลย ผู้ใช้จะได้เห็นว่าพิมพ์อะไรได้บ้างโดยไม่ต้องเดา
+    if (linked && _messages.isEmpty) _send('ช่วยเหลือ', silent: true);
   }
 
   /// ส่งข้อความหาบอท
@@ -149,47 +178,52 @@ class _ChatPageState extends State<ChatPage> {
       // แบบเดียวกับ LINE ที่พื้นหลังไม่ใช่สีขาวเปล่า
       backgroundColor: scheme.surfaceContainerHigh,
       appBar: repairAppBar(title: 'ติดตามสถานะซ่อม'),
-      body: Column(
-        children: [
-          const LineInviteBar(
-            message: 'ทักบอทตัวนี้ใน LINE ได้ ไม่ต้องเปิดแอปมาถาม',
-          ),
-          Expanded(
-            child: ListView.builder(
-              controller: _scroll,
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-              // +1 สำหรับป้ายวันที่หัวห้อง
-              itemCount: _messages.length + 1,
-              itemBuilder: (context, index) {
-                if (index == 0) return const _DateChip();
+      body: _linked == null
+          ? const LoadingStateView()
+          : _linked == false
+          ? const _LinkGate()
+          : _room(replies),
+    );
+  }
 
-                final at = index - 1;
-                final message = _messages[at];
-                final previous = at == 0 ? null : _messages[at - 1];
+  /// ห้องแชทจริง เปิดได้เมื่อผูกบัญชีแล้วเท่านั้น
+  Widget _room(List<String> replies) {
+    return Column(
+      children: [
+        Expanded(
+          child: ListView.builder(
+            controller: _scroll,
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+            // +1 สำหรับป้ายวันที่หัวห้อง
+            itemCount: _messages.length + 1,
+            itemBuilder: (context, index) {
+              if (index == 0) return const _DateChip();
 
-                return _Bubble(
-                  message: message,
-                  onAsk: _send,
-                  onLink: _open,
-                  // ข้อความติดกันของคนเดียวกันไม่ต้องขึ้นรูปกับชื่อซ้ำ
-                  // เหมือน LINE ที่โชว์เฉพาะก้อนแรกของชุด
-                  headed:
-                      previous == null || previous.fromUser != message.fromUser,
-                );
-              },
-            ),
+              final at = index - 1;
+              final message = _messages[at];
+              final previous = at == 0 ? null : _messages[at - 1];
+
+              return _Bubble(
+                message: message,
+                onAsk: _send,
+                onLink: _open,
+                // ข้อความติดกันของคนเดียวกันไม่ต้องขึ้นรูปกับชื่อซ้ำ
+                // เหมือน LINE ที่โชว์เฉพาะก้อนแรกของชุด
+                headed:
+                    previous == null || previous.fromUser != message.fromUser,
+              );
+            },
           ),
-          if (_busy) const _Typing(),
-          if (_error != null) _ErrorBar(message: _error!),
-          if (replies.isNotEmpty)
-            _QuickReplyBar(replies: replies, onTap: _send),
-          _InputBar(
-            controller: _input,
-            enabled: !_busy,
-            onSend: () => _send(_input.text),
-          ),
-        ],
-      ),
+        ),
+        if (_busy) const _Typing(),
+        if (_error != null) _ErrorBar(message: _error!),
+        if (replies.isNotEmpty) _QuickReplyBar(replies: replies, onTap: _send),
+        _InputBar(
+          controller: _input,
+          enabled: !_busy,
+          onSend: () => _send(_input.text),
+        ),
+      ],
     );
   }
 }
@@ -672,6 +706,139 @@ class _QuickReplyBar extends StatelessWidget {
             visualDensity: VisualDensity.compact,
           );
         },
+      ),
+    );
+  }
+}
+
+/// หน้ากั้นก่อนเข้าห้องแชท สำหรับคนที่ยังไม่ได้ผูกบัญชีกับบอท
+///
+/// ไม่ใช่การกันไม่ให้ใช้ แต่บอกว่าต้องทำอะไรก่อน บอทต้องรู้ว่าคนถามเป็นใคร
+/// ถึงจะตอบ "เคสของฉัน" ได้ ปล่อยให้เข้ามาคุยทั้งที่ยังไม่ผูก บอทจะตอบว่า
+/// ไม่พบเคสทั้งที่แจ้งไว้จริง แล้วคนจะนึกว่าระบบเสีย
+///
+/// กลับจาก LINE มาแล้วหน้านี้เช็คใหม่เอง ไม่ต้องกดอะไร (ดู didChangeAppLifecycleState)
+class _LinkGate extends StatelessWidget {
+  const _LinkGate();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(24, 40, 24, 32),
+      children: [
+        Container(
+          width: 64,
+          height: 64,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: AppColors.lineGreen.withValues(alpha: 0.12),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.chat_bubble,
+            size: 30,
+            color: AppColors.lineGreen,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'แอดบอทใน LINE ก่อนเริ่มใช้งาน',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w800,
+            color: scheme.onSurface,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'บอทต้องรู้ก่อนว่าคุณเป็นใคร ถึงจะบอกได้ว่าเคสไหนเป็นของคุณ\n'
+          'ผูกครั้งเดียว ใช้ได้ตลอด',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 13,
+            height: 1.5,
+            color: scheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 26),
+        const _Step(number: '1', text: 'กดปุ่มข้างล่าง แล้วแอดบอทเป็นเพื่อน'),
+        const _Step(number: '2', text: 'ทักอะไรก็ได้ไปหาบอทหนึ่งครั้ง'),
+        const _Step(
+          number: '3',
+          text: 'บอทจะส่งลิงก์มาให้กด แล้วยืนยันตัวตนตามนั้น',
+        ),
+        const SizedBox(height: 26),
+        SizedBox(
+          height: 48,
+          child: FilledButton.icon(
+            onPressed: openLineAddFriend,
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.lineGreen,
+              foregroundColor: Colors.white,
+            ),
+            icon: const Icon(Icons.person_add_alt, size: 18),
+            label: const Text('เพิ่มเพื่อนใน LINE'),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          'ผูกเสร็จแล้วกลับมาที่หน้านี้ ระบบจะเปิดห้องแชทให้เอง',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+        ),
+      ],
+    );
+  }
+}
+
+/// หนึ่งขั้นของวิธีผูกบัญชี
+class _Step extends StatelessWidget {
+  final String number;
+  final String text;
+
+  const _Step({required this.number, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 22,
+            height: 22,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: AppColors.lineGreen,
+              shape: BoxShape.circle,
+            ),
+            child: Text(
+              number,
+              style: const TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: 13.5,
+                height: 1.4,
+                color: scheme.onSurface,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
