@@ -21,7 +21,6 @@ Future<Uint8List> compressImageBytes(
   }
 }
 
-/// แปลงเป็น base64 (ไม่มี prefix data:image) ใน isolate
 Future<String> encodeBase64InBackground(Uint8List bytes) {
   return compute(base64Encode, bytes);
 }
