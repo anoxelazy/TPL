@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'package:claim/page/itcase/itcase_api.dart';
 import 'package:claim/page/itcase/itcase_appbar.dart';
+import 'package:claim/page/itcase/itcase_close_dialog.dart';
 import 'package:claim/page/itcase/itcase_job_card.dart';
 import 'package:claim/page/itcase/itcase_job_detail_page.dart';
 import 'package:claim/utils/app_colors.dart';
@@ -329,9 +330,21 @@ class _ItCaseStatusPageState extends State<ItCaseStatusPage>
           statuses: _statuses,
           // ไม่มีเลขเคสก็เปิดรายละเอียดไม่ได้ endpoint ต้องใช้เลขนี้
           onTap: job.id.isEmpty ? null : () => _openDetail(job),
+          onClose: job.id.isEmpty ? null : () => _closeJob(job),
         );
       },
     );
+  }
+
+  /// ปิดงานจากปุ่มบนการ์ด ไม่ต้องเข้าไปหน้ารายละเอียดก่อน
+  ///
+  /// สำเร็จแล้วดึงรายการใหม่ทันที เคสที่เพิ่งปิดจะได้เปลี่ยนสถานะให้เห็นเลย
+  /// ไม่ใช่ค้างเป็น "รอตรวจ" อยู่จนถึงรอบดึงถัดไป
+  Future<void> _closeJob(ItCaseJob job) async {
+    final sent = await runItCaseCloseFlow(context, job.id);
+    if (!sent || !mounted) return;
+
+    _load(quiet: true);
   }
 
   /// เปิดรายละเอียดการดำเนินงานของเคสใบนั้น

@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import 'package:claim/page/itcase/itcase_api.dart';
 import 'package:claim/page/itcase/itcase_appbar.dart';
+import 'package:claim/page/itcase/itcase_close_dialog.dart';
 import 'package:claim/page/itcase/itcase_image.dart';
 import 'package:claim/page/itcase/itcase_job_card.dart';
 import 'package:claim/utils/app_colors.dart';
@@ -186,58 +187,19 @@ class _ItCaseJobDetailPageState extends State<ItCaseJobDetailPage>
 
   /// รอบเบื้องหลังที่พังทั้งที่มีข้อมูลอยู่แล้ว ปล่อยผ่านไปเงียบ ๆ
 
-  /// ถามก่อนแล้วค่อยส่งคำยืนยันปิดงาน
+  /// ถามผลการตรวจงานแล้วส่งไป ใช้ป๊อปอัปตัวเดียวกับปุ่มบนการ์ด
   ///
-  /// ปิดแล้วผู้แจ้งกลับมาแก้เองไม่ได้ ต้องให้ทีม IT เปิดใหม่ จึงถามซ้ำก่อนส่ง
+  /// เก็บคะแนนกับความเห็นตอนนี้เพราะเป็นจังหวะเดียวที่ผู้แจ้งเพิ่งเห็นผลงาน
+  /// สด ๆ ถามทีหลังคนก็ลืมแล้วว่างานเป็นยังไง
   Future<void> _confirmClose() async {
-    final messenger = ScaffoldMessenger.of(context);
-
-    final agreed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        icon: const Icon(Icons.task_alt, size: 36, color: AppColors.caseIcon),
-        title: const Text('ยืนยันปิดงาน', textAlign: TextAlign.center),
-        content: const Text(
-          'ตรวจสอบแล้วว่าทีม IT แก้ไขเรียบร้อย\nกดยืนยันเพื่อปิดเคสนี้',
-          textAlign: TextAlign.center,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('ยังก่อน'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.success,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('ยืนยันปิดงาน'),
-          ),
-        ],
-      ),
-    );
-
-    if (agreed != true || !mounted) return;
     setState(() => _closing = true);
 
     try {
-      await closeCaseJob(widget.job.id);
-      if (!mounted) return;
+      final sent = await runItCaseCloseFlow(context, widget.job.id);
+      if (!sent || !mounted) return;
 
-      messenger.showSnackBar(
-        const SnackBar(content: Text('ปิดงานเรียบร้อย ขอบคุณครับ')),
-      );
-      // ดึงใหม่เพื่อให้สถานะกับ % บนหน้าจอเดินไปที่ปิดงานแล้วจริง ๆ
+      // ดึงใหม่เพื่อให้สถานะกับ % บนหน้าจอเดินไปที่ปลายทางจริง ๆ
       await _load(quiet: true);
-    } on MobileApiException catch (e) {
-      if (!mounted) return;
-      messenger.showSnackBar(SnackBar(content: Text(e.message)));
-    } catch (_) {
-      if (!mounted) return;
-      messenger.showSnackBar(
-        const SnackBar(content: Text('ปิดงานไม่สำเร็จ กรุณาลองใหม่')),
-      );
     } finally {
       if (mounted) setState(() => _closing = false);
     }

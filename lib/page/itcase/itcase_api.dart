@@ -879,25 +879,38 @@ const String kItCaseClosedStatusId = 'CF';
 /// รหัสสถานะที่ทีม IT แก้เสร็จแล้ว รอผู้แจ้งตรวจและกดปิดงาน
 const String kItCaseWaitConfirmStatusId = 'FN';
 
-/// ⚠️ endpoint ปิดงานยังไม่มีจริงบนเซิร์ฟเวอร์ ณ วันที่เขียน
+/// รหัสสถานะที่ผู้แจ้งตีงานกลับให้ทีม IT ทำใหม่
 ///
-/// ยิงดูแล้วได้ 404 ทุกตัว (closejob / confirmjob / updatestatus / updatejob)
-/// ขณะที่ endpoint ที่มีจริงอย่าง insertjob ตอบ 401 เพราะไม่ได้แนบ token
-/// swagger ก็มีแค่ insertjob / joblist / jobdetails / repairsolvetype /
-/// repairstatuslist
-///
-/// ปุ่มปิดงานต่อสายไว้กับพาธนี้ไว้ก่อน พอ backend เปิดของจริงมา ถ้าชื่อไม่ตรง
-/// ให้แก้ที่บรรทัดนี้กับรูปแบบ body ใน [closeCaseJob] ที่เดียวจบ
-const String _closeJobPath = '/api/ITRepair/closejob';
+/// เว็บใช้รหัสนี้กับงานที่ผู้แจ้งตรวจแล้วยังไม่ผ่าน ([itCaseProgressOf] จึงให้
+/// 55% ต่ำกว่า IN ที่กำลังแก้อยู่ ไม่ใช่เดินหน้าต่อจาก FN)
+const String kItCaseRedoStatusId = 'IN2';
 
-/// ผู้แจ้งยืนยันปิดงาน เคสจะเดินไปสถานะ [kItCaseClosedStatusId]
+/// endpoint เปลี่ยนสถานะเคส ยืนยันด้วย cURL จริงแล้วว่าเป็น PUT ตัวนี้
+///
+/// body ที่รับคือ `{"jobId","status","descCreator","ratings"}`
+const String _updateStatusPath = '/api/ITRepair/updatejobstatus';
+
+/// ผู้แจ้งตอบผลการตรวจงานกลับไป
+///
+/// [status] ใช้ได้สองค่าจากฝั่งผู้แจ้ง คือ [kItCaseClosedStatusId] เมื่อตรวจ
+/// แล้วผ่านและปิดงาน กับ [kItCaseRedoStatusId] เมื่อยังไม่ผ่านและตีกลับให้ทำใหม่
+/// สถานะที่เหลือเป็นของฝั่งทีม IT ไม่ใช่ของที่แอปนี้ส่ง
+///
+/// [rating] คือดาว 1-5 ที่ผู้แจ้งให้ 0 แปลว่าไม่ให้คะแนน (ช่วงเดียวกับ
+/// [itCaseRatingOf] ที่ใช้อ่านค่ากลับมา) ส่วน [note] คือความเห็นสั้น ๆ
+/// ที่ไปลงช่อง `descCreator`
 ///
 /// สำเร็จคือไม่โยนอะไรออกมา ล้มเหลวโยน [MobileApiException] พร้อมข้อความไทย
 /// ที่เอาไปโชว์ได้ตรง ๆ
-Future<void> closeCaseJob(String jobId) async {
+Future<void> updateCaseJobStatus(
+  String jobId, {
+  required String status,
+  int rating = 0,
+  String note = '',
+}) async {
   final id = jobId.trim();
   if (id.isEmpty) {
-    throw const MobileApiException('ไม่มีเลขเคส ปิดงานไม่ได้');
+    throw const MobileApiException('ไม่มีเลขเคส ส่งผลตรวจงานไม่ได้');
   }
 
   final options = MobileSession.I.authOptions();
@@ -909,20 +922,17 @@ Future<void> closeCaseJob(String jobId) async {
   }
 
   try {
-    final response = await mobileDio.post(
-      _closeJobPath,
-      data: {'jobId': id},
+    final response = await mobileDio.put(
+      _updateStatusPath,
+      data: {
+        'jobId': id,
+        'status': status,
+        'descCreator': note.trim(),
+        // นอกช่วง 1-5 ถือว่าไม่ให้คะแนน ส่ง 0 ไปตรง ๆ ดีกว่าส่งเลขมั่ว
+        'ratings': rating >= 1 && rating <= 5 ? rating : 0,
+      },
       options: options,
     );
-
-    // 404 ตรงนี้ไม่ได้แปลว่าหาเคสไม่เจอ แต่แปลว่าเซิร์ฟเวอร์ยังไม่มีเส้นทางนี้
-    // ปล่อยให้ unwrapMobileResponse แปลไปตามปกติจะได้ข้อความว่า "ไม่พบข้อมูล"
-    // ซึ่งทำให้เข้าใจผิดว่าเคสหาย
-    if (response.statusCode == 404) {
-      throw const MobileApiException(
-        'ระบบยังไม่เปิดให้ยืนยันปิดงานจากแอป กรุณาแจ้งทีม IT',
-      );
-    }
 
     unwrapMobileResponse(response);
   } on MobileApiException {

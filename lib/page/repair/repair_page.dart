@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:claim/page/chat/chat_page.dart';
 import 'package:claim/page/repair/asset_page.dart';
 import 'package:claim/page/repair/repair_api.dart';
 import 'package:claim/page/repair/repair_card.dart';
@@ -91,6 +92,13 @@ class _RepairPageState extends State<RepairPage> {
       appBar: AppBar(
         title: const Text('แจ้งซ่อม'),
         actions: [
+          IconButton(
+            tooltip: 'ถามบอทเรื่องสถานะซ่อม',
+            onPressed: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => const ChatPage())),
+            icon: const Icon(Icons.forum_outlined),
+          ),
           IconButton(
             tooltip: 'ทะเบียนเครื่อง',
             onPressed: _openAssets,

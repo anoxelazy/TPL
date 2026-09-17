@@ -264,7 +264,7 @@ void main() {
 
     test('ไม่มีเลขเคสก็ปิดงานไม่ได้ ไม่ต้องยิงเน็ตให้เสียเที่ยว', () {
       expect(
-        () => closeCaseJob('  '),
+        () => updateCaseJobStatus('  ', status: kItCaseClosedStatusId),
         throwsA(
           isA<MobileApiException>().having(
             (e) => e.message,
@@ -275,9 +275,22 @@ void main() {
       );
     });
 
+    test('ให้ดาวมาด้วยก็ยังกันใบที่ไม่มีเลขเคสเหมือนเดิม', () {
+      expect(
+        () => updateCaseJobStatus(
+          '',
+          status: kItCaseClosedStatusId,
+          rating: 5,
+          note: 'เยี่ยม',
+        ),
+        throwsA(isA<MobileApiException>()),
+      );
+    });
+
     test('ยังไม่ได้ล็อกอินระบบนี้ ต้องบอกให้เข้าสู่ระบบใหม่', () {
       expect(
-        () => closeCaseJob('IT2026106446'),
+        () =>
+            updateCaseJobStatus('IT2026106446', status: kItCaseClosedStatusId),
         throwsA(
           isA<MobileApiException>().having(
             (e) => e.needLogin,
@@ -285,6 +298,36 @@ void main() {
             isTrue,
           ),
         ),
+      );
+    });
+  });
+
+  group('ตีงานกลับให้ทีม IT ทำใหม่', () {
+    test('IN2 ถอยกลับไปต่ำกว่างานที่กำลังแก้อยู่ ไม่ใช่เดินหน้าต่อจาก FN', () {
+      // ผู้แจ้งตีกลับแปลว่างานยังไม่จบ % ต้องไม่ค้างอยู่ที่ 90 ของ FN
+      expect(itCaseProgressOf(kItCaseRedoStatusId), lessThan(60));
+      expect(
+        itCaseProgressOf(kItCaseRedoStatusId),
+        lessThan(itCaseProgressOf(kItCaseWaitConfirmStatusId)),
+      );
+    });
+
+    test('เคสที่ถูกตีกลับนับเป็นงานที่ยังทำอยู่ ไม่ใช่งานที่จบแล้ว', () {
+      final job = ItCaseJob.fromJson(const {
+        'job_id': 'IT2026106446',
+        'job_status': 'IN2',
+      });
+
+      expect(job.stage, ItCaseStage.working);
+      expect(job.isClosed, isFalse);
+      // จบรอบตรวจไปแล้ว ปุ่มปิดงานต้องหายไปจนกว่าทีม IT จะส่ง FN กลับมาใหม่
+      expect(job.needsConfirm, isFalse);
+    });
+
+    test('ไม่มีเลขเคสก็ตีกลับไม่ได้ ไม่ต้องยิงเน็ตให้เสียเที่ยว', () {
+      expect(
+        () => updateCaseJobStatus(' ', status: kItCaseRedoStatusId),
+        throwsA(isA<MobileApiException>()),
       );
     });
   });

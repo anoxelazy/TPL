@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'package:claim/page/itcase/itcase_api.dart';
+import 'package:claim/page/itcase/itcase_close_dialog.dart';
 import 'package:claim/page/itcase/itcase_job_card.dart';
 import 'package:claim/page/itcase/itcase_job_detail_page.dart';
 import 'package:claim/page/itcase/itcase_status_page.dart';
@@ -154,6 +155,17 @@ class _ItCaseOpenCasesState extends State<ItCaseOpenCases>
     _load();
   }
 
+  /// ปิดงานจากปุ่มบนการ์ดที่หน้าหลักเลย
+  ///
+  /// เคสที่รอเราตรวจถูกดันขึ้นบนสุดของรายการนี้อยู่แล้ว มีปุ่มตรงนี้ด้วยก็จบ
+  /// ได้ตั้งแต่หน้าแรก ไม่ต้องกดเข้าไปสองชั้น
+  Future<void> _closeJob(ItCaseJob job) async {
+    final sent = await runItCaseCloseFlow(context, job.id);
+    if (!sent || !mounted) return;
+
+    _load();
+  }
+
   Future<void> _openAll() async {
     await Navigator.of(
       context,
@@ -207,6 +219,7 @@ class _ItCaseOpenCasesState extends State<ItCaseOpenCases>
               job: shown[i],
               statuses: _statuses,
               onTap: shown[i].id.isEmpty ? null : () => _open1(shown[i]),
+              onClose: shown[i].id.isEmpty ? null : () => _closeJob(shown[i]),
             ),
             // ใบสุดท้ายไม่ต้องเว้นท้าย ไม่งั้นจะมีช่องว่างลอยก่อนจบหน้า
             if (i != shown.length - 1) const SizedBox(height: AppSizes.gap),

@@ -162,4 +162,61 @@ void main() {
       expect(find.byType(LinearProgressIndicator), findsNothing);
     });
   });
+
+  group('ปุ่มปิดงานบนการ์ด', () {
+    Future<void> pumpWithClose(
+      WidgetTester tester,
+      String status, {
+      required VoidCallback? onClose,
+    }) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ItCaseJobCard(
+              job: ItCaseJob.fromJson({
+                'job_id': 'IT2026106446',
+                'job_status': status,
+              }),
+              statuses: _statuses,
+              onClose: onClose,
+            ),
+          ),
+        ),
+      );
+    }
+
+    testWidgets('เคสที่รอเราตรวจ (FN) มีปุ่มปิดงานให้กดจากการ์ดเลย', (
+      tester,
+    ) async {
+      var tapped = 0;
+      await pumpWithClose(tester, 'FN', onClose: () => tapped++);
+
+      expect(find.text('ปิดงาน'), findsOneWidget);
+
+      await tester.tap(find.text('ปิดงาน'));
+      expect(tapped, 1);
+    });
+
+    testWidgets('เคสที่ทีม IT ยังทำอยู่ ไม่มีปุ่มปิดงานให้กดผิด', (
+      tester,
+    ) async {
+      await pumpWithClose(tester, 'IN', onClose: () {});
+
+      expect(find.text('ปิดงาน'), findsNothing);
+    });
+
+    testWidgets('เคสที่ปิดไปแล้ว ไม่มีปุ่มให้ปิดซ้ำ', (tester) async {
+      await pumpWithClose(tester, 'CF', onClose: () {});
+
+      expect(find.text('ปิดงาน'), findsNothing);
+    });
+
+    testWidgets('หน้าที่ไม่รองรับการปิดงาน ไม่ส่ง onClose มาก็ไม่มีปุ่ม', (
+      tester,
+    ) async {
+      await pumpWithClose(tester, 'FN', onClose: null);
+
+      expect(find.text('ปิดงาน'), findsNothing);
+    });
+  });
 }

@@ -2,6 +2,7 @@ import 'package:cross_file/cross_file.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:claim/utils/image_encode.dart';
+import 'package:claim/utils/role_service.dart';
 import 'package:claim/utils/supabase_config.dart';
 
 const String _function = '/functions/v1/get-asset';
@@ -267,6 +268,10 @@ Future<void> createRepair({
       'device_name': asset.displayName,
       'issue_description': issueDescription,
       'requester_name': requesterName,
+      // เลขนี้คือตัวที่ chatbot ใช้ตอบคำสั่ง "เคสของฉัน" ไม่ใช่ชื่อผู้แจ้ง
+      // ใบที่ไม่มีเลขนี้บอทจะหาไม่เจอ ต้องไปไล่จากชื่อซึ่งพลาดง่าย
+      if (RoleService.I.empNumber != null)
+        'requester_employee_number': RoleService.I.empNumber,
       // คอลัมน์ image_urls เป็น array ส่งเป็นลิสต์ตรง ๆ ไม่ใช่สตริงคั่นคอมมา
       // ไม่มีรูปก็ไม่ส่งช่องนี้เลย ปล่อยให้เป็นค่าตั้งต้นของคอลัมน์
       if (imageUrls.isNotEmpty) 'image_urls': imageUrls,

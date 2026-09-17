@@ -39,11 +39,18 @@ class ItCaseJobCard extends StatelessWidget {
   /// กดแล้วไปหน้ารายละเอียด ปล่อยว่างได้เมื่อเอาการ์ดไปโชว์เฉย ๆ
   final VoidCallback? onTap;
 
+  /// กดปุ่มปิดงานบนการ์ด ปล่อยว่างได้เมื่อหน้านั้นไม่รองรับการปิดงาน
+  ///
+  /// ปุ่มโผล่เฉพาะเคสที่ทีม IT แก้เสร็จแล้วรอเราตรวจ (`FN`) เท่านั้น
+  /// สถานะอื่นยังไม่มีอะไรให้ตรวจ มีปุ่มไปก็ชวนให้กดผิด
+  final VoidCallback? onClose;
+
   const ItCaseJobCard({
     super.key,
     required this.job,
     required this.statuses,
     this.onTap,
+    this.onClose,
   });
 
   @override
@@ -95,18 +102,48 @@ class ItCaseJobCard extends StatelessWidget {
           ],
 
           const SizedBox(height: 10),
-          Wrap(
-            spacing: 12,
-            runSpacing: 4,
+
+          // ข้อมูลประกอบกับปุ่มปิดงานอยู่แถวเดียวกัน ปุ่มชิดขวาล่างของการ์ด
+          // เป็นทางออกของการ์ดใบนี้พอดี ไม่ต้องกินความกว้างทั้งแถบ
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              if (job.officer.isNotEmpty)
-                _meta(scheme, Icons.engineering_outlined, job.officer),
-              if (created != null)
-                _meta(
-                  scheme,
-                  Icons.schedule,
-                  DateFormat('d MMM y HH:mm', 'th').format(created),
+              Expanded(
+                child: Wrap(
+                  spacing: 12,
+                  runSpacing: 4,
+                  children: [
+                    if (job.officer.isNotEmpty)
+                      _meta(scheme, Icons.engineering_outlined, job.officer),
+                    if (created != null)
+                      _meta(
+                        scheme,
+                        Icons.schedule,
+                        DateFormat('d MMM y HH:mm', 'th').format(created),
+                      ),
+                  ],
                 ),
+              ),
+
+              // เคสที่รอเราตรวจจบได้จากตรงนี้เลย ไม่ต้องกดเข้าไปอีกชั้น
+              if (job.needsConfirm && onClose != null) ...[
+                const SizedBox(width: 8),
+                FilledButton(
+                  onPressed: onClose,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.success,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(0, 30),
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    textStyle: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  child: const Text('ปิดงาน'),
+                ),
+              ],
             ],
           ),
         ],
