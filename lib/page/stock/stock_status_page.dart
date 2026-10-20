@@ -172,7 +172,7 @@ class _StockStatusPageState extends State<StockStatusPage> {
 
   Widget _buildBody(Color accent) {
     if (_isLoading) {
-      return const LoadingStateView();
+      return const ListLoadingView();
     }
 
     if (_error != null) {

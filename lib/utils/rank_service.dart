@@ -23,14 +23,24 @@ enum RankTier {
   bronze,
 
   /// อันดับ 4 ถึง [kRankBoardSize] ติดสิบอันดับแต่ไม่ได้เหรียญ
-  top10;
+  top10,
 
-  /// เกินสิบอันดับคืน null เพราะตารางเก็บแค่สิบ ป้ายจึงไม่มีอะไรจะบอก
-  static RankTier? fromRank(int rank) => switch (rank) {
+  /// ทุกคนที่เหลือ ไม่ว่าจะส่งมาแล้วสี่สิบใบแต่ไม่ติดท็อป หรือยังไม่เคยส่งเลย
+  ///
+  /// แยกสองกลุ่มนั้นไม่ได้ เพราะ rank.json ส่งมาแค่สิบแถว ไม่มียอดของคนอื่น
+  /// ถ้าวันหลัง backend ส่งยอดของทุกคนมา ค่อยแตกเป็น "ผู้ส่งบันทึก" กับ
+  /// "ผู้ใช้งานทั่วไป" ได้
+  ///
+  /// ชั้นนี้**ไม่มีป้ายบนรูปโปรไฟล์** ป้ายที่ทุกคนมีเหมือนกันหมดไม่ได้บอกอะไร
+  /// มีแค่การ์ดตอนกดรูป
+  member;
+
+  /// เกินสิบอันดับถือเป็นผู้ใช้งานทั่วไป ตารางเก็บแค่สิบ
+  static RankTier fromRank(int rank) => switch (rank) {
     1 => RankTier.gold,
     2 => RankTier.silver,
     3 => RankTier.bronze,
-    _ => rank >= 4 && rank <= kRankBoardSize ? RankTier.top10 : null,
+    _ => rank >= 4 && rank <= kRankBoardSize ? RankTier.top10 : RankTier.member,
   };
 }
 
@@ -55,8 +65,14 @@ class UserRank {
 
   bool get isDiamond => tier == RankTier.diamond;
 
-  String get title =>
-      isDiamond ? 'ผู้สร้างแอป' : 'ผู้ส่งบันทึกสินค้าเสียหายสูญหายอันดับ $rank';
+  /// ไม่ติดสิบอันดับ เหมือนเพชรตรงที่ไม่มีลำดับที่ แต่คนละเหตุผล
+  bool get isMember => tier == RankTier.member;
+
+  String get title => switch (tier) {
+    RankTier.diamond => 'ผู้สร้างแอป',
+    RankTier.member => 'ผู้ใช้งานทั่วไป',
+    _ => 'ผู้ส่งบันทึกสินค้าเสียหายสูญหายอันดับ $rank',
+  };
 }
 
 /// หนึ่งแถวของตารางอันดับ ไม่ผูกกับผู้ใช้ที่ล็อกอินอยู่
@@ -81,8 +97,14 @@ class RankEntry {
     this.location = '',
   });
 
-  /// มีสีประจำชั้นเฉพาะสามอันดับแรก ที่เหลือ null ใช้สีกลางของธีม
-  RankTier? get tier => RankTier.fromRank(rank);
+  /// ชั้นของแถวนี้ในตาราง คืน null เมื่อไม่ติดสิบอันดับ แถวนั้นใช้สีกลางของธีม
+  ///
+  /// ไม่ส่ง [RankTier.member] ออกไปเพราะชั้นนั้นมีไว้ใช้กับป้ายของผู้ใช้
+  /// ไม่ใช่กับแถวในตาราง (ตารางเก็บแค่สิบแถว ไม่มีแถวของผู้ใช้งานทั่วไปอยู่แล้ว)
+  RankTier? get tier {
+    final tier = RankTier.fromRank(rank);
+    return tier == RankTier.member ? null : tier;
+  }
 
   String get label => name.isEmpty ? 'รหัส $empId' : name;
 }
@@ -193,14 +215,23 @@ class RankService {
       );
     }
 
-    if (mine == null) return null;
-
-    final tier = RankTier.fromRank(mine.rank);
-    if (tier == null) return null;
+    // อ่านตารางได้แล้วแต่ไม่มีชื่อเราอยู่ในนั้น = ไม่ติดสิบอันดับ
+    //
+    // ต่างจากกรณีอ่านตารางไม่ได้ (คืน null ไปตั้งแต่ข้างบน) ซึ่งแปลว่า
+    // ยังไม่รู้ ไม่ใช่รู้แล้วว่าไม่ติด
+    if (mine == null) {
+      return UserRank(
+        rank: null,
+        tier: RankTier.member,
+        reports: 0,
+        images: 0,
+        period: period,
+      );
+    }
 
     return UserRank(
       rank: mine.rank,
-      tier: tier,
+      tier: RankTier.fromRank(mine.rank),
       reports: mine.reports,
       images: mine.images,
       period: period,

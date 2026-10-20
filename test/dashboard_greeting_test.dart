@@ -63,4 +63,38 @@ void main() {
 
     expect(find.text('-'), findsOneWidget);
   });
+
+  testWidgets('เลื่อนหน้าลงไปแล้วแถบทักทายยังค้างอยู่บนสุด', (tester) async {
+    // จอเทสต์ตั้งต้นสูงกว่าเนื้อหาที่หน้านี้มีตอนไม่มีแบนเนอร์กับเคสค้าง
+    // ย่อจอให้เตี้ยลงก่อน ไม่งั้นลากเท่าไรก็ไม่มีอะไรให้เลื่อน
+    tester.view.physicalSize = const Size(400, 400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await pumpDashboard(tester, {'flutter.fullname': 'ลาดกระบัง'});
+
+    final before = tester.getTopLeft(find.text('ลาดกระบัง'));
+
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -400));
+    await tester.pump();
+
+    // กันเทสต์หลอกตัวเอง: ถ้าเนื้อหาสั้นกว่าจอจนลากแล้วไม่ขยับ ข้อสรุปข้างล่าง
+    // ก็ไม่ได้พิสูจน์อะไร
+    final scrolled = tester
+        .state<ScrollableState>(
+          find
+              .descendant(
+                of: find.byType(CustomScrollView),
+                matching: find.byType(Scrollable),
+              )
+              .first,
+        )
+        .position;
+    expect(scrolled.pixels, greaterThan(0));
+
+    // ยังอยู่ และอยู่ที่เดิม ไม่ได้เลื่อนตามเนื้อหาขึ้นไป
+    expect(find.text('ลาดกระบัง'), findsOneWidget);
+    expect(tester.getTopLeft(find.text('ลาดกระบัง')), before);
+  });
 }

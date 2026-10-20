@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:claim/page/chat/chat_session.dart';
 import 'package:claim/page/tracking/models.dart';
 import 'package:claim/page/tracking/tracking_cache.dart';
 import 'package:claim/utils/announcement_service.dart';
@@ -77,6 +78,20 @@ void main() {
         expect(prefs.getString(key), isNull, reason: 'คีย์ $key ต้องหาย');
       }
     });
+    test('บทสนทนากับบอทหายไปด้วย', () async {
+      await signedIn();
+      // ในข้อความมีเลขที่ใบกับชื่อเครื่องของคนก่อนหน้าติดอยู่
+      ChatSession.I.messages.add(ChatMessage.user('เคสของฉัน'));
+      expect(
+        ChatSession.I.messages,
+        isNotEmpty,
+        reason: 'ตั้งต้นต้องมีของอยู่',
+      );
+
+      await forgetSignedInUser();
+
+      expect(ChatSession.I.messages, isEmpty);
+    });
 
     test('อันดับกับตารางอันดับหายไปด้วย', () async {
       await signedIn();
@@ -102,6 +117,7 @@ void main() {
       TrackingCache.I.clear();
       RankService.I.forgetCurrentUser();
       AnnouncementService.I.forgetCurrentUser();
+      ChatSession.I.forgetCurrentUser();
     });
   });
 }

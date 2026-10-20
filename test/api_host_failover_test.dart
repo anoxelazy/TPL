@@ -88,6 +88,18 @@ void main() {
         isTrue,
       );
     });
+
+    test('TLS handshake ล้ม (ใบรับรอง HTTPS หมดอายุ) ที่ห่อมาใน unknown', () {
+      expect(
+        isConnectionFailure(
+          error(
+            DioExceptionType.unknown,
+            cause: const HandshakeException('CERTIFICATE_VERIFY_FAILED'),
+          ),
+        ),
+        isTrue,
+      );
+    });
   });
 
   group('เคสที่ห้ามยิงซ้ำ เพราะเซิร์ฟเวอร์อาจรับไปทำแล้ว', () {

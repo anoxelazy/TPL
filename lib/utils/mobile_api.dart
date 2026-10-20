@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Mobile API ตัวใหม่ของบริษัท (คนละตัวกับ API หลักที่ใช้ login และงานเคลม)
@@ -22,14 +25,36 @@ class MobileApi {
 /// ห้ามใช้ dio ตัวหลักร่วม เพราะตัวหลักมี interceptor สลับ host สำรองกับตัว
 /// รายงานสถานะเน็ตติดอยู่ ถ้า API นี้ล่มจะไปทำให้แถบ "ไม่มีอินเทอร์เน็ต" ขึ้น
 /// ทั้งที่ระบบหลักยังใช้ได้ และการสลับ host ก็ไม่มีความหมายกับ API ตัวนี้
-final Dio mobileDio = Dio(
-  BaseOptions(
-    baseUrl: MobileApi.baseUrl,
-    connectTimeout: const Duration(seconds: 10),
-    receiveTimeout: const Duration(seconds: 30),
-    headers: {'Accept': 'application/json'},
-  ),
-);
+final Dio mobileDio = _createMobileDio();
+
+Dio _createMobileDio() {
+  final dio = Dio(
+    BaseOptions(
+      baseUrl: MobileApi.baseUrl,
+      connectTimeout: const Duration(seconds: 10),
+      receiveTimeout: const Duration(seconds: 30),
+      headers: {'Accept': 'application/json'},
+    ),
+  );
+
+  // log ลง terminal เฉพาะตอน debug ไม่เก็บไว้โชว์ในแอป
+  // ไม่พิมพ์ header เพราะ Authorization มี Bearer token อยู่
+  if (kDebugMode) {
+    dio.interceptors.add(
+      PrettyDioLogger(
+        requestHeader: false,
+        requestBody: true,
+        responseHeader: false,
+        responseBody: true,
+        error: true,
+        compact: false,
+        maxWidth: 120,
+      ),
+    );
+  }
+
+  return dio;
+}
 
 /// ข้อผิดพลาดที่แสดงให้ผู้ใช้อ่านได้ตรง ๆ
 class MobileApiException implements Exception {
@@ -147,15 +172,53 @@ dynamic unwrapMobileResponse(Response<dynamic> response) {
 
   if (code == 404) {
     // body เป็นข้อความไทยอยู่แล้ว เช่น "ไม่พบข้อมูล" แสดงต่อได้เลย
-    final text = response.data?.toString().trim() ?? '';
+    final text = mobileErrorMessage(response.data);
     throw MobileApiException(text.isEmpty ? 'ไม่พบข้อมูล' : text);
   }
 
   if (code < 200 || code >= 300) {
-    throw MobileApiException('ทำรายการไม่สำเร็จ (HTTP $code)');
+    // เซิร์ฟเวอร์อธิบายเป็นภาษาไทยมาให้แล้วในหลายเคส เช่น 409 ตอนตั้งผู้อนุมัติ
+    // ซ้ำคนเดิมตอบว่า "เป็นผู้อนุมัติของแผนก F0001 อยู่แล้ว" — ทิ้งข้อความนั้น
+    // แล้วโชว์เลข HTTP แทนคือเปลี่ยนคำอธิบายที่ทำอะไรต่อได้ ให้เป็นรหัสที่
+    // ผู้ใช้ทำอะไรไม่ได้เลย
+    final text = mobileErrorMessage(response.data);
+    throw MobileApiException(
+      text.isEmpty ? 'ทำรายการไม่สำเร็จ (HTTP $code)' : text,
+    );
   }
 
   return response.data;
+}
+
+/// ข้อความอธิบายความผิดพลาดที่เซิร์ฟเวอร์ส่งมา คืนค่าว่างเมื่อไม่มี
+///
+/// กลุ่ม AssetTransfer ตอบเป็นก้อน `{"success":…,"code":…,"message":…}`
+/// ส่วนกลุ่มเก่าตอบข้อความเปล่า ๆ รับทั้งสองแบบ
+String mobileErrorMessage(dynamic data) {
+  dynamic decoded = data;
+
+  if (decoded is String) {
+    final text = decoded.trim();
+    if (text.isEmpty) return '';
+    try {
+      decoded = jsonDecode(text);
+    } catch (_) {
+      return text;
+    }
+  }
+
+  if (decoded is Map) {
+    for (final entry in decoded.entries) {
+      final key = entry.key.toString().toLowerCase();
+      if (key != 'message' && key != 'msg') continue;
+
+      final text = entry.value?.toString().trim() ?? '';
+      if (text.isNotEmpty) return text;
+    }
+    return '';
+  }
+
+  return decoded?.toString().trim() ?? '';
 }
 
 String mobileNetworkMessage(Object error) {

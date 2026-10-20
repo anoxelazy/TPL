@@ -264,7 +264,7 @@ class _PmPageState extends State<PmPage> {
   }
 
   Widget _body(Color accent) {
-    if (_isLoading) return const LoadingStateView();
+    if (_isLoading) return const ListLoadingView();
 
     final error = _error;
     if (error != null) {

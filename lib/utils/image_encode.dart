@@ -41,7 +41,6 @@ Uint8List _compressIsolate(_CompressRequest request) {
       ? decoded.width
       : decoded.height;
 
-  // ไม่ขยายรูปที่เล็กกว่าเป้าอยู่แล้ว
   final resized = longest <= request.maxEdge
       ? decoded
       : img.copyResize(

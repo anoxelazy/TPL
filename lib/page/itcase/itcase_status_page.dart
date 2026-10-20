@@ -308,7 +308,7 @@ class _ItCaseStatusPageState extends State<ItCaseStatusPage>
   }
 
   Widget _body() {
-    if (_loading) return const LoadingStateView();
+    if (_loading) return const ListLoadingView();
 
     final error = _error;
     if (error != null) {

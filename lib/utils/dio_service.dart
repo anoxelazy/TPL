@@ -83,10 +83,15 @@ Dio get dio => _dio;
 /// ล้มเพราะต่อไม่ถึงเซิร์ฟเวอร์ ไม่ใช่เพราะเซิร์ฟเวอร์ตอบช้าหรือตอบ error
 ///
 /// receiveTimeout ไม่นับ เพราะต่อติดแล้วแค่เซิร์ฟเวอร์ช้า ไม่ใช่เน็ตหาย
+///
+/// TLS handshake ล้ม (เช่นใบรับรองของ host HTTPS หมดอายุ) นับด้วย dio ไม่ได้
+/// ห่อเป็น connectionError แต่โยนมาเป็น unknown ที่มี HandshakeException อยู่ข้างใน
+/// คำขอยังไม่ถูกส่งออกไปจึงสลับไปยิงที่ host สำรองได้ไม่เสี่ยงบันทึกซ้ำ
 bool isConnectionFailure(DioException e) =>
     e.type == DioExceptionType.connectionError ||
     e.type == DioExceptionType.connectionTimeout ||
-    e.error is SocketException;
+    e.error is SocketException ||
+    e.error is TlsException;
 
 /// สถานะที่แปลว่าตัวหน้า (IIS/proxy) ต่อ backend ไม่ได้
 ///

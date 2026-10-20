@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:claim/page/asset/asset_list_page.dart';
 import 'package:claim/page/claim/claim.dart';
 import 'package:claim/page/meter/meter_api.dart' show meterModule;
 import 'package:claim/page/meter/meter_form_page.dart';
@@ -108,12 +109,19 @@ List<DashboardMenuItem> buildDashboardMenu(BuildContext context) {
       iconBg: AppColors.repairBg,
       onTap: () => go(const RepairPage()),
     ),
+    // ทะเบียนทรัพย์สินอยู่ในตาราง ส่วนใบโอนย้ายอยู่บนแถบ เพราะคนละเรื่องกัน:
+    // อันนี้คือค้นว่าของชิ้นนี้คืออะไรอยู่ไหน และเป็นที่เดียวที่เพิ่มของใหม่เข้า
+    // ทะเบียนได้ เปิดดูเมื่อไหร่ก็ได้ ไม่มีใครรอ ส่วนใบโอนย้ายมีของจริงเคลื่อนที่
+    // ตามและมีคนปลายทางรอรับ
+    //
+    // วางคู่กับแจ้งซ่อมและ PM เพราะเป็นงานฝั่ง IT เหมือนกัน และไม่ให้ไปอยู่
+    // ช่องสุดท้ายซึ่งเป็นที่ที่คนมองข้ามบ่อยสุด
     DashboardMenuItem(
-      icon: Icons.swap_horiz,
-      label: 'โอนย้ายทรัพย์สิน',
+      icon: Icons.inventory_2_outlined,
+      label: 'ทะเบียนทรัพย์สิน',
       iconColor: AppColors.assetIcon,
       iconBg: AppColors.assetBg,
-      comingSoon: true,
+      onTap: () => go(const AssetListPage()),
     ),
     DashboardMenuItem(
       icon: Icons.handyman_outlined,
@@ -127,6 +135,12 @@ List<DashboardMenuItem> buildDashboardMenu(BuildContext context) {
 
   return _byAvailability(items);
 }
+
+List<DashboardMenuItem> unlockedMenu(List<DashboardMenuItem> items) =>
+    items.where((item) => !item.isBlocked).toList();
+
+List<DashboardMenuItem> lockedMenu(List<DashboardMenuItem> items) =>
+    items.where((item) => item.isBlocked).toList();
 
 List<DashboardMenuItem> _byAvailability(List<DashboardMenuItem> items) {
   final ranked = <MapEntry<int, DashboardMenuItem>>[

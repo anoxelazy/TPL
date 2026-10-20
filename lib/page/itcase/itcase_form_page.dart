@@ -273,10 +273,6 @@ class _ItCaseFormPageState extends State<ItCaseFormPage> {
     return openDetail ?? false;
   }
 
-  /// เปิดรายละเอียดของเคสที่เพิ่งแจ้ง
-  ///
-  /// ตอนนี้มีแค่เลขเคสในมือ หน้าปลายทางจะยิง `jobdetails` เอาเนื้อหาเต็มเอง
-  /// ประเภทปัญหาที่ฟอร์มโหลดไว้แล้วส่งต่อไปด้วย จะได้ไม่ต้องยิงซ้ำ
   void _openSentCase(String caseNumber, NavigatorState navigator) {
     navigator.push(
       MaterialPageRoute(
@@ -423,10 +419,10 @@ class _ItCaseFormPageState extends State<ItCaseFormPage> {
           children: [
             _cardTitle(scheme, Icons.image_outlined, 'รูปประกอบ'),
             const SizedBox(width: 6),
-            Text(
-              'ไม่บังคับ',
-              style: TextStyle(fontSize: 11.5, color: scheme.onSurfaceVariant),
-            ),
+            // Text(
+            //   'ไม่บังคับ',
+            //   style: TextStyle(fontSize: 11.5, color: scheme.onSurfaceVariant),
+            // ),
           ],
         ),
         const SizedBox(height: 4),

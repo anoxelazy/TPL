@@ -21,10 +21,10 @@ class ItCaseOpenCases extends StatefulWidget {
   const ItCaseOpenCases({super.key});
 
   @override
-  State<ItCaseOpenCases> createState() => _ItCaseOpenCasesState();
+  State<ItCaseOpenCases> createState() => ItCaseOpenCasesState();
 }
 
-class _ItCaseOpenCasesState extends State<ItCaseOpenCases>
+class ItCaseOpenCasesState extends State<ItCaseOpenCases>
     with WidgetsBindingObserver {
   /// โชว์บนหน้าหลักได้กี่ใบ ที่เหลือกดดูทั้งหมดเอา
   ///
@@ -108,6 +108,12 @@ class _ItCaseOpenCasesState extends State<ItCaseOpenCases>
   ///
   /// นี่เป็นของแถมบนหน้าหลัก ไม่ใช่เนื้อหาหลัก ขึ้นกล่องแดงว่าโหลดเคสไม่ได้
   /// จะไปกวนคนที่เข้ามาใช้เมนูอื่นซึ่งไม่เคยแจ้งเคสเลยด้วยซ้ำ
+  /// ให้หน้าหลักสั่งดึงใหม่ได้ตอนผู้ใช้ดึงหน้าจอลง
+  ///
+  /// ข้ามตัวกันยิงถี่ไปเลย ผู้ใช้สั่งเองก็ต้องได้ของใหม่จริง ไม่ใช่เงียบไป
+  /// เพราะเพิ่งดึงไปเมื่อสิบวินาทีก่อน
+  Future<void> refresh() => _load();
+
   Future<void> _load() async {
     // จดเวลาไว้ก่อนยิง ไม่ใช่หลังได้ผล ระหว่างรออยู่จะได้ไม่มีใครยิงซ้ำเข้ามา
     _lastLoad = DateTime.now();

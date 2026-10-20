@@ -82,7 +82,7 @@ class _PlanBillListPageState extends State<PlanBillListPage> {
 
   Widget _buildBody() {
     if (_isLoading) {
-      return const LoadingStateView();
+      return const ListLoadingView();
     }
 
     if (_error != null) {

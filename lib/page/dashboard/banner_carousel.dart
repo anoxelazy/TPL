@@ -12,6 +12,76 @@ import 'package:claim/utils/app_colors.dart';
 /// แลกกับได้แถบที่เตี้ยและยาวกว่า BoxFit.cover จัดให้อยู่กลางรูปเอง
 const double _bannerRatio = 2 / 1;
 
+/// แบนเนอร์พร้อมหัวข้อที่กดพับเก็บได้
+///
+/// แบนเนอร์เป็นรูป 2:1 เต็มความกว้าง กินพื้นที่บนสุดของหน้าหลักไปเกือบครึ่งจอ
+/// คนที่เข้ามาเพื่อกดเมนูทุกวันจึงควรพับเก็บได้ แต่ต้องไม่ใช่ปิดถาวรจนหาไม่เจอ
+/// หัวข้อยังค้างอยู่ให้กดกางกลับมาได้เสมอ
+///
+/// สถานะพับ/กางอยู่ที่หน้าที่เรียก เพราะต้องจำลง SharedPreferences ข้ามการเปิด
+/// แอป ถ้าเก็บไว้ในนี้ แบนเนอร์จะกางกลับมาเองทุกครั้งที่เปิดแอป
+class BannerSection extends StatelessWidget {
+  final List<BannerItem> banners;
+  final bool expanded;
+  final VoidCallback onToggle;
+
+  const BannerSection({
+    super.key,
+    required this.banners,
+    required this.expanded,
+    required this.onToggle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        InkWell(
+          onTap: onToggle,
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.campaign_outlined,
+                  size: 20,
+                  color: scheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'ประชาสัมพันธ์',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.3,
+                    color: scheme.onSurface,
+                  ),
+                ),
+                const Spacer(),
+                Icon(
+                  expanded ? Icons.expand_less : Icons.expand_more,
+                  size: 20,
+                  color: scheme.onSurfaceVariant,
+                ),
+              ],
+            ),
+          ),
+        ),
+        // พับแล้วถอดออกจากต้นไม้ไปเลย ตัวสไลด์มี Timer เลื่อนรูปอัตโนมัติอยู่
+        // ข้างใน ซ่อนไว้เฉย ๆ จะเหลือนาฬิกาเดินอยู่หลังของที่มองไม่เห็น
+        if (expanded) ...[
+          const SizedBox(height: 8),
+          BannerCarousel(banners: banners),
+        ],
+      ],
+    );
+  }
+}
+
 /// แบนเนอร์สไลด์พร้อมจุดบอกตำแหน่งด้านล่าง
 ///
 /// เลื่อนเองทุก [_autoPlay] และเลื่อนด้วยนิ้วได้ ถ้ามีรูปเดียวจะไม่เลื่อน

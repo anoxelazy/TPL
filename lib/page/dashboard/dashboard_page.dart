@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:claim/page/dashboard/asset_transfer_banner.dart';
 import 'package:claim/page/dashboard/banner_api.dart';
 import 'package:claim/page/dashboard/banner_carousel.dart';
 import 'package:claim/page/dashboard/dashboard_menu.dart';
@@ -8,8 +9,11 @@ import 'package:claim/page/dashboard/it_case_banner.dart';
 import 'package:claim/page/dashboard/it_case_open_cards.dart';
 import 'package:claim/page/dashboard/line_invite_banner.dart';
 import 'package:claim/page/dashboard/line_support.dart';
+import 'package:claim/page/dashboard/rank_podium_card.dart';
 import 'package:claim/page/dashboard/support_links.dart';
+import 'package:claim/page/dashboard/weather_chip.dart';
 import 'package:claim/utils/pm_access_service.dart';
+import 'package:claim/utils/rank_service.dart';
 // พักการค้นหาบนหน้าหลักไว้ก่อน ย้ายไปอยู่หน้าสถานะคลังสินค้าแทน
 // import 'package:claim/page/dashboard/menu_search_page.dart';
 import 'package:claim/widgets/app_card.dart';
@@ -30,15 +34,71 @@ class _DashboardPageState extends State<DashboardPage> {
   /// [fetchBanners] คัดแถวที่ไม่มี image_url ออกให้แล้ว ที่เหลือจึงโชว์ได้หมด
   List<BannerItem> _banners = [];
 
+  /// แบนเนอร์กางอยู่ไหม จำไว้ข้ามการเปิดแอป
+  ///
+  /// เริ่มที่พับไว้ ประชาสัมพันธ์เป็นของที่ดูเมื่ออยากดู ไม่ใช่ของที่ต้องทำ
+  /// ให้เมนูกับของค้างได้ที่ครึ่งบนของจอก่อน คนที่อยากดูกดกางเองแล้วระบบจำไว้ให้
+  ///
+  /// อ่านค่าตั้งแต่ initState พร้อมชื่อผู้ใช้ ซึ่งเสร็จก่อนแบนเนอร์จะโหลดมาจาก
+  /// เน็ตเสมอ คนที่กางไว้จึงไม่เห็นมันหุบแวบหนึ่งแล้วกางเอง
+  bool _bannerOpen = false;
+
+  static const String _bannerOpenKey = 'dashboard_banner_open';
+
+  /// กุญแจของการ์ดเคสค้าง ใช้สั่งให้มันดึงข้อมูลใหม่ตอนดึงหน้าจอลง
+  ///
+  /// การ์ดนั้นโหลดเองอยู่แล้วทั้งตอนเปิดแอปและเป็นรอบ แต่ผู้ใช้ที่ดึงหน้าจอลง
+  /// คาดหวังว่าทุกอย่างบนหน้าจะสดพร้อมกัน ไม่ใช่สดเฉพาะบางกล่อง
+  final GlobalKey<ItCaseOpenCasesState> _openCases = GlobalKey();
+
+  /// เลื่อนหน้าลงมาแล้วหรือยัง ใช้ตัดสินว่าจะขีดเส้นใต้แถบทักทายไหม
+  ///
+  /// แถบค้างอยู่กับที่ ถ้าไม่มีเส้นคั่น เนื้อหาที่ไหลลอดอยู่ข้างใต้จะดูเหมือน
+  /// ทับกันมั่วเพราะพื้นหลังสีเดียวกัน ตอนอยู่บนสุดไม่มีอะไรลอด ไม่ต้องมีเส้น
+  bool _scrolled = false;
+
   @override
   void initState() {
     super.initState();
     _loadUserName();
+    _loadBannerOpen();
     _loadBanners();
     // ช่องทางแจ้งปัญหาอ่านจาก issue.json อ่าน cache ก่อนแล้วดึงของใหม่เบื้องหลัง
     SupportLinksService.I.load();
     // สิทธิ์เมนู PM มาจาก pm.json อ่าน cache ก่อนแล้วดึงของใหม่เบื้องหลัง
     PmAccessService.I.init();
+  }
+
+  /// ดึงหน้าจอลงแล้วโหลดใหม่ทุกอย่างที่หน้านี้โชว์อยู่
+  ///
+  /// ยิงพร้อมกันทุกตัว ไม่ใช่ไล่ทีละอัน วงหมุนจะได้หยุดตอนตัวที่ช้าสุดเสร็จ
+  /// ไม่ใช่รอบวกเวลาของทุกเส้นเข้าด้วยกัน
+  ///
+  /// ตัวไหนพังก็เงียบของมันเอง (แต่ละตัวดักไว้ข้างในแล้ว) หน้าหลักไม่ควรขึ้น
+  /// error ทั้งหน้าเพราะไฟล์ประกอบไฟล์เดียวโหลดไม่ได้ ในเมื่อเมนูยังกดได้ครบ
+  Future<void> _refresh() async {
+    await Future.wait([
+      _quiet(_loadUserName()),
+      _quiet(_loadBanners()),
+      _quiet(SupportLinksService.I.load()),
+      _quiet(PmAccessService.I.init()),
+      // ตารางอันดับเป็นของ service กลาง การ์ดโพเดียมฟังอยู่แล้ว อัปเดตให้เอง
+      _quiet(RankService.I.init()),
+      // การ์ดเคสค้างถือ state ของตัวเอง ต้องสั่งผ่าน key
+      _quiet(_openCases.currentState?.refresh() ?? Future<void>.value()),
+    ]);
+  }
+
+  /// ยิงงานหนึ่งอย่างโดยไม่ให้ error หลุดไปล้ม Future.wait ทั้งชุด
+  ///
+  /// ตัวหนึ่งพังไม่ควรลากตัวที่สำเร็จแล้วให้ดูเหมือนพังตาม และ onRefresh
+  /// ที่โยน exception ออกมาจะทิ้งวงหมุนค้างไว้บนจอ
+  Future<void> _quiet(Future<void> task) async {
+    try {
+      await task;
+    } catch (e) {
+      debugPrint('dashboard refresh: $e');
+    }
   }
 
   /// ชื่อที่ทักทายใช้ fullname เป็นหลัก ถ้าไม่มีค่อยถอยไป username
@@ -60,6 +120,26 @@ class _DashboardPageState extends State<DashboardPage> {
 
     if (!mounted) return;
     setState(() => _userName = name);
+  }
+
+  /// อ่านว่าครั้งก่อนกางแบนเนอร์ไว้หรือเปล่า ไม่เคยตั้ง = พับไว้
+  Future<void> _loadBannerOpen() async {
+    final prefs = await SharedPreferences.getInstance();
+    final open = prefs.getBool(_bannerOpenKey) ?? false;
+
+    if (!mounted || open == _bannerOpen) return;
+    setState(() => _bannerOpen = open);
+  }
+
+  /// พับ/กางแบนเนอร์ แล้วจำไว้ใช้ครั้งหน้า
+  ///
+  /// เขียนลง prefs เบื้องหลัง ไม่ต้องรอ ไม่งั้นการกดพับจะหน่วงตามดิสก์
+  Future<void> _toggleBannerOpen() async {
+    final open = !_bannerOpen;
+    setState(() => _bannerOpen = open);
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_bannerOpenKey, open);
   }
 
   /// โหลดแบนเนอร์เงียบ ๆ พังก็แค่ไม่มีแบนเนอร์
@@ -91,33 +171,107 @@ class _DashboardPageState extends State<DashboardPage> {
   //   );
   // }
 
+  /// จำไว้ว่าตอนนี้เลื่อนพ้นบนสุดแล้วหรือยัง
+  ///
+  /// setState เฉพาะตอนค่าพลิก ไม่ใช่ทุกพิกเซลที่นิ้วลาก ไม่งั้นหน้าทั้งหน้า
+  /// (เมนู แบนเนอร์ การ์ดเคส) จะ rebuild ตลอดการเลื่อนหนึ่งครั้ง
+  bool _onScroll(ScrollNotification notification) {
+    if (notification.depth != 0) return false;
+
+    final scrolled = notification.metrics.extentBefore > 0;
+    if (scrolled != _scrolled) setState(() => _scrolled = scrolled);
+    return false;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-      children: [
-        _Greeting(name: _userName),
-        const SizedBox(height: 16),
+    final scheme = Theme.of(context).colorScheme;
 
-        // ไม่มีรูปใน banner.json ก็ไม่ต้องกินที่เลย ไม่ใช่ขึ้นกล่องเทาเปล่า ๆ
-        // ที่คนใช้ทำอะไรกับมันไม่ได้ ระหว่างโหลดก็ยังไม่โชว์ ขึ้นมาตอนได้รูปจริง
-        if (_banners.isNotEmpty) ...[
-          BannerCarousel(banners: _banners),
-          const SizedBox(height: 16),
-        ],
-        // ชวนแอด LINE เฉพาะคนที่ยังไม่ได้ผูกบัญชีกับบอท ผูกแล้วหรือกดปิดแล้ว
-        // จะไม่กินที่เลย ตัวมันเว้นระยะใต้ตัวเองมาให้แล้ว
-        const LineInviteBanner(),
+    return RefreshIndicator(
+      onRefresh: _refresh,
+      // วงหมุนต้องโผล่จากใต้แถบทักทาย ไม่ใช่จากขอบบนสุดแล้วทับแถบที่ค้างอยู่
+      edgeOffset: kToolbarHeight + 1,
+      child: NotificationListener<ScrollNotification>(
+        onNotification: _onScroll,
+        child: CustomScrollView(
+          // เนื้อหาสั้นกว่าจอ (เช่นยังไม่มีแบนเนอร์กับเคสค้าง) ก็ต้องยังดึงลงได้
+          // ไม่งั้นบางคนจะเจอว่าดึงไม่ติดโดยไม่รู้ว่าเพราะอะไร
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            // แถบทักทายค้างอยู่บนสุดตลอด รูปโปรไฟล์กับปุ่มติดต่อจึงกดได้ทุกจังหวะ
+            // ไม่ต้องเลื่อนกลับขึ้นไปหา
+            SliverAppBar(
+              pinned: true,
+              automaticallyImplyLeading: false,
+              // ธีมรวมตั้ง centerTitle ไว้ ซึ่งใช้กับหัวเรื่องที่เป็นข้อความ
+              // แถบนี้เป็นแถวเต็มความกว้าง ต้องชิดซ้ายเหมือนเดิม
+              centerTitle: false,
+              titleSpacing: 16,
+              // ธีมรวมตั้งแถบหัวเรื่องเป็นเขียวแบรนด์ แต่แถบนี้เป็นส่วนหนึ่งของ
+              // หน้าหลัก ไม่ใช่หัวเรื่องของหน้าย่อย จึงใช้พื้นเดียวกับเนื้อหา
+              backgroundColor: scheme.surface,
+              surfaceTintColor: Colors.transparent,
+              foregroundColor: scheme.onSurface,
+              title: _Greeting(name: _userName),
+              bottom: PreferredSize(
+                preferredSize: const Size.fromHeight(1),
+                child: Container(
+                  height: 1,
+                  color: _scrolled ? scheme.outlineVariant : Colors.transparent,
+                ),
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+              sliver: SliverList.list(
+                children: [
+                  // ไม่มีรูปใน banner.json ก็ไม่ต้องกินที่เลย ไม่ใช่ขึ้นกล่องเทา
+                  // เปล่า ๆ ที่คนใช้ทำอะไรกับมันไม่ได้ ระหว่างโหลดก็ยังไม่โชว์
+                  // ขึ้นมาตอนได้รูปจริง
+                  if (_banners.isNotEmpty) ...[
+                    BannerSection(
+                      banners: _banners,
+                      expanded: _bannerOpen,
+                      onToggle: _toggleBannerOpen,
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  // ชวนแอด LINE เฉพาะคนที่ยังไม่ได้ผูกบัญชีกับบอท ผูกแล้วหรือ
+                  // กดปิดแล้วจะไม่กินที่เลย ตัวมันเว้นระยะใต้ตัวเองมาให้แล้ว
+                  const LineInviteBanner(),
 
-        const ItCaseBanner(),
-        const SizedBox(height: 16),
-        ValueListenableBuilder<bool>(
-          valueListenable: PmAccessService.I.allowed,
-          builder: (context, _, _) =>
-              _MenuGrid(items: buildDashboardMenu(context)),
+                  const ItCaseBanner(),
+                  const SizedBox(height: 10),
+                  // แถบที่สอง เป็นงานที่มีของจริงเคลื่อนที่ตามและมีคนปลายทางรอรับ
+                  // เหมือนแจ้งเคส ต่างจากเมนูในตารางที่เป็นหน้าไว้เปิดดูข้อมูล
+                  // (ทะเบียนทรัพย์สินจึงอยู่ในตาราง ไม่ใช่ตรงนี้)
+                  //
+                  // แถบนี้นับใบที่รอคนคนนี้อยู่เองตอนเปิดหน้า แล้วโชว์เป็นตัวเลข
+                  const AssetTransferBanner(),
+                  const SizedBox(height: 16),
+                  ValueListenableBuilder<bool>(
+                    valueListenable: PmAccessService.I.allowed,
+                    builder: (context, _, _) {
+                      // แยกสองกองที่เดียวตรงนี้ ตารางโชว์เฉพาะเมนูที่กดได้
+                      // ที่เหลือไปอยู่ในแถวพับเก็บใต้ตาราง
+                      final items = buildDashboardMenu(context);
+                      return _MenuGrid(
+                        items: unlockedMenu(items),
+                        locked: lockedMenu(items),
+                      );
+                    },
+                  ),
+                  ItCaseOpenCases(key: _openCases),
+
+                  // อันดับอยู่ล่างสุด เป็นของน่าดูแต่ไม่ใช่ของที่ต้องรีบทำ
+                  // ของค้างกับเมนูต้องได้ที่ด้านบนก่อน
+                  const RankPodiumCard(),
+                ],
+              ),
+            ),
+          ],
         ),
-        const ItCaseOpenCases(),
-      ],
+      ),
     );
   }
 }
@@ -159,6 +313,8 @@ class _Greeting extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 8),
+        const WeatherChip(),
+        const SizedBox(width: 4),
         const LineSupportButton(),
       ],
     );
@@ -214,15 +370,24 @@ const int kMenuPerPage = 8;
 
 /// การ์ดรวมเมนูแบบไอคอนกลม 4 ช่องต่อแถว แบ่งหน้าเมื่อเกิน [kMenuPerPage]
 class _MenuGrid extends StatefulWidget {
+  /// เมนูที่กดได้ อยู่ในตารางหลัก
   final List<DashboardMenuItem> items;
 
-  const _MenuGrid({required this.items});
+  /// เมนูที่กดไม่ได้ อยู่ในแถวพับเก็บใต้ตาราง
+  final List<DashboardMenuItem> locked;
+
+  const _MenuGrid({required this.items, this.locked = const []});
 
   @override
   State<_MenuGrid> createState() => _MenuGridState();
 }
 
 class _MenuGridState extends State<_MenuGrid> {
+  /// กางเมนูที่ยังไม่มีสิทธิ์อยู่หรือเปล่า เริ่มที่พับไว้เสมอ
+  ///
+  /// ไม่ได้จำค่าไว้ข้ามการเปิดแอป เพราะคนที่ไม่มีสิทธิ์ไม่ได้อยากเห็นของที่กด
+  /// ไม่ได้ทุกวัน เขาเปิดดูตอนสงสัยว่าระบบมีอะไรบ้างแค่ครั้งสองครั้ง
+  bool _showLocked = false;
   static const int _columns = 4;
   static const double _gap = 8;
   static const double _rowGap = 20;
@@ -261,7 +426,8 @@ class _MenuGridState extends State<_MenuGrid> {
   double _maxLabelHeight(double width) {
     var height = 0.0;
 
-    for (final item in widget.items) {
+    // วัดจากเมนูที่ล็อกด้วย เพราะพอกางออกมาก็ใช้ความสูงช่องเดียวกัน
+    for (final item in [...widget.items, ...widget.locked]) {
       final painter = TextPainter(
         text: TextSpan(
           text: item.label,
@@ -324,10 +490,70 @@ class _MenuGridState extends State<_MenuGrid> {
                 const SizedBox(height: 14),
                 _PageDots(count: pages, current: _page.clamp(0, pages - 1)),
               ],
+              if (widget.locked.isNotEmpty)
+                _lockedSection(itemWidth, tileHeight),
             ],
           );
         },
       ),
+    );
+  }
+
+  /// แถวพับเก็บของเมนูที่ยังกดไม่ได้
+  ///
+  /// คนที่มีสิทธิ์ครบจะไม่เห็นแถวนี้เลย (ไม่มีของให้พับ) ส่วนคนที่สิทธิ์น้อย
+  /// เห็นแถวเดียวแทนช่องจาง ๆ ห้าหกช่องที่กดไม่ได้
+  Widget _lockedSection(double itemWidth, double tileHeight) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Column(
+      children: [
+        const SizedBox(height: 12),
+        Divider(height: 1, color: scheme.outlineVariant),
+        InkWell(
+          onTap: () => setState(() => _showLocked = !_showLocked),
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            child: Row(
+              children: [
+                // ไม่บอกว่า "ยังไม่มีสิทธิ์" ตรงนี้ ไม่ต้องทวงกับผู้ใช้ทุกครั้ง
+                // ที่เปิดแอปว่าเขาใช้อะไรไม่ได้บ้าง กดเข้าไปแล้วค่อยบอกก็ทัน
+                Expanded(
+                  child: Text(
+                    'เมนูอื่น ๆ',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+                Icon(
+                  _showLocked ? Icons.expand_less : Icons.expand_more,
+                  size: 20,
+                  color: scheme.onSurfaceVariant,
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (_showLocked)
+          Padding(
+            padding: const EdgeInsets.only(top: 4, bottom: 4),
+            child: Wrap(
+              spacing: _gap,
+              runSpacing: _rowGap,
+              children: [
+                for (final item in widget.locked)
+                  SizedBox(
+                    width: itemWidth,
+                    height: tileHeight,
+                    child: _MenuButton(item: item),
+                  ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }

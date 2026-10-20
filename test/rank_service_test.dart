@@ -47,9 +47,11 @@ void main() {
       expect(rank.rank, isNull, reason: 'เพชรไม่ใช่ลำดับที่ ไม่ต้องมีเลข');
     });
 
-    test('รหัสไม่ตรงไม่ได้เพชร', () async {
+    test('รหัสไม่ตรงไม่ได้เพชร ได้ผู้ใช้งานทั่วไปแทน', () async {
       final rank = await rankOf('99999', {...base, 'creator': '68148'});
-      expect(rank, isNull);
+
+      expect(rank?.tier, RankTier.member);
+      expect(rank?.title, 'ผู้ใช้งานทั่วไป');
     });
   });
 
@@ -68,7 +70,7 @@ void main() {
 
     test('คนนอกลิสต์ไม่ได้เพชร', () async {
       final rank = await rankOf('12345', many);
-      expect(rank, isNull);
+      expect(rank?.tier, RankTier.member);
     });
 
     test('คนในลิสต์ที่ติดอันดับด้วย ยังได้เพชร แต่ดึงตัวเลขมาโชว์', () async {
@@ -116,9 +118,23 @@ void main() {
       }
     });
 
-    test('เกิน 10 ไม่มีป้าย เพราะตารางเก็บแค่สิบ', () async {
-      expect(await rankAt(11), isNull);
-      expect(await rankAt(25), isNull);
+    test('เกิน 10 เป็นผู้ใช้งานทั่วไป ไม่มีเลขอันดับ', () async {
+      for (final number in [11, 25]) {
+        final rank = await rankAt(number);
+
+        expect(rank?.tier, RankTier.member, reason: 'อันดับ $number');
+        expect(rank?.title, 'ผู้ใช้งานทั่วไป');
+        // เลขอันดับยังติดมาด้วย (json ส่งมาก็รู้) แต่ไม่ได้เอาไปโชว์ที่ไหน
+        // เพราะยศนี้ไม่มีเลขบนป้าย ตารางก็เก็บแค่สิบแถวแรก
+        expect(rank?.rank, number);
+      }
+    });
+
+    test('ไม่มีชื่อในตารางเลย ก็ยังเป็นผู้ใช้งานทั่วไป', () async {
+      final rank = await rankOf('ไม่มีในตาราง', base);
+
+      expect(rank?.tier, RankTier.member);
+      expect(rank?.reports, 0, reason: 'ไม่รู้ยอดของคนนอกสิบอันดับ');
     });
 
     test('สามอันดับแรกยังเป็นเหรียญ ไม่ถูกกลืนเป็นชั้นสิบอันดับ', () async {

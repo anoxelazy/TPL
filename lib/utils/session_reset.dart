@@ -1,3 +1,5 @@
+import 'package:claim/page/asset/asset_api.dart';
+import 'package:claim/page/chat/chat_session.dart';
 import 'package:claim/page/repair/repair_watch_service.dart';
 import 'package:claim/page/tracking/tracking_cache.dart';
 import 'package:claim/utils/announcement_service.dart';
@@ -45,8 +47,14 @@ Future<void> forgetSignedInUser() async {
   AnnouncementService.I.forgetCurrentUser();
   PmAccessService.I.forgetCurrentUser();
   RepairWatchService.I.forgetCurrentUser();
+  // บทสนทนากับบอทอยู่ในหน่วยความจำ ไม่ได้ลงดิสก์ แต่ logout ไม่ได้ปิดแอป
+  // ข้อความที่มีเลขที่ใบกับชื่อคนจึงค้างให้คนถัดไปเห็นได้ถ้าไม่ล้างตรงนี้
+  ChatSession.I.forgetCurrentUser();
   // ผลค้นหาพัสดุมีชื่อ ที่อยู่ และเบอร์ผู้รับติดมาด้วย ห้ามค้างข้ามคน
   TrackingCache.I.clear();
+  // ลิสต์สาขาทั้งบริษัทที่ช่องเลือกสาขาของระบบทรัพย์สินโหลดไว้ อยู่ในหน่วย
+  // ความจำอย่างเดียว แต่ logout ไม่ได้ปิดแอป จึงต้องล้างเองเหมือนตัวอื่น
+  clearAssetDirectoryCache();
 
   await ClaimStore.I.clear();
   await ClaimReminderService.I.cancel();

@@ -3,9 +3,9 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:claim/page/chat/chat_api.dart';
+import 'package:claim/page/chat/chat_session.dart';
 import 'package:claim/widgets/state_views.dart';
 import 'package:claim/page/repair/repair_api.dart';
-import 'package:claim/page/repair/repair_appbar.dart';
 import 'package:claim/page/repair/repair_style.dart';
 import 'package:claim/utils/app_colors.dart';
 import 'package:claim/widgets/app_card.dart';
@@ -25,33 +25,89 @@ class ChatPage extends StatefulWidget {
   State<ChatPage> createState() => _ChatPageState();
 }
 
-/// ข้อความหนึ่งบรรทัดในห้องแชท
+/// เปิดห้องแชทเป็นแผ่นเลื่อนขึ้นมาจากขอบล่าง ไม่ใช่เปิดเป็นหน้าใหม่ทั้งหน้า
 ///
-/// ของผู้ใช้มีแค่ข้อความ ของบอทถือ [ChatReply] ทั้งก้อนไว้ เพราะต้องวาดการ์ด
-/// เคสต่อจากข้อความด้วย
-class _Msg {
-  final bool fromUser;
-  final String text;
-  final ChatReply? reply;
+/// การถามบอทเป็นการแวะถามระหว่างดูรายการใบ ไม่ใช่การย้ายไปทำงานอีกที่ แผ่น
+/// เลื่อนทำให้หน้าเดิมยังอยู่ข้างหลัง ปัดลงก็กลับไปที่เดิมทันที
+Future<void> showChatSheet(BuildContext context) {
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    // แผ่นวาดพื้นกับมุมโค้งเอง ตัวห้องแชทมีพื้นของมันคนละสีกับพื้นการ์ดทั่วไป
+    backgroundColor: Colors.transparent,
+    builder: (_) => const ChatPage(),
+  );
+}
 
-  /// เวลาที่ข้อความนี้โผล่บนจอ ใช้โชว์ข้าง ๆ ฟองแบบแอปแชตทั่วไป
-  ///
-  /// ไม่ใช่เวลาจากเซิร์ฟเวอร์ บอทไม่ได้ส่งมาให้ และคนอ่านสนใจแค่ว่าคุยกันตอนไหน
-  final DateTime at;
+/// หัวแผ่น: ขีดสำหรับลาก ชื่อห้อง และปุ่มปิด
+///
+/// แทนแถบหัวเรื่องสีเขียวของตอนที่ยังเป็นหน้าเต็ม แถบสีทึบเต็มความกว้างบนแผ่น
+/// ที่ลอยอยู่เหนือหน้าอื่นจะดูหนักเกินไป และขีดลากต้องเป็นของชิ้นแรกที่เห็น
+/// เพราะมันคือสิ่งที่บอกว่าแผ่นนี้ปัดลงได้
+class _SheetHeader extends StatelessWidget {
+  final VoidCallback onClose;
 
-  _Msg.user(this.text) : fromUser = true, reply = null, at = DateTime.now();
+  const _SheetHeader({required this.onClose});
 
-  _Msg.bot(this.reply) : fromUser = false, text = '', at = DateTime.now();
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
 
-  /// ข้อความที่จะโชว์ ของบอทเอามาจากคำตอบ
-  String get body => fromUser ? text : (reply?.text ?? '');
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 8, bottom: 4),
+          child: Container(
+            width: 36,
+            height: 4,
+            decoration: BoxDecoration(
+              color: scheme.outlineVariant,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 2, 6, 6),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.forum_outlined,
+                size: 18,
+                color: AppColors.brandText,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'ติดตามสถานะซ่อม',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: scheme.onSurface,
+                  ),
+                ),
+              ),
+              IconButton(
+                tooltip: 'ปิด',
+                onPressed: onClose,
+                icon: const Icon(Icons.close, size: 20),
+                color: scheme.onSurfaceVariant,
+              ),
+            ],
+          ),
+        ),
+        Divider(height: 1, color: scheme.outlineVariant),
+      ],
+    );
+  }
 }
 
 class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   final _input = TextEditingController();
   final _scroll = ScrollController();
 
-  final List<_Msg> _messages = [];
+  /// ชี้ไปที่กองกลาง ไม่ใช่ลิสต์ของ widget นี้เอง
+  List<ChatMessage> get _messages => ChatSession.I.messages;
 
   bool _busy = false;
   String? _error;
@@ -68,6 +124,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _checkLink();
+
+    // เปิดกลับมาเจอของที่คุยค้างไว้ ต้องอยู่ที่ข้อความล่าสุดเลย ไม่ใช่โผล่มา
+    // ที่หัวห้องแล้วต้องเลื่อนลงเอง กระโดดไปไม่ต้องเล่นอนิเมชัน เพราะผู้ใช้
+    // ไม่ได้เพิ่งส่งอะไร แค่เปิดแผ่นขึ้นมาใหม่
+    if (_messages.isNotEmpty) _toBottom(animate: false);
   }
 
   @override
@@ -108,7 +169,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     if (message.isEmpty || _busy) return;
 
     setState(() {
-      if (!silent) _messages.add(_Msg.user(message));
+      if (!silent) _messages.add(ChatMessage.user(message));
       _busy = true;
       _error = null;
     });
@@ -117,11 +178,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
 
     try {
       final reply = await askChatbot(message);
+      // เก็บคำตอบลงกองกลางก่อนเช็ค mounted คนที่ปัดปิดแผ่นระหว่างรอคำตอบ
+      // จะได้เห็นคำตอบตอนเปิดกลับมา ไม่ใช่เจอคำถามค้างที่ไม่มีใครตอบ
+      _messages.add(ChatMessage.bot(reply));
       if (!mounted) return;
-      setState(() {
-        _messages.add(_Msg.bot(reply));
-        _busy = false;
-      });
+      setState(() => _busy = false);
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -136,12 +197,18 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   /// เลื่อนลงล่างสุดหลังเฟรมถัดไป
   ///
   /// เลื่อนทันทีไม่ได้ ข้อความที่เพิ่งเพิ่มยังไม่ถูกวาด ความสูงจึงยังเป็นของเก่า
-  void _toBottom() {
+  void _toBottom({bool animate = true}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scroll.hasClients) return;
 
+      final bottom = _scroll.position.maxScrollExtent;
+      if (!animate) {
+        _scroll.jumpTo(bottom);
+        return;
+      }
+
       _scroll.animateTo(
-        _scroll.position.maxScrollExtent,
+        bottom,
         duration: const Duration(milliseconds: 250),
         curve: Curves.easeOut,
       );
@@ -173,16 +240,36 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     final scheme = Theme.of(context).colorScheme;
     final replies = _quickReplies;
 
-    return Scaffold(
-      // พื้นห้องแชทเข้มกว่าฟองข้อความนิดหนึ่ง ฟองจึงลอยขึ้นมาอ่านง่าย
-      // แบบเดียวกับ LINE ที่พื้นหลังไม่ใช่สีขาวเปล่า
-      backgroundColor: scheme.surfaceContainerHigh,
-      appBar: repairAppBar(title: 'ติดตามสถานะซ่อม'),
-      body: _linked == null
-          ? const LoadingStateView()
-          : _linked == false
-          ? const _LinkGate()
-          : _room(replies),
+    // คีย์บอร์ดขึ้นมาแล้วแผ่นต้องหดตาม ไม่ใช่ถูกดันขึ้นจนหัวแผ่นหลุดขอบจอ
+    // จึงคิดความสูงจากพื้นที่ที่เหลือหลังหักคีย์บอร์ดออกแล้ว
+    final insets = MediaQuery.viewInsetsOf(context).bottom;
+    final height = (MediaQuery.sizeOf(context).height - insets) * 0.9;
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: insets),
+      child: SizedBox(
+        height: height,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            // พื้นห้องแชทเข้มกว่าฟองข้อความนิดหนึ่ง ฟองจึงลอยขึ้นมาอ่านง่าย
+            // แบบเดียวกับ LINE ที่พื้นหลังไม่ใช่สีขาวเปล่า
+            color: scheme.surfaceContainerHigh,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              _SheetHeader(onClose: () => Navigator.of(context).pop()),
+              Expanded(
+                child: _linked == null
+                    ? const LoadingStateView()
+                    : _linked == false
+                    ? const _LinkGate()
+                    : _room(replies),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -233,7 +320,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
 /// วางแบบเดียวกับแอปแชตทั่วไป: รูปบอทกับชื่ออยู่ซ้าย ข้อความเราอยู่ขวา
 /// เวลาเกาะอยู่ข้างฟองด้านนอก ไม่ใช่ในฟอง จะได้ไม่แย่งที่ข้อความ
 class _Bubble extends StatelessWidget {
-  final _Msg message;
+  final ChatMessage message;
 
   /// ก้อนแรกของชุด ต้องขึ้นรูปกับชื่อ ก้อนถัด ๆ ไปเว้นที่ไว้เฉย ๆ
   final bool headed;
@@ -641,6 +728,11 @@ class _InputBar extends StatelessWidget {
                 onSubmitted: (_) => onSend(),
                 decoration: InputDecoration(
                   hintText: 'พิมพ์เลขเคส หรือ S/N',
+                  // จางกว่าตัวหนังสือที่พิมพ์เอง ช่องจะได้ดูเป็นช่องว่างรอพิมพ์
+                  // ไม่ใช่ช่องที่มีข้อความอยู่แล้ว
+                  hintStyle: TextStyle(
+                    color: scheme.onSurfaceVariant.withValues(alpha: 0.55),
+                  ),
                   isDense: true,
                   filled: true,
                   fillColor: scheme.surfaceContainerHighest,
@@ -671,12 +763,6 @@ class _InputBar extends StatelessWidget {
   }
 }
 
-/// แถบปุ่มลัดเหนือช่องพิมพ์
-///
-/// LINE วางปุ่มลัดไว้ตรงนี้ ไม่ใช่ใต้ฟองข้อความ เพราะเลื่อนอ่านย้อนขึ้นไปแล้ว
-/// ปุ่มยังอยู่ที่เดิม กดได้ตลอดโดยไม่ต้องเลื่อนกลับลงมา
-///
-/// เลื่อนแนวนอนเผื่อปุ่มเยอะจนไม่พอในบรรทัดเดียว ไม่ตัดบรรทัดลงมากินที่จอ
 class _QuickReplyBar extends StatelessWidget {
   final List<String> replies;
   final void Function(String text) onTap;
@@ -711,13 +797,6 @@ class _QuickReplyBar extends StatelessWidget {
   }
 }
 
-/// หน้ากั้นก่อนเข้าห้องแชท สำหรับคนที่ยังไม่ได้ผูกบัญชีกับบอท
-///
-/// ไม่ใช่การกันไม่ให้ใช้ แต่บอกว่าต้องทำอะไรก่อน บอทต้องรู้ว่าคนถามเป็นใคร
-/// ถึงจะตอบ "เคสของฉัน" ได้ ปล่อยให้เข้ามาคุยทั้งที่ยังไม่ผูก บอทจะตอบว่า
-/// ไม่พบเคสทั้งที่แจ้งไว้จริง แล้วคนจะนึกว่าระบบเสีย
-///
-/// กลับจาก LINE มาแล้วหน้านี้เช็คใหม่เอง ไม่ต้องกดอะไร (ดู didChangeAppLifecycleState)
 class _LinkGate extends StatelessWidget {
   const _LinkGate();
 

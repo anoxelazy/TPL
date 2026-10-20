@@ -1,7 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import 'package:claim/page/repair/repair_api.dart';
 import 'package:claim/utils/app_colors.dart';
+
+/// วันที่บนการ์ดใบแจ้งซ่อม เขียนแบบเดียวกับหน้าเว็บของระบบนี้: `21 ก.ย. 69`
+///
+/// ใช้ปี พ.ศ. สองหลักตามเว็บ คนที่ดูทั้งสองที่จะได้ไม่ต้องแปลงปีในหัวไปมา
+/// (intl ของ locale th ให้ปี ค.ศ. มา จึงต้องบวกเอง)
+String repairDateLabel(DateTime time) {
+  final buddhistYear = (time.year + 543) % 100;
+
+  return '${DateFormat('d MMM', 'th').format(time)} '
+      '${buddhistYear.toString().padLeft(2, '0')}';
+}
 
 /// สีประจำสถานะ ใช้กับป้ายสถานะและแถบความคืบหน้า
 ///
@@ -40,6 +52,9 @@ Color repairCardColor(RepairStatus status, ColorScheme scheme) {
 }
 
 /// ป้ายสถานะบนการ์ดและหัวหน้ารายละเอียด
+///
+/// มีจุดนำหน้าเหมือนหน้าเว็บของระบบนี้ จุดทำให้ป้ายอ่านออกว่าเป็น "สถานะ"
+/// ตั้งแต่ยังไม่ทันอ่านตัวหนังสือ และกันสับสนกับชิปข้อมูลเทา ๆ บนการ์ดเดียวกัน
 class RepairStatusChip extends StatelessWidget {
   final RepairStatus status;
 
@@ -50,19 +65,64 @@ class RepairStatusChip extends StatelessWidget {
     final color = repairStatusColor(status, Theme.of(context).colorScheme);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.14),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
       ),
-      child: Text(
-        status.label,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          color: color,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            status.label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// ชิปข้อมูลเล็ก ๆ ใต้ชื่อเครื่อง (สาขา ผู้แจ้ง ช่าง) แบบเดียวกับบนเว็บ
+///
+/// เทาล้วนทั้งชุด ไม่มีสีประจำแต่ละอัน สีบนการ์ดใบนี้จองไว้ให้สถานะอย่างเดียว
+class RepairInfoChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const RepairInfoChip({super.key, required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: scheme.onSurfaceVariant),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TextStyle(fontSize: 11.5, color: scheme.onSurfaceVariant),
+          ),
+        ],
       ),
     );
   }

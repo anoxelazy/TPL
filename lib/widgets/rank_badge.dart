@@ -12,6 +12,7 @@ Color rankColor(RankTier tier) => switch (tier) {
   RankTier.silver => AppColors.rankSilver,
   RankTier.bronze => AppColors.rankBronze,
   RankTier.top10 => AppColors.rankTop10,
+  RankTier.member => AppColors.rankMember,
 };
 
 /// ตัวเลขสองหลักต้องย่อลง ไม่งั้น "10" ล้นออกนอกวงกลม
@@ -32,6 +33,10 @@ class RankBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // ผู้ใช้งานทั่วไปไม่ติดป้าย ป้ายที่เกือบทุกคนมีเหมือนกันหมดไม่ได้บอกอะไร
+    // แต่ยังกดรูปเพื่อดูการ์ดได้ (ตัวจัดการแตะอยู่ที่ ProfileAvatarView)
+    if (rank.isMember) return const SizedBox.shrink();
+
     final scheme = Theme.of(context).colorScheme;
     final size = (avatarRadius * 0.78).clamp(16.0, 26.0);
     final color = rankColor(rank.tier);
@@ -98,8 +103,16 @@ Future<void> showRankCard(BuildContext context, UserRank rank) {
                   size: 68,
                   color: color,
                   halo: true,
+                  // เพชรกับผู้ใช้งานทั่วไปไม่มีลำดับที่ ใช้ไอคอนแทนตัวเลข
+                  // ไม่งั้นเหรียญจะขึ้นคำว่า null
                   child: rank.isDiamond
                       ? const Icon(Icons.diamond, size: 34, color: Colors.white)
+                      : rank.isMember
+                      ? const Icon(
+                          Icons.person_outline,
+                          size: 34,
+                          color: Colors.white,
+                        )
                       : Text(
                           '${rank.rank}',
                           style: TextStyle(

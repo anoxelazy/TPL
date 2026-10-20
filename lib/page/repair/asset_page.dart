@@ -107,7 +107,7 @@ class _AssetPageState extends State<AssetPage> {
   }
 
   Widget _body() {
-    if (_isLoading) return const LoadingStateView();
+    if (_isLoading) return const ListLoadingView();
 
     final error = _error;
     if (error != null) return ErrorStateView(message: error, onRetry: _load);

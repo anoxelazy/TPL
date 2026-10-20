@@ -20,7 +20,6 @@ void main() {
         result.images.single,
         'https://internal.thaiparcels.com:4433/Tps/Bar/2026/09/xxx.png',
       );
-      // ตัดสินจากค่า ไม่ใช่ชื่อคีย์ จึงต้องไม่มี message
       expect(result.message, isNull);
     });
 

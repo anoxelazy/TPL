@@ -8,9 +8,9 @@ import 'package:claim/page/chat/line_invite_bar.dart';
 import 'package:claim/page/repair/asset_page.dart';
 import 'package:claim/page/repair/repair_api.dart';
 import 'package:claim/page/repair/repair_card.dart';
+import 'package:claim/page/repair/repair_list_header.dart';
 import 'package:claim/page/repair/repair_detail_page.dart';
 import 'package:claim/page/repair/repair_form_page.dart';
-import 'package:claim/page/repair/repair_style.dart';
 import 'package:claim/page/repair/repair_watch_service.dart';
 import 'package:claim/utils/role_service.dart';
 import 'package:claim/widgets/state_views.dart';
@@ -84,6 +84,9 @@ class _RepairPageState extends State<RepairPage> {
     if (changed == true) await _load();
   }
 
+  /// ถามบอทเป็นแผ่นเลื่อนขึ้นมา ไม่ใช่หน้าใหม่ รายการใบยังอยู่ข้างหลัง
+  void _openChat() => showChatSheet(context);
+
   void _openAssets() {
     Navigator.of(
       context,
@@ -96,37 +99,33 @@ class _RepairPageState extends State<RepairPage> {
       appBar: repairAppBar(
         title: 'แจ้งซ่อม',
         actions: [
-          IconButton(
-            tooltip: 'ถามบอทเรื่องสถานะซ่อม',
-            onPressed: () => Navigator.of(
-              context,
-            ).push(MaterialPageRoute(builder: (_) => const ChatPage())),
-            icon: const Icon(Icons.forum_outlined),
-          ),
-          IconButton(
-            tooltip: 'ทะเบียนเครื่อง',
-            onPressed: _openAssets,
-            icon: const Icon(Icons.devices_other),
-          ),
           // ป้ายบอกสิทธิ์ ทีม IT จะได้รู้ว่าตัวเองเห็นปุ่มของ IT อยู่
-          if (RoleService.I.isIt)
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.only(right: 14, left: 4),
-                child: Text(
-                  'IT',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-                ),
-              ),
-            ),
+          //
+          // เดิมเป็นตัวหนังสือลอยต่อท้ายไอคอน อ่านแล้วเหมือนปุ่มที่กดไม่ติด
+          // ใส่กรอบให้มันดูเป็นป้ายบอกสถานะ ไม่ใช่ของที่กดได้
+          if (RoleService.I.isIt) const _RoleBadge(label: 'IT'),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _openForm,
-        backgroundColor: AppColors.repairIcon,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.add),
-        label: const Text('แจ้งซ่อม'),
+      // ปุ่มลอยสองชั้น ถามบอทอยู่เหนือแจ้งซ่อม
+      //
+      // แจ้งซ่อมเป็นงานหลักของหน้า จึงเป็นปุ่มทึบสีแบรนด์และอยู่ล่างสุดที่นิ้ว
+      // โป้งถึงก่อน ส่วนถามบอทเป็นของรอง ใช้พื้นขาวขอบบางให้เบากว่ากันชัด ๆ
+      // ไม่ใช่ปุ่มทึบสองอันแย่งกันเด่น
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          _chatButton(),
+          const SizedBox(height: 10),
+          FloatingActionButton.extended(
+            heroTag: 'repair-new',
+            onPressed: _openForm,
+            backgroundColor: AppColors.repairIcon,
+            foregroundColor: Colors.white,
+            icon: const Icon(Icons.add),
+            label: const Text('แจ้งซ่อม'),
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -138,8 +137,52 @@ class _RepairPageState extends State<RepairPage> {
     );
   }
 
+  /// ปุ่มถามบอท เตี้ยกว่าปุ่มลอยมาตรฐาน
+  ///
+  /// ไม่ได้ใช้ FloatingActionButton เพราะมันบังคับความสูงขั้นต่ำ 48 จุด
+  /// เท่ากับปุ่มแจ้งซ่อมพอดี สองปุ่มขนาดเท่ากันวางซ้อนกันแล้วดูเป็นของคู่กัน
+  /// ทั้งที่อันหนึ่งเป็นงานหลักอีกอันเป็นของรอง
+  Widget _chatButton() {
+    final scheme = Theme.of(context).colorScheme;
+    final radius = BorderRadius.circular(18);
+
+    return Material(
+      color: scheme.surface,
+      borderRadius: radius,
+      elevation: 2,
+      child: InkWell(
+        onTap: _openChat,
+        borderRadius: radius,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.forum_outlined,
+                size: 16,
+                color: AppColors.brandText,
+              ),
+              const SizedBox(width: 6),
+              const Text(
+                'ถามบอท',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.brandText,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _pick(RepairStatus? status) => setState(() => _filter = status);
+
   Widget _body() {
-    if (_isLoading) return const LoadingStateView();
+    if (_isLoading) return const ListLoadingView();
 
     final error = _error;
     if (error != null) return ErrorStateView(message: error, onRetry: _load);
@@ -163,65 +206,89 @@ class _RepairPageState extends State<RepairPage> {
 
     return RefreshIndicator(
       onRefresh: _load,
-      child: ListView.separated(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
-        itemCount: list.isEmpty ? 2 : list.length + 1,
-        separatorBuilder: (_, _) => const SizedBox(height: 10),
-        itemBuilder: (context, index) {
-          if (index == 0) return _filterBar();
-          if (list.isEmpty) {
-            return const Padding(
-              padding: EdgeInsets.only(top: 40),
-              child: EmptyStateView(
-                icon: Icons.filter_alt_off_outlined,
-                message: 'ไม่มีใบแจ้งซ่อมในสถานะนี้',
+      child: CustomScrollView(
+        // ใบน้อยกว่าหนึ่งจอก็ต้องยังดึงลงโหลดใหม่ได้
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            sliver: SliverToBoxAdapter(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  RepairStatGrid(
+                    tickets: _tickets,
+                    filter: _filter,
+                    onPick: _pick,
+                  ),
+                  const SizedBox(height: AppSizes.gap),
+                  RepairShortcuts(onAssets: _openAssets),
+                  const SizedBox(height: 22),
+                  // ตัวกรองมีที่เดียวคือการ์ดสรุปข้างบน เคยมีแถบแท็บซ้ำอีกชุด
+                  // ตรงนี้ด้วย ซึ่งเป็นของชิ้นเดียวกันสองหน้าตาในจอเดียว
+                  const RepairListHeading(),
+                ],
               ),
-            );
-          }
-          final ticket = list[index - 1];
-          return RepairTicketCard(
-            ticket: ticket,
-            onTap: () => _openDetail(ticket),
-          );
-        },
+            ),
+          ),
+          if (list.isEmpty)
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.only(top: 48),
+                child: EmptyStateView(
+                  icon: Icons.filter_alt_off_outlined,
+                  message: 'ไม่มีใบแจ้งซ่อมในสถานะนี้',
+                ),
+              ),
+            )
+          else
+            SliverPadding(
+              // ล่างสุดต้องพ้นปุ่มลอยสองชั้น ไม่งั้นใบสุดท้ายโดนทับ
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 150),
+              sliver: SliverList.separated(
+                itemCount: list.length,
+                separatorBuilder: (_, _) => const SizedBox(height: 10),
+                itemBuilder: (context, index) => RepairTicketCard(
+                  ticket: list[index],
+                  onTap: () => _openDetail(list[index]),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
+}
 
-  Widget _filterBar() {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        ChoiceChip(
-          label: Text('ทั้งหมด ${_tickets.length}'),
-          selected: _filter == null,
-          onSelected: (_) => setState(() => _filter = null),
-          visualDensity: VisualDensity.compact,
-          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+/// ป้ายบอกสิทธิ์บนแถบหัวเรื่อง
+///
+/// อยู่บนพื้นเขียวทึบ จึงเป็นกรอบขาวโปร่งแทนสีพื้น ถ้าใส่พื้นขาวทึบมันจะเด่น
+/// กว่าปุ่มจริง ๆ ข้าง ๆ ทั้งที่กดไม่ได้
+class _RoleBadge extends StatelessWidget {
+  final String label;
+
+  const _RoleBadge({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.only(left: 2, right: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.7)),
         ),
-        for (final status in RepairStatus.values)
-          if (_countOf(status) > 0) _statusChip(status),
-      ],
-    );
-  }
-
-  Widget _statusChip(RepairStatus status) {
-    final scheme = Theme.of(context).colorScheme;
-    final color = repairStatusColor(status, scheme);
-    final selected = _filter == status;
-
-    return ChoiceChip(
-      label: Text(
-        '${status.label} ${_countOf(status)}',
-        style: TextStyle(color: selected ? color : scheme.onSurface),
+        child: Text(
+          label,
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
+            letterSpacing: 0.5,
+          ),
+        ),
       ),
-      selected: selected,
-      onSelected: (_) => setState(() => _filter = status),
-      selectedColor: color.withValues(alpha: 0.16),
-      side: BorderSide(color: selected ? color : scheme.outlineVariant),
-      visualDensity: VisualDensity.compact,
-      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
     );
   }
 }

@@ -10,7 +10,7 @@ const String _bucket = 'asset-photos';
 const String _roleIt = 'IT';
 
 enum RepairStatus {
-  pending('PENDING', 'รอ IT รับเรื่อง'),
+  pending('PENDING', 'IT รับงาน'),
   inProgress('IN_PROGRESS', 'กำลังซ่อม'),
   completed('COMPLETED', 'ปิดงานแล้ว');
 

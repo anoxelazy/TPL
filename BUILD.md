@@ -23,14 +23,32 @@ https://raw.githubusercontent.com/anoxelazy/API_json/main/key_sapu.json
 
 ขอคีย์จาก Supabase Dashboard → Project Settings → API Keys → `publishable`
 
+## คีย์แผนที่ต้องใส่ตอน build
+
+หน้าแผนที่เส้นทางใช้คีย์ 2 ตัว เก็บไว้ใน `env.json` ที่รากโปรเจกต์
+(อยู่ใน .gitignore ไม่ถูกอัปขึ้น git เครื่องใหม่ต้องสร้างไฟล์เอง)
+
+```json
+{
+  "ORS_API_KEY": "<คีย์ openrouteservice.org>",
+  "LONGDO_API_KEY": "<คีย์ map.longdo.com>"
+}
+```
+
+- `ORS_API_KEY` ใช้ขอเส้นทางตามถนน ไม่มีก็ถอยไปใช้ OSRM สาธารณะ
+- `LONGDO_API_KEY` ใช้หาที่อยู่ให้จุดส่งที่ไม่มีที่อยู่ ไม่มีก็ไม่แสดง
+
+**ลืมใส่ แอปไม่พัง แต่จะกลับไปทำงานแบบเดิมเงียบ ๆ** ไม่มีอะไรเตือน
+build APK ตัวแจกจึงต้องมี `--dart-define-from-file=env.json` ทุกครั้ง
+
 ## คำสั่ง
 
 ```bash
 # APK สำหรับแจกให้พนักงาน
-flutter build apk --release
+flutter build apk --release --dart-define-from-file=env.json
 
 # รันบนเครื่องทดสอบ
-flutter run
+flutter run --dart-define-from-file=env.json
 ```
 
 ## อยากทดสอบด้วยคีย์อื่น

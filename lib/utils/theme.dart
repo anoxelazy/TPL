@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'package:claim/utils/app_colors.dart';
+
 class AppTheme {
   /// สไตล์ของแถบสถานะ (นาฬิกา แบต สัญญาณ) ให้ตัดกับพื้นหลังที่อยู่ข้างหลัง
   ///
@@ -39,11 +41,32 @@ class AppTheme {
     return _darkTheme!;
   }
 
-  static ThemeData _buildTheme(Brightness brightness) {
-    final ColorScheme colorScheme = ColorScheme.fromSeed(
-      seedColor: const Color(0xFF2E7D32),
+  /// ชุดสีของธีม แยกออกมาจากการสร้าง ThemeData เพื่อให้เทสต์ได้
+  ///
+  /// [_buildTheme] เรียก google_fonts ซึ่งต้องโหลดฟอนต์จากเน็ต แตะไม่ได้ในเทสต์
+  /// ส่วนการตัดสินใจเรื่องสีอยู่ในฟังก์ชันนี้ทั้งหมด
+  @visibleForTesting
+  static ColorScheme buildColorScheme(Brightness brightness) {
+    final ColorScheme seeded = ColorScheme.fromSeed(
+      seedColor: AppColors.brand,
       brightness: brightness,
     );
+
+    // ธีมสว่างบังคับ primary ให้เป็นสีแบรนด์เป๊ะ ๆ ไม่ใช้โทนที่ M3 คำนวณให้
+    //
+    // fromSeed จะลดความสดของ seed ลงเพื่อความสบายตา ผลคือแถบหัวเรื่องออกมา
+    // เขียวหม่นคนละสีกับที่บริษัทใช้จริง พอเป็นสีประจำแบรนด์ที่คนจำได้ ความ
+    // ตรงของสีสำคัญกว่าโทนที่ระบบเลือกให้
+    //
+    // ธีมมืดปล่อยตามที่คำนวณมา เพราะแถบหัวเรื่องของธีมมืดใช้ primaryContainer
+    // อยู่แล้ว และเขียวสดบนพื้นดำจะแสบตา
+    return brightness == Brightness.light
+        ? seeded.copyWith(primary: AppColors.brand, onPrimary: Colors.white)
+        : seeded;
+  }
+
+  static ThemeData _buildTheme(Brightness brightness) {
+    final ColorScheme colorScheme = buildColorScheme(brightness);
 
     final TextTheme baseTextTheme = GoogleFonts.notoSansThaiTextTheme();
     final TextTheme textTheme = baseTextTheme.copyWith(
@@ -187,7 +210,9 @@ class AppTheme {
         fillColor: colorScheme.surface,
       ),
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
-        selectedItemColor: colorScheme.primary,
+        // ป้ายใต้ไอคอนเป็นตัวอักษร 12 จุด เล็กเกินกว่าจะใช้สีแบรนด์สดบนพื้นขาว
+        // ได้ตามเกณฑ์ contrast จึงใช้เวอร์ชันเข้มแทน สายตายังเห็นเป็นเขียวเดียวกัน
+        selectedItemColor: isDark ? colorScheme.primary : AppColors.brandText,
         unselectedItemColor: Colors.grey[400],
         type: BottomNavigationBarType.fixed,
         backgroundColor: colorScheme.surface,

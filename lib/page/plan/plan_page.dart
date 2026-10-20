@@ -3,6 +3,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:claim/page/plan/plan_api.dart';
 import 'package:claim/page/plan/plan_detail_page.dart';
+import 'package:claim/page/plan/route_plan_access.dart';
+import 'package:claim/page/plan/route_plan_page.dart';
 import 'package:claim/widgets/donut_chart.dart';
 import 'package:claim/utils/app_colors.dart';
 import 'package:claim/widgets/app_card.dart';
@@ -21,10 +23,29 @@ class _PlanPageState extends State<PlanPage> {
   String? _error;
   String? _username;
 
+  /// คนนี้เห็นปุ่มแผนเดินรถไหม ช่วงทดสอบเปิดให้รหัสเดียว
+  ///
+  /// เช็คแยกจาก [_load] เพราะแผนจริงโหลดไม่ผ่านก็ยังต้องเข้าหน้าทดสอบได้
+  /// ไม่งั้นพอ token หมดอายุจะเปิดของที่กำลังทำอยู่ไม่ได้เลย
+  bool _canSeeRoutePlan = false;
+
   @override
   void initState() {
     super.initState();
     _load();
+    _checkRoutePlanAccess();
+  }
+
+  Future<void> _checkRoutePlanAccess() async {
+    final allowed = await canSeeRoutePlan();
+    if (!mounted) return;
+    setState(() => _canSeeRoutePlan = allowed);
+  }
+
+  void _openRoutePlan() {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const RoutePlanPage()));
   }
 
   Future<void> _load() async {
@@ -58,6 +79,14 @@ class _PlanPageState extends State<PlanPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text('แผนของคุณ ${hasUsername ? _username : ''}'.trimRight()),
+        actions: [
+          if (_canSeeRoutePlan)
+            IconButton(
+              tooltip: 'แผนเดินรถ',
+              onPressed: _openRoutePlan,
+              icon: const Icon(Icons.alt_route),
+            ),
+        ],
       ),
       body: _buildBody(),
     );
@@ -65,7 +94,7 @@ class _PlanPageState extends State<PlanPage> {
 
   Widget _buildBody() {
     if (_isLoading) {
-      return const LoadingStateView();
+      return const ListLoadingView();
     }
 
     if (_error != null) {

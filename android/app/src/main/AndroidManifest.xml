@@ -1,4 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- ทั้งแอปคุยกับ API และโหลดไทล์แผนที่ ต้องประกาศเอง
+         ตัว flutter ใส่ให้เฉพาะตอน debug/profile ส่วน release ที่ผ่านมาได้มา
+         จากปลั๊กอินตัวอื่นที่บังเอิญประกาศไว้ ถ้าวันไหนถอดปลั๊กอินนั้นออก
+         เน็ตจะตายเฉพาะตอน build release ซึ่งไล่หาสาเหตุยาก -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <!-- ตั้งการแจ้งเตือนใหม่หลังเครื่องรีบูต (flutter_local_notifications) -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <!-- บันทึกไมล์รถต้องแนบพิกัดของรูปหน้าปัด (geolocator) -->
