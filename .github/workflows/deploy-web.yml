@@ -31,9 +31,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # ล็อกเวอร์ชันให้ตรงกับเครื่องที่ build แอป ปล่อยเป็น stable ล่าสุดแล้ว
+      # CI ได้ Flutter คนละตัวกับเครื่อง ในเครื่องผ่านแต่ CI พังมาตั้งแต่ ก.ย.
+      # อัปเกรด Flutter ในเครื่องเมื่อไหร่ให้แก้เลขตรงนี้ตามด้วย
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: 3.38.9
           cache: true
 
       - run: flutter pub get
