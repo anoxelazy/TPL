@@ -29,7 +29,7 @@ class AssetTile extends StatelessWidget {
             height: 44,
             decoration: BoxDecoration(
               color: AppColors.repairBg,
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(AppSizes.innerRadius),
             ),
             clipBehavior: Clip.antiAlias,
             child: asset.imageUrl.isEmpty

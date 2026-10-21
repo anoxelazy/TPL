@@ -131,8 +131,6 @@ class ItCaseJobCard extends StatelessWidget {
                 FilledButton(
                   onPressed: onClose,
                   style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.success,
-                    foregroundColor: Colors.white,
                     minimumSize: const Size(0, 30),
                     padding: const EdgeInsets.symmetric(horizontal: 14),
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -265,7 +263,7 @@ class _StatusChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.14),
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(AppSizes.pillRadius),
           border: Border.all(color: color),
         ),
         child: Text(

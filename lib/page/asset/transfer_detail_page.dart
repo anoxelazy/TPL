@@ -18,6 +18,7 @@ import 'package:claim/page/asset/transfer_receive_sheet.dart';
 import 'package:claim/page/asset/transfer_style.dart';
 import 'package:claim/utils/app_colors.dart';
 import 'package:claim/utils/mobile_api.dart';
+import 'package:claim/widgets/app_card.dart';
 import 'package:claim/widgets/state_views.dart';
 
 class TransferDetailPage extends StatefulWidget {
@@ -300,12 +301,19 @@ class _TransferDetailPageState extends State<TransferDetailPage> {
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
-        padding: const EdgeInsets.only(bottom: 24),
+        padding: AppSizes.pagePadding,
         children: [
-          if (_busy) const LinearProgressIndicator(minHeight: 2),
+          if (_busy)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 8),
+              child: LinearProgressIndicator(minHeight: 2),
+            ),
           _header(doc),
+          const SizedBox(height: AppSizes.gap),
           _routeSection(doc),
+          const SizedBox(height: AppSizes.gap),
           _linesSection(doc),
+          const SizedBox(height: AppSizes.gap),
           _trackSection(doc),
         ],
       ),
@@ -315,34 +323,102 @@ class _TransferDetailPageState extends State<TransferDetailPage> {
   Widget _header(AssetTransferDoc doc) {
     final scheme = Theme.of(context).colorScheme;
     final item = doc.header;
+    final tint = transferStatusColor(item.status, scheme);
+    final at = item.transferDate;
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+    return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          Text(
+            item.transferNo,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: AppColors.brandText,
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          // สถานะเป็นแถบเต็มความกว้างแบบหัวหน้ารายละเอียดเคส IT หน้านี้เปิดมา
+          // เพื่อดูว่าใบอยู่ขั้นไหน ไม่ต้องประหยัดที่
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: tint.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(AppSizes.innerRadius),
+              border: Border.all(color: tint),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    item.statusText,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      height: 1.3,
+                      color: tint,
+                    ),
+                  ),
+                ),
+                TransferOverdueTag(item.daysOverdue),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          TransferStepper(status: item.status),
+          if (item.reason.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            _reasonBlock(item.reason, scheme),
+          ],
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 12,
+            runSpacing: 6,
             children: [
-              TransferStatusChip(item),
-              const SizedBox(width: 8),
-              TransferOverdueTag(item.daysOverdue),
+              if (at != null)
+                TransferMeta(icon: Icons.schedule, text: assetDateLabel(at)),
+              if (item.requestByName.isNotEmpty)
+                TransferMeta(
+                  icon: Icons.person_outline,
+                  text: 'ขอโดย ${item.requestByName}',
+                ),
             ],
           ),
-          const SizedBox(height: 10),
-          if (item.reason.isNotEmpty)
-            Text(
-              item.reason,
-              style: const TextStyle(fontSize: 15, height: 1.4),
-            ),
-          const SizedBox(height: 4),
-          Text(
-            [
-              if (item.transferDate != null) assetDateLabel(item.transferDate!),
-              if (item.requestByName.isNotEmpty) 'ขอโดย ${item.requestByName}',
-            ].join(' · '),
-            style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
-          ),
         ],
+      ),
+    );
+  }
+
+  /// เหตุผลของใบคือเนื้อเรื่องจริง ๆ ของใบ จึงเด่นกว่าข้อมูลประกอบ
+  /// ด้วยแถบสีซ้ายแบบช่องรายละเอียดของเคส IT
+  Widget _reasonBlock(String reason, ColorScheme scheme) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(AppSizes.innerRadius),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(width: 3, color: AppColors.brand),
+            Expanded(
+              child: Container(
+                color: AppColors.brand.withValues(alpha: 0.07),
+                padding: const EdgeInsets.fromLTRB(10, 10, 12, 10),
+                child: Text(
+                  reason,
+                  style: TextStyle(
+                    fontSize: 14.5,
+                    height: 1.45,
+                    fontWeight: FontWeight.w600,
+                    color: scheme.onSurface,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -350,22 +426,45 @@ class _TransferDetailPageState extends State<TransferDetailPage> {
   Widget _routeSection(AssetTransferDoc doc) {
     final item = doc.header;
 
-    return AssetSection(
+    return TransferSection(
       title: 'ต้นทาง → ปลายทาง',
       children: [
-        TransferInfoLine(
-          label: 'จากสาขา',
-          value: _place(item.fromSiteName, item.fromSiteId),
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: _placeBox(
+                  label: 'ต้นทาง',
+                  site: transferPlaceText(item.fromSiteName, item.fromSiteId),
+                  dept: item.fromDeptName,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                child: Center(
+                  child: Icon(
+                    Icons.arrow_forward,
+                    size: 18,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: _placeBox(
+                  label: 'ปลายทาง',
+                  site: transferPlaceText(item.toSiteName, item.toSiteId),
+                  dept: item.toDeptName,
+                  highlight: true,
+                ),
+              ),
+            ],
+          ),
         ),
-        TransferInfoLine(label: 'จากแผนก', value: item.fromDeptName),
-        TransferInfoLine(
-          label: 'ไปสาขา',
-          value: _place(item.toSiteName, item.toSiteId),
-        ),
-        TransferInfoLine(label: 'ไปแผนก', value: item.toDeptName),
+        const SizedBox(height: 10),
         TransferInfoLine(
           label: 'ผู้รับปลายทาง',
-          value: _place(item.toCustodianName, item.toCustodian),
+          value: transferPlaceText(item.toCustodianName, item.toCustodian),
         ),
         TransferInfoLine(
           label: 'กำหนดถึง',
@@ -378,20 +477,72 @@ class _TransferDetailPageState extends State<TransferDetailPage> {
     );
   }
 
-  String? _place(String name, String code) {
-    if (code.isEmpty && name.isEmpty) return null;
-    if (name.isEmpty) return code;
-    if (code.isEmpty) return name;
-    return '$name ($code)';
+  /// กล่องสาขาและแผนกฝั่งหนึ่ง ฝั่งปลายทางพื้นเขียวอ่อนเพราะเป็นที่ที่ของจะไป
+  Widget _placeBox({
+    required String label,
+    required String? site,
+    required String dept,
+    bool highlight = false,
+  }) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: highlight
+            ? AppColors.brand.withValues(alpha: 0.12)
+            : scheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(AppSizes.innerRadius),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
+              color: highlight ? AppColors.brandText : scheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            site ?? '-',
+            style: const TextStyle(
+              fontSize: 13.5,
+              height: 1.3,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          if (dept.isNotEmpty) ...[
+            const SizedBox(height: 2),
+            Text(
+              dept,
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.3,
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 
   Widget _linesSection(AssetTransferDoc doc) {
     final pending = doc.header.pendingCount;
+    final scheme = Theme.of(context).colorScheme;
 
-    return AssetSection(
+    return TransferSection(
       title: 'ทรัพย์สินในใบ (${doc.lines.length})',
-      note: pending > 0 ? 'ยังรอรับอีก $pending ชิ้น' : null,
-      children: [for (final line in doc.lines) _lineRow(line)],
+      trailing: pending > 0 ? 'ยังรอรับอีก $pending ชิ้น' : null,
+      children: [
+        for (var i = 0; i < doc.lines.length; i++) ...[
+          if (i > 0) Divider(height: 16, color: scheme.outlineVariant),
+          _lineRow(doc.lines[i]),
+        ],
+      ],
     );
   }
 
@@ -402,23 +553,28 @@ class _TransferDetailPageState extends State<TransferDetailPage> {
         : (line.isReceived ? AppColors.success : scheme.onSurfaceVariant);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 2),
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: tint.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(AppSizes.innerRadius),
+            ),
             child: Icon(
               line.isReceived
                   ? (line.hasProblem
                         ? Icons.error_outline
                         : Icons.check_circle_outline)
-                  : Icons.radio_button_unchecked,
+                  : Icons.inventory_2_outlined,
               size: 18,
               color: tint,
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -476,36 +632,63 @@ class _TransferDetailPageState extends State<TransferDetailPage> {
     );
   }
 
-  /// ร่องรอยของแต่ละขั้น โชว์เฉพาะขั้นที่เกิดขึ้นแล้ว
+  /// ร่องรอยของแต่ละขั้นเป็นไทม์ไลน์ โชว์เฉพาะขั้นที่เกิดขึ้นแล้ว
   Widget _trackSection(AssetTransferDoc doc) {
-    return AssetSection(
+    String? label(String prefix, String value) =>
+        value.isEmpty ? null : '$prefix $value';
+
+    final events = [
+      TransferEvent(
+        icon: Icons.description_outlined,
+        title: 'สร้างใบ',
+        detail: _byAt(doc.createBy, '', doc.createAt) ?? '',
+      ),
+      // ตีกลับแล้วใบกลับเป็นร่าง ไม่มีสถานะของตัวเอง เหลือแค่เหตุผลไว้ให้เห็น
+      if (doc.rejectReason.isNotEmpty)
+        TransferEvent(
+          icon: Icons.undo,
+          title: 'ถูกตีกลับ',
+          extras: [doc.rejectReason],
+          color: AppColors.dangerText,
+        ),
+      if (doc.approvedAt != null || doc.approvedBy.isNotEmpty)
+        TransferEvent(
+          icon: Icons.verified_outlined,
+          title: 'อนุมัติแล้ว',
+          detail:
+              _byAt(doc.approvedBy, doc.approvedByName, doc.approvedAt) ?? '',
+        ),
+      if (doc.dispatchAt != null || doc.dispatchBy.isNotEmpty)
+        TransferEvent(
+          icon: Icons.local_shipping_outlined,
+          title: 'ส่งออกแล้ว',
+          detail:
+              _byAt(doc.dispatchBy, doc.dispatchByName, doc.dispatchAt) ?? '',
+          extras: [
+            ?label('ผู้ขนส่ง', doc.courierName),
+            ?label('เลขพัสดุ', doc.trackingNo),
+          ],
+        ),
+      if (doc.receiptAt != null)
+        TransferEvent(
+          icon: Icons.inventory_2_outlined,
+          title: 'รับครบแล้ว',
+          detail: assetDateTimeLabel(doc.receiptAt!),
+          extras: [?label('หมายเหตุส่วนต่าง', doc.discrepancyNote)],
+          color: doc.discrepancyNote.isEmpty ? null : AppColors.dangerText,
+        ),
+      if (doc.cancelReason.isNotEmpty)
+        TransferEvent(
+          icon: Icons.block,
+          title: 'ยกเลิกใบ',
+          extras: [doc.cancelReason],
+          color: AppColors.dangerText,
+        ),
+    ];
+
+    return TransferSection(
       title: 'การดำเนินการ',
-      divider: false,
-      children: [
-        TransferInfoLine(
-          label: 'สร้างใบ',
-          value: _byAt(doc.createBy, '', doc.createAt),
-        ),
-        TransferInfoLine(
-          label: 'อนุมัติ',
-          value: _byAt(doc.approvedBy, doc.approvedByName, doc.approvedAt),
-        ),
-        TransferInfoLine(label: 'เหตุผลที่ตีกลับ', value: doc.rejectReason),
-        TransferInfoLine(
-          label: 'ส่งออก',
-          value: _byAt(doc.dispatchBy, doc.dispatchByName, doc.dispatchAt),
-        ),
-        TransferInfoLine(label: 'ผู้ขนส่ง', value: doc.courierName),
-        TransferInfoLine(label: 'เลขพัสดุ', value: doc.trackingNo),
-        TransferInfoLine(
-          label: 'รับครบ',
-          value: doc.receiptAt == null
-              ? null
-              : assetDateTimeLabel(doc.receiptAt!),
-        ),
-        TransferInfoLine(label: 'หมายเหตุส่วนต่าง', value: doc.discrepancyNote),
-        TransferInfoLine(label: 'เหตุผลที่ยกเลิก', value: doc.cancelReason),
-      ],
+      children: [TransferTimeline(events: events)],
     );
   }
 

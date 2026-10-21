@@ -160,7 +160,7 @@ void main() {
     test('เซิร์ฟเวอร์ไม่แปลผลการรับมาให้ ต้องแปลเองได้', () {
       const line = AssetTransferLine(assetId: 'A1', outcome: kReceiveDamaged);
 
-      expect(line.outcomeText, 'รับไว้แต่ชำรุด');
+      expect(line.outcomeText, 'ได้รับแต่ชำรุด');
     });
   });
 
@@ -408,4 +408,14 @@ void main() {
       expect(row.actionRequired, 'ติดตามกับปลายทาง');
     });
   });
+
+  test(
+    "บังคับหมายเหตุเฉพาะของชำรุดกับไม่มาถึง ตามกฎข้อ 8 ของ Workflow v2.0",
+    () {
+      expect(transferOutcomeNeedsNote(kReceiveDamaged), isTrue);
+      expect(transferOutcomeNeedsNote(kReceiveNotArrived), isTrue);
+      expect(transferOutcomeNeedsNote(kReceiveRejected), isFalse);
+      expect(transferOutcomeNeedsNote(kReceiveOk), isFalse);
+    },
+  );
 }

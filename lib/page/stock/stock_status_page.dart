@@ -121,13 +121,14 @@ class _StockStatusPageState extends State<StockStatusPage> {
     if (changed == true) await _load();
   }
 
-  /// สีธีมของหน้าตามระยะที่กรองอยู่ ไม่ได้กรองจะใช้สีแถบหัวเรื่องปกติ
+  /// สีเน้นของเนื้อหาตามระยะที่กรองอยู่ ไม่ได้กรองใช้เขียวแบรนด์
+  ///
+  /// เดิมทั้งแถบหัวเรื่องเปลี่ยนสีตามตัวกรองด้วย ตอนนี้แถบเป็นสีปกติของธีม
+  /// สีของระยะเหลือแค่ในเนื้อหา ไม่ใช่ทาทั้งหัวจอ
   Color _accentColor() {
     final theme = Theme.of(context);
     final stage = _stageFilter;
-    if (stage == null) {
-      return theme.appBarTheme.backgroundColor ?? theme.colorScheme.primary;
-    }
+    if (stage == null) return theme.colorScheme.primary;
     return _stageColor(stage, theme.colorScheme);
   }
 
@@ -138,33 +139,8 @@ class _StockStatusPageState extends State<StockStatusPage> {
     final accent = _accentColor();
 
     return Scaffold(
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(kToolbarHeight),
-        // ไล่สีตอนสลับตัวกรอง ไม่ให้แถบกระโดดเปลี่ยนสีทันที
-        child: TweenAnimationBuilder<Color?>(
-          tween: ColorTween(end: accent),
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-          builder: (context, color, _) {
-            final background = color ?? accent;
-            // สีเหลืองต้องใช้ตัวหนังสือสีเข้มถึงจะอ่านออก ต่างจากเขียว/แดง
-            final foreground =
-                ThemeData.estimateBrightnessForColor(background) ==
-                    Brightness.dark
-                ? Colors.white
-                : Colors.black87;
-
-            return AppBar(
-              title: Text('สถานะคลังสินค้า ${hasBranch ? branchId : '-'}'),
-              backgroundColor: background,
-              foregroundColor: foreground,
-              titleTextStyle: Theme.of(
-                context,
-              ).appBarTheme.titleTextStyle?.copyWith(color: foreground),
-              iconTheme: IconThemeData(color: foreground),
-            );
-          },
-        ),
+      appBar: AppBar(
+        title: Text('สถานะคลังสินค้า ${hasBranch ? branchId : '-'}'),
       ),
       body: _buildBody(accent),
     );
@@ -452,15 +428,15 @@ class _QuietSearchField extends StatelessWidget {
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(vertical: 8),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(AppSizes.innerRadius),
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(AppSizes.innerRadius),
           borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(AppSizes.innerRadius),
           borderSide: BorderSide(color: scheme.outlineVariant),
         ),
       ),

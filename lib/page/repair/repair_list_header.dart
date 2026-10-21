@@ -201,7 +201,7 @@ class _Shortcut extends StatelessWidget {
             padding: const EdgeInsets.all(7),
             decoration: BoxDecoration(
               color: AppColors.repairBg,
-              borderRadius: BorderRadius.circular(9),
+              borderRadius: BorderRadius.circular(AppSizes.innerRadius),
             ),
             child: Icon(icon, size: 17, color: AppColors.brandText),
           ),
@@ -252,7 +252,7 @@ class RepairListHeading extends StatelessWidget {
           padding: const EdgeInsets.all(9),
           decoration: BoxDecoration(
             color: AppColors.repairBg,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(AppSizes.innerRadius),
           ),
           child: const Icon(
             Icons.assignment_outlined,

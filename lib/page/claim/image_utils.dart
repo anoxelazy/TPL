@@ -11,7 +11,8 @@ Future<File> resizeImage(
   try {
     // Check cache first
     if (useCache) {
-      final cached = _ImageCache.get(file, maxSize, 78);
+      // คุณภาพต้องตรงกับตอน put ข้างล่าง (85) เดิมเป็น 78 จึงไม่เคยเจอใน cache
+      final cached = _ImageCache.get(file, maxSize, 85);
       if (cached != null && await cached.exists()) {
         debugPrint('Using cached image');
         return cached;
@@ -29,8 +30,17 @@ Future<File> resizeImage(
 
     debugPrint('Processing image, size: ${fileSize ~/ 1024}KB');
 
-    // Read file with timeout to prevent hanging
     final bytes = await file.readAsBytes();
+
+    // อ่านแค่ขนาดจากหัวไฟล์ก่อน ไม่ถอดรหัสทั้งรูป ถ้าเล็กพออยู่แล้วก็ใช้ไฟล์เดิม
+    // เลย รูปจากแกลเลอรีถูกระบบย่อให้ตั้งแต่ตอนเลือก (pickMultiImage maxWidth)
+    // ส่วนกล้องถ่ายที่ 720p ทั้งสองทางส่วนใหญ่จึงไม่ต้องถอดรหัสแล้วบีบซ้ำในแอป
+    final info = img.findDecoderForData(bytes)?.startDecode(bytes);
+    if (info != null && max(info.width, info.height) <= maxSize) {
+      debugPrint('Image already ${info.width}x${info.height}, skip resize');
+      if (useCache) _ImageCache.put(file, maxSize, 85, file);
+      return file;
+    }
 
     // Decode image in isolate
     final decodedImage = await compute(_decodeImageSafely, bytes);
@@ -45,17 +55,14 @@ Future<File> resizeImage(
       );
     }
 
-    img.Image processedImage;
-
-    // Always resize to maxSize x maxSize
-    debugPrint(
-      'Resizing image from ${decodedImage.width}x${decodedImage.height} to ${maxSize}x${maxSize}',
-    );
-
-    processedImage = img.copyResize(
+    // ย่อให้ด้านยาวเหลือ maxSize โดยรักษาสัดส่วน ใส่แค่ด้านเดียวแล้วอีกด้าน
+    // คำนวณตามอัตราส่วนเอง เดิมบังคับเป็น maxSize x maxSize ทุกรูป
+    // รูปแนวตั้ง 3:4 จากกล้องเลยถูกบีบเป็นสี่เหลี่ยมจัตุรัสจนเบี้ยว
+    final landscape = decodedImage.width >= decodedImage.height;
+    final img.Image processedImage = img.copyResize(
       decodedImage,
-      width: maxSize,
-      height: maxSize,
+      width: landscape ? maxSize : null,
+      height: landscape ? null : maxSize,
       interpolation: img.Interpolation.linear,
     );
 
@@ -272,58 +279,9 @@ Uint8List _encodeImageSafely(_EncodeParams params) {
   }
 }
 
-/// นามสกุลของไฟล์ thumbnail ต้องตรงกับ ClaimStore.thumbSuffix
-/// (ClaimStore จะเก็บ thumbnail ของรูปที่ยังใช้อยู่ไว้ ไม่ลบทิ้ง)
+/// นามสกุลของไฟล์ thumbnail ที่แอปรุ่นก่อนสร้างไว้ข้างรูปต้นฉบับ
+///
+/// ตอนนี้ไม่สร้างแล้ว (รูปตัวอย่างแสดงจากไฟล์รูปตรง ๆ) แต่ยังมีค้างในเครื่อง
+/// ที่อัปเดตมาจากรุ่นก่อน ค่านี้ต้องตรงกับ ClaimStore.thumbSuffix
+/// ไฟล์เหล่านี้จะถูกลบไปพร้อมโฟลเดอร์รูปเมื่อรายการหมดอายุ
 const String thumbnailSuffix = '.thumb.jpg';
-
-Future<File> generateThumbnail(File file, {int size = 720}) async {
-  try {
-    // ไฟล์นี้เป็น thumbnail อยู่แล้ว ใช้ซ้ำได้เลย
-    if (file.path.endsWith(thumbnailSuffix)) return file;
-
-    final cached = _ImageCache.get(file, size, 75); // Updated quality
-    if (cached != null && await cached.exists()) {
-      return cached;
-    }
-
-    // ใช้ thumbnail ที่สร้างไว้แล้วถ้ายังใหม่กว่าไฟล์ต้นฉบับ
-    final existing = File('${file.path}$thumbnailSuffix');
-    if (await existing.exists() &&
-        (await existing.lastModified()).isAfter(await file.lastModified())) {
-      _ImageCache.put(file, size, 75, existing);
-      return existing;
-    }
-
-    final bytes = await file.readAsBytes();
-    final decodedImage = await compute(_decodeImageSafely, bytes);
-
-    if (decodedImage == null) {
-      throw Exception('Failed to decode image for thumbnail');
-    }
-
-    // Create thumbnail with faster processing
-    final thumbnail = img.copyResize(
-      decodedImage,
-      width: size,
-      height: size,
-      interpolation: img.Interpolation.linear, // Changed to linear for speed
-    );
-
-    final thumbnailBytes = await compute(
-      _encodeImageSafely,
-      _EncodeParams(thumbnail, 75, progressive: false),
-    ); // Updated quality
-    // เขียนเป็นไฟล์แยก ไม่ทับไฟล์ต้นฉบับ เพราะไฟล์ต้นฉบับคือรูปที่จะอัปโหลด
-    // และถูกเก็บถาวรไว้ใน ClaimStore (ถ้าทับจะถูกบีบอัดซ้ำทุกครั้งที่ preview)
-    final thumbnailFile = await File(
-      '${file.path}$thumbnailSuffix',
-    ).writeAsBytes(thumbnailBytes, flush: true);
-
-    _ImageCache.put(file, size, 75, thumbnailFile); // Updated quality
-
-    return thumbnailFile;
-  } catch (e) {
-    debugPrint('Thumbnail generation error: $e');
-    return file;
-  }
-}

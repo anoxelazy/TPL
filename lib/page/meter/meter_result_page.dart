@@ -248,7 +248,7 @@ class _TotalRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       decoration: BoxDecoration(
         color: AppColors.moneyBg,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSizes.innerRadius),
         border: Border.all(color: AppColors.moneyBorder),
       ),
       child: Row(
@@ -355,12 +355,12 @@ class _Thumb extends StatelessWidget {
           onTap: link == null
               ? null
               : () => showFullScreenImage(context, source: link, title: title),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(AppSizes.innerRadius),
           child: Container(
             height: 120,
             clipBehavior: Clip.antiAlias,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(AppSizes.innerRadius),
               border: Border.all(color: scheme.outlineVariant),
               color: scheme.surfaceContainerHighest,
             ),

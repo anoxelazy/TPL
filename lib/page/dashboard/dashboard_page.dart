@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:claim/utils/app_icons.dart';
 import 'package:claim/page/dashboard/asset_transfer_banner.dart';
 import 'package:claim/page/dashboard/banner_api.dart';
 import 'package:claim/page/dashboard/banner_carousel.dart';
+import 'package:claim/page/dashboard/dashboard_banner.dart';
 import 'package:claim/page/dashboard/dashboard_menu.dart';
 import 'package:claim/page/dashboard/it_case_banner.dart';
 import 'package:claim/page/dashboard/it_case_open_cards.dart';
 import 'package:claim/page/dashboard/line_invite_banner.dart';
-import 'package:claim/page/dashboard/line_support.dart';
-import 'package:claim/page/dashboard/rank_podium_card.dart';
-import 'package:claim/page/dashboard/support_links.dart';
 import 'package:claim/page/dashboard/weather_chip.dart';
 import 'package:claim/utils/pm_access_service.dart';
 import 'package:claim/utils/rank_service.dart';
@@ -45,6 +44,12 @@ class _DashboardPageState extends State<DashboardPage> {
 
   static const String _bannerOpenKey = 'dashboard_banner_open';
 
+  /// ระยะขอบซ้ายขวาของเนื้อหาบนหน้า แบนเนอร์ใช้ค่าเดียวกันให้ใบแรกตรงแนว
+  static const double _pagePadding = 16;
+
+  /// ระยะห่างระหว่างกลุ่มบนหน้าหลัก ใช้ค่าเดียวทุกช่วง
+  static const double _sectionGap = 20;
+
   /// กุญแจของการ์ดเคสค้าง ใช้สั่งให้มันดึงข้อมูลใหม่ตอนดึงหน้าจอลง
   ///
   /// การ์ดนั้นโหลดเองอยู่แล้วทั้งตอนเปิดแอปและเป็นรอบ แต่ผู้ใช้ที่ดึงหน้าจอลง
@@ -63,8 +68,6 @@ class _DashboardPageState extends State<DashboardPage> {
     _loadUserName();
     _loadBannerOpen();
     _loadBanners();
-    // ช่องทางแจ้งปัญหาอ่านจาก issue.json อ่าน cache ก่อนแล้วดึงของใหม่เบื้องหลัง
-    SupportLinksService.I.load();
     // สิทธิ์เมนู PM มาจาก pm.json อ่าน cache ก่อนแล้วดึงของใหม่เบื้องหลัง
     PmAccessService.I.init();
   }
@@ -80,9 +83,8 @@ class _DashboardPageState extends State<DashboardPage> {
     await Future.wait([
       _quiet(_loadUserName()),
       _quiet(_loadBanners()),
-      _quiet(SupportLinksService.I.load()),
       _quiet(PmAccessService.I.init()),
-      // ตารางอันดับเป็นของ service กลาง การ์ดโพเดียมฟังอยู่แล้ว อัปเดตให้เอง
+      // ป้ายอันดับบนรูปโปรไฟล์ฟัง service กลางอยู่ อัปเดตให้เอง
       _quiet(RankService.I.init()),
       // การ์ดเคสค้างถือ state ของตัวเอง ต้องสั่งผ่าน key
       _quiet(_openCases.currentState?.refresh() ?? Future<void>.value()),
@@ -200,6 +202,9 @@ class _DashboardPageState extends State<DashboardPage> {
           slivers: [
             // แถบทักทายค้างอยู่บนสุดตลอด รูปโปรไฟล์กับปุ่มติดต่อจึงกดได้ทุกจังหวะ
             // ไม่ต้องเลื่อนกลับขึ้นไปหา
+            //
+            // เคยลองหัวเขียวไล่สีกับลวดลายแล้ว ฉูดฉาดเกินไปสำหรับหน้าที่เปิดทุกวัน
+            // หัวจึงกลืนกับพื้นเหมือนหน้าอื่นตามธีมรวม
             SliverAppBar(
               pinned: true,
               automaticallyImplyLeading: false,
@@ -207,11 +212,7 @@ class _DashboardPageState extends State<DashboardPage> {
               // แถบนี้เป็นแถวเต็มความกว้าง ต้องชิดซ้ายเหมือนเดิม
               centerTitle: false,
               titleSpacing: 16,
-              // ธีมรวมตั้งแถบหัวเรื่องเป็นเขียวแบรนด์ แต่แถบนี้เป็นส่วนหนึ่งของ
-              // หน้าหลัก ไม่ใช่หัวเรื่องของหน้าย่อย จึงใช้พื้นเดียวกับเนื้อหา
-              backgroundColor: scheme.surface,
-              surfaceTintColor: Colors.transparent,
-              foregroundColor: scheme.onSurface,
+              // สีแถบมาจากธีมรวม ซึ่งเป็นสีเดียวกับพื้นหน้าอยู่แล้ว
               title: _Greeting(name: _userName),
               bottom: PreferredSize(
                 preferredSize: const Size.fromHeight(1),
@@ -221,34 +222,53 @@ class _DashboardPageState extends State<DashboardPage> {
                 ),
               ),
             ),
+            // แบนเนอร์อยู่นอกกรอบที่มีขอบซ้ายขวา ใบถัดไปจะได้โผล่ถึงขอบจอจริง
+            // ใบแรกยังเริ่มตรงแนว [_pagePadding] เดียวกับการ์ดข้างล่าง
+            //
+            // ไม่มีรูปใน banner.json ก็ไม่ต้องกินที่เลย ไม่ใช่ขึ้นกล่องเทาเปล่า ๆ
+            // ที่คนใช้ทำอะไรกับมันไม่ได้ ระหว่างโหลดก็ยังไม่โชว์ ขึ้นมาตอนได้รูปจริง
+            if (_banners.isNotEmpty)
+              SliverPadding(
+                padding: const EdgeInsets.only(top: 12),
+                sliver: SliverToBoxAdapter(
+                  child: BannerSection(
+                    banners: _banners,
+                    expanded: _bannerOpen,
+                    onToggle: _toggleBannerOpen,
+                    sidePadding: _pagePadding,
+                  ),
+                ),
+              ),
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+              padding: EdgeInsets.fromLTRB(
+                _pagePadding,
+                _banners.isNotEmpty ? _sectionGap : 12,
+                _pagePadding,
+                24,
+              ),
               sliver: SliverList.list(
                 children: [
-                  // ไม่มีรูปใน banner.json ก็ไม่ต้องกินที่เลย ไม่ใช่ขึ้นกล่องเทา
-                  // เปล่า ๆ ที่คนใช้ทำอะไรกับมันไม่ได้ ระหว่างโหลดก็ยังไม่โชว์
-                  // ขึ้นมาตอนได้รูปจริง
-                  if (_banners.isNotEmpty) ...[
-                    BannerSection(
-                      banners: _banners,
-                      expanded: _bannerOpen,
-                      onToggle: _toggleBannerOpen,
-                    ),
-                    const SizedBox(height: 16),
-                  ],
+                  // ทุกกลุ่มเว้นห่างกันเท่ากัน ([_sectionGap]) หน้าจะอ่านเป็น
+                  // จังหวะเดียวกันทั้งหน้า กลุ่มแถบงานกับตารางเมนูไม่มีหัวข้อ
+                  // (เคยมี "ส่งเรื่อง" / "เมนู") หน้าตาของแต่ละกลุ่มบอกอยู่แล้ว
+                  // ว่าคืออะไร หัวข้อเลยเป็นแค่ตัวหนังสือที่กินที่
+                  //
                   // ชวนแอด LINE เฉพาะคนที่ยังไม่ได้ผูกบัญชีกับบอท ผูกแล้วหรือ
                   // กดปิดแล้วจะไม่กินที่เลย ตัวมันเว้นระยะใต้ตัวเองมาให้แล้ว
                   const LineInviteBanner(),
 
-                  const ItCaseBanner(),
-                  const SizedBox(height: 10),
-                  // แถบที่สอง เป็นงานที่มีของจริงเคลื่อนที่ตามและมีคนปลายทางรอรับ
-                  // เหมือนแจ้งเคส ต่างจากเมนูในตารางที่เป็นหน้าไว้เปิดดูข้อมูล
-                  // (ทะเบียนทรัพย์สินจึงอยู่ในตาราง ไม่ใช่ตรงนี้)
+                  // งานที่ส่งถึงคนปลายทาง (ทีม IT / คนอนุมัติ-รับของ) ต่างจาก
+                  // เมนูในตารางที่เป็นหน้าไว้เปิดดูข้อมูล ทะเบียนทรัพย์สินจึงอยู่
+                  // ในตาราง ไม่ใช่ตรงนี้ สองแถบอยู่การ์ดใบเดียวกันคั่นด้วยเส้น
                   //
-                  // แถบนี้นับใบที่รอคนคนนี้อยู่เองตอนเปิดหน้า แล้วโชว์เป็นตัวเลข
-                  const AssetTransferBanner(),
-                  const SizedBox(height: 16),
+                  // แถบใบโอนย้ายนับใบที่รอคนคนนี้อยู่เองตอนเปิดหน้า แล้วโชว์เป็นตัวเลข
+                  const DashboardBannerGroup(
+                    children: [
+                      ItCaseBanner(framed: false),
+                      AssetTransferBanner(framed: false),
+                    ],
+                  ),
+                  const SizedBox(height: _sectionGap),
                   ValueListenableBuilder<bool>(
                     valueListenable: PmAccessService.I.allowed,
                     builder: (context, _, _) {
@@ -262,10 +282,6 @@ class _DashboardPageState extends State<DashboardPage> {
                     },
                   ),
                   ItCaseOpenCases(key: _openCases),
-
-                  // อันดับอยู่ล่างสุด เป็นของน่าดูแต่ไม่ใช่ของที่ต้องรีบทำ
-                  // ของค้างกับเมนูต้องได้ที่ด้านบนก่อน
-                  const RankPodiumCard(),
                 ],
               ),
             ),
@@ -313,9 +329,8 @@ class _Greeting extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 8),
+        // ปุ่มแจ้งปัญหาที่เคยอยู่ตรงนี้ย้ายไปอยู่หน้าโปรไฟล์แล้ว
         const WeatherChip(),
-        const SizedBox(width: 4),
-        const LineSupportButton(),
       ],
     );
   }
@@ -435,7 +450,8 @@ class _MenuGridState extends State<_MenuGrid> {
         ),
         textDirection: TextDirection.ltr,
         textAlign: TextAlign.center,
-        maxLines: 3,
+        // ป้ายบรรทัดเดียวเสมอ (ดู _MenuButton) วัดแค่บรรทัดเดียวพอ
+        maxLines: 1,
       )..layout(maxWidth: width);
 
       if (painter.height > height) height = painter.height;
@@ -611,14 +627,17 @@ class _MenuButton extends StatelessWidget {
             children: [
               Opacity(
                 opacity: blocked ? 0.4 : 1,
-                child: Container(
+                // ไอคอนเส้นล้วน ไม่มีวงกลมรอบ (ลองวงกลมทึบกับวงกลมเส้นขอบ
+                // มาแล้ว) ช่องยังกว้าง 54 เท่าเดิม ตารางจะได้ไม่ขยับ ขยาย
+                // ไอคอนขึ้นแทนที่วงกลมที่หายไป ไม่ให้ช่องดูโหรงเหรง
+                child: SizedBox(
                   width: 54,
                   height: 54,
-                  decoration: BoxDecoration(
-                    color: item.iconBg,
-                    shape: BoxShape.circle,
+                  child: AppIcons.duotone(
+                    item.icon,
+                    size: 34,
+                    color: item.iconColor,
                   ),
-                  child: Icon(item.icon, size: 26, color: item.iconColor),
                 ),
               ),
               if (blocked)
@@ -641,15 +660,20 @@ class _MenuButton extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          Text(
-            item.label,
-            textAlign: TextAlign.center,
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 11.5,
-              height: 1.3,
-              color: blocked ? scheme.onSurfaceVariant : scheme.onSurface,
+          // ชื่อเมนูบรรทัดเดียว ชื่อในเมนูจึงย่อให้สั้น (ชื่อเต็มอยู่บนหัว
+          // ของแต่ละหน้า) ถ้าจอแคบจนไม่พอจริง ๆ ตัวหนังสือหดลงเองนิดหนึ่ง
+          // ดีกว่าตัดเป็น "..." จนอ่านไม่ออกว่าเมนูอะไร
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              item.label,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              style: TextStyle(
+                fontSize: 11.5,
+                height: 1.3,
+                color: blocked ? scheme.onSurfaceVariant : scheme.onSurface,
+              ),
             ),
           ),
         ],

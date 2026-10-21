@@ -22,6 +22,7 @@ import 'package:claim/page/asset/transfer_models.dart';
 import 'package:claim/page/asset/transfer_style.dart';
 import 'package:claim/utils/app_colors.dart';
 import 'package:claim/utils/mobile_api.dart';
+import 'package:claim/widgets/app_card.dart';
 import 'package:claim/widgets/state_views.dart';
 
 enum _View { pending, all, aging }
@@ -239,10 +240,6 @@ class _TransferListPageState extends State<TransferListPage> {
           _viewPicker(),
           if (_view == _View.all) _searchBar(),
           if (_view == _View.all) _filterBar(),
-          Divider(
-            height: 1,
-            color: Theme.of(context).colorScheme.outlineVariant,
-          ),
           Expanded(child: _body()),
         ],
       ),
@@ -269,7 +266,15 @@ class _TransferListPageState extends State<TransferListPage> {
     );
   }
 
+  /// ช่องค้นหาแบบเตี้ยท่าเดียวกับหน้าสถานะคลัง ช่องกรอกตามธีมสูงเกินไปสำหรับ
+  /// แถบเหนือรายการ กินที่จนเห็นใบได้น้อยลง
   Widget _searchBar() {
+    final scheme = Theme.of(context).colorScheme;
+    final border = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(AppSizes.innerRadius),
+      borderSide: BorderSide(color: scheme.outlineVariant),
+    );
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
       child: TextField(
@@ -277,19 +282,35 @@ class _TransferListPageState extends State<TransferListPage> {
         textInputAction: TextInputAction.search,
         onSubmitted: (value) =>
             _applyFilter(_query.copyWith(keyword: value.trim())),
+        style: const TextStyle(fontSize: 13),
         decoration: InputDecoration(
           hintText: 'เลขที่ใบ รหัสทรัพย์สิน หรือชื่อคนขอ',
-          prefixIcon: const Icon(Icons.search),
+          hintStyle: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant),
+          prefixIcon: Icon(
+            Icons.search,
+            size: 18,
+            color: scheme.onSurfaceVariant,
+          ),
+          prefixIconConstraints: const BoxConstraints(minWidth: 38),
           isDense: true,
+          contentPadding: const EdgeInsets.symmetric(vertical: 9),
+          filled: true,
+          fillColor: scheme.surface,
+          border: border,
+          enabledBorder: border,
+          focusedBorder: border.copyWith(
+            borderSide: BorderSide(color: scheme.primary),
+          ),
           suffixIcon: _query.keyword.isEmpty && _searchController.text.isEmpty
               ? null
               : IconButton(
                   tooltip: 'ล้าง',
+                  visualDensity: VisualDensity.compact,
                   onPressed: () {
                     _searchController.clear();
                     _applyFilter(_query.copyWith(keyword: ''));
                   },
-                  icon: const Icon(Icons.clear),
+                  icon: const Icon(Icons.close, size: 16),
                 ),
         ),
       ),
@@ -352,9 +373,10 @@ class _TransferListPageState extends State<TransferListPage> {
             EmptyStateView(
               message: switch (_view) {
                 _View.pending => 'ไม่มีใบที่รอคุณดำเนินการ',
-                _View.all => _query.hasFilter
-                    ? 'ไม่พบใบที่ตรงกับที่ค้น'
-                    : 'ยังไม่มีใบโอนย้ายในระบบ',
+                _View.all =>
+                  _query.hasFilter
+                      ? 'ไม่พบใบที่ตรงกับที่ค้น'
+                      : 'ยังไม่มีใบโอนย้ายในระบบ',
                 _View.aging => '',
               },
               icon: Icons.inbox_outlined,
@@ -368,8 +390,9 @@ class _TransferListPageState extends State<TransferListPage> {
       onRefresh: _load,
       child: ListView.separated(
         controller: _scrollController,
+        padding: _listPadding,
         itemCount: _items.length + (_hasMore ? 1 : 0),
-        separatorBuilder: (_, _) => const Divider(height: 1),
+        separatorBuilder: (_, _) => const SizedBox(height: AppSizes.gap),
         itemBuilder: (context, index) {
           if (index == _items.length) {
             return const Padding(
@@ -383,81 +406,101 @@ class _TransferListPageState extends State<TransferListPage> {
     );
   }
 
+  /// ระยะขอบของลิสต์ ด้านบนแคบกว่าปกติเพราะมีแถบตัวเลือกอยู่เหนือลิสต์แล้ว
+  static const EdgeInsets _listPadding = EdgeInsets.fromLTRB(16, 4, 16, 24);
+
   Widget _row(AssetTransferItem item) {
     final scheme = Theme.of(context).colorScheme;
+    final at = item.transferDate;
+    final route = item.routeLabel;
 
-    return InkWell(
+    return AppCard(
       onTap: () => _openDoc(item.transferNo),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  item.transferNo,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.brandText,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              TransferStatusChip(item),
+            ],
+          ),
+          if (route.isNotEmpty) ...[
+            const SizedBox(height: 8),
             Row(
               children: [
+                Icon(
+                  Icons.swap_horiz,
+                  size: 16,
+                  color: scheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    item.transferNo,
+                    route,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
-                TransferStatusChip(item),
-                const SizedBox(width: 4),
-                Icon(Icons.chevron_right, size: 18, color: scheme.outline),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              item.routeLabel,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 13, height: 1.35),
-            ),
-            if (item.reason.isNotEmpty) ...[
-              const SizedBox(height: 2),
-              Text(
-                item.reason,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
-              ),
-            ],
-            const SizedBox(height: 6),
-            Wrap(
-              spacing: 8,
-              runSpacing: 4,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                Text(
-                  _metaOf(item),
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-                TransferOverdueTag(item.daysOverdue),
               ],
             ),
           ],
-        ),
+          if (item.reason.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              item.reason,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.35,
+                color: scheme.onSurface,
+              ),
+            ),
+          ],
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 12,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              if (at != null)
+                TransferMeta(icon: Icons.schedule, text: assetDateLabel(at)),
+              if (item.lineCount > 0)
+                TransferMeta(
+                  icon: Icons.inventory_2_outlined,
+                  text: item.pendingCount > 0
+                      ? '${item.lineCount} ชิ้น · รอรับ ${item.pendingCount}'
+                      : '${item.lineCount} ชิ้น',
+                ),
+              if (item.requestByName.isNotEmpty)
+                TransferMeta(
+                  icon: Icons.person_outline,
+                  text: item.requestByName,
+                ),
+              TransferOverdueTag(item.daysOverdue),
+            ],
+          ),
+        ],
       ),
     );
-  }
-
-  String _metaOf(AssetTransferItem item) {
-    final at = item.transferDate;
-
-    return [
-      if (at != null) assetDateLabel(at),
-      if (item.lineCount > 0)
-        item.pendingCount > 0
-            ? 'ของ ${item.lineCount} ชิ้น · รอรับ ${item.pendingCount}'
-            : 'ของ ${item.lineCount} ชิ้น',
-      if (item.requestByName.isNotEmpty) 'ขอโดย ${item.requestByName}',
-    ].join(' · ');
   }
 
   Widget _agingList() {
@@ -479,8 +522,9 @@ class _TransferListPageState extends State<TransferListPage> {
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView.separated(
+        padding: _listPadding,
         itemCount: _aging.length,
-        separatorBuilder: (_, _) => const Divider(height: 1),
+        separatorBuilder: (_, _) => const SizedBox(height: AppSizes.gap),
         itemBuilder: (context, index) => _agingRow(_aging[index]),
       ),
     );
@@ -488,55 +532,78 @@ class _TransferListPageState extends State<TransferListPage> {
 
   Widget _agingRow(AssetTransitAging row) {
     final scheme = Theme.of(context).colorScheme;
+    final site = row.toSiteName.isNotEmpty ? row.toSiteName : row.toSiteId;
 
-    return ListTile(
+    return AppCard(
       onTap: () => _openDoc(row.transferNo),
-      title: Text(
-        row.label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-      ),
-      subtitle: Column(
+      padding: const EdgeInsets.all(12),
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 2),
-          Text(
-            [
-              row.transferNo,
-              if (row.toSiteName.isNotEmpty)
-                'ปลายทาง ${row.toSiteName}'
-              else if (row.toSiteId.isNotEmpty)
-                'ปลายทาง ${row.toSiteId}',
-            ].join(' · '),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+          // กล่องไอคอนสีแดงอ่อนบอกตั้งแต่แวบแรกว่าแถวนี้คือของที่มีปัญหา
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AppColors.dangerBg,
+              borderRadius: BorderRadius.circular(AppSizes.innerRadius),
+            ),
+            child: const Icon(
+              Icons.local_shipping_outlined,
+              size: 20,
+              color: AppColors.dangerText,
+            ),
           ),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              TransferOverdueTag(row.daysOverdue),
-              if (row.actionRequired.isNotEmpty) ...[
-                const SizedBox(width: 6),
-                Flexible(
-                  child: Text(
-                    row.actionRequired,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.danger,
-                    ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  row.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
+                const SizedBox(height: 2),
+                Text(
+                  [
+                    row.transferNo,
+                    if (site.isNotEmpty) 'ปลายทาง $site',
+                  ].join(' · '),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    TransferOverdueTag(row.daysOverdue),
+                    if (row.actionRequired.isNotEmpty)
+                      Text(
+                        row.actionRequired,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.dangerText,
+                        ),
+                      ),
+                  ],
+                ),
               ],
-            ],
+            ),
           ),
         ],
       ),
-      trailing: Icon(Icons.chevron_right, size: 18, color: scheme.outline),
     );
   }
 }

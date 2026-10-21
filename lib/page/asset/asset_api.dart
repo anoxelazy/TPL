@@ -870,10 +870,7 @@ Future<List<AssetDept>> fetchAssetDepts() async {
   try {
     for (final row in await fetchApproverRows()) {
       if (row.deptCode.isEmpty || byCode.containsKey(row.deptCode)) continue;
-      byCode[row.deptCode] = AssetDept(
-        code: row.deptCode,
-        name: row.deptName,
-      );
+      byCode[row.deptCode] = AssetDept(code: row.deptCode, name: row.deptName);
     }
   } on MobileApiException {
     // เติมไม่ได้ก็ใช้เท่าที่ /deptlist ให้มา ดีกว่าไม่มีลิสต์ให้เลือกเลย

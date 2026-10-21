@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:claim/page/tracking/api.dart';
 import 'package:claim/page/tracking/models.dart';
@@ -29,7 +30,11 @@ void main() {
   setUpAll(() => initializeDateFormatting('th', null));
 
   // แคชเป็น singleton ระดับแอป ถ้าไม่ล้าง เทสต์ตัวก่อนจะทิ้งผลค้างให้ตัวถัดไป
-  setUp(() => TrackingCache.I.clear());
+  setUp(() {
+    TrackingCache.I.clear();
+    // หน้าเช็คสถานะโหลดประวัติเลขที่เช็ควันนี้จาก SharedPreferences ตอนเปิด
+    SharedPreferences.setMockInitialValues({});
+  });
 
   group('ตัวดูรูปแบบเลื่อน', () {
     /// เปิด gallery ขึ้นมาตรง ๆ โดยไม่ต้องผ่านหน้าเช็คสถานะ
@@ -100,19 +105,21 @@ void main() {
     });
   });
 
-  group('แถบไทม์ไลน์แนวนอน', () {
+  group('ไทม์ไลน์แนวตั้ง', () {
     Future<void> pumpTimeline(WidgetTester tester) async {
       await tester.pumpWidget(
         MaterialApp(
-          home: Scaffold(body: TrackingTimeline(events: _realResult().events)),
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: TrackingTimeline(events: _realResult().events),
+            ),
+          ),
         ),
       );
       await tester.pumpAndSettle();
     }
 
-    testWidgets('เรียงซ้าย→ขวา เก่า→ใหม่ สลับทิศจากที่เก็บในโมเดล', (
-      tester,
-    ) async {
+    testWidgets('เรียงบน→ล่าง ใหม่→เก่า สถานะล่าสุดอยู่บนสุด', (tester) async {
       await pumpTimeline(tester);
 
       final steps = tester
@@ -121,58 +128,24 @@ void main() {
           .whereType<String>()
           .toList();
 
-      // B00 เป็นเหตุการณ์แรกสุด ต้องอยู่ก่อน "ส่งสินค้าถึงปลายทาง" ในลำดับวาด
+      // B00 เป็นเหตุการณ์แรกสุด ต้องอยู่หลัง "ส่งสินค้าถึงปลายทาง" ในลำดับวาด
       final b00 = steps.indexWhere((s) => s.contains('รับข้อมูล Api'));
       final delivered = steps.indexWhere((s) => s.contains('ถึงปลายทาง'));
       expect(b00, isNonNegative);
       expect(delivered, isNonNegative);
-      expect(b00, lessThan(delivered));
+      expect(delivered, lessThan(b00));
     });
 
-    testWidgets('เริ่มที่สถานะล่าสุด การ์ดล่างโชว์รายละเอียดของใบที่ส่งถึง', (
-      tester,
-    ) async {
+    testWidgets('กางรายละเอียดของทุกสถานะไว้เลย ไม่ต้องแตะ', (tester) async {
       await pumpTimeline(tester);
 
       // สถานะ 7 มีรูป 3 ใบ + ลายเซ็น = 4 thumbnail
       expect(find.byType(RemoteImage), findsNWidgets(4));
-      // remark ของสถานะ 7 ในข้อมูลจริง
+      // remark กับพิกัดของสถานะ 7 ในข้อมูลจริง
       expect(find.text('1/1'), findsOneWidget);
       expect(find.text('13.1678771, 101.0013249'), findsOneWidget);
-    });
-
-    testWidgets('แตะช่องอื่นแล้วรายละเอียดเปลี่ยนตาม', (tester) async {
-      await pumpTimeline(tester);
-
-      // สถานะ 6 มีคนขับ ยังไม่โชว์ตอนเลือกสถานะ 7 อยู่
-      expect(find.text('ปวิช ทองท่อ (095-1058256)'), findsNothing);
-
-      await tester.tap(
-        find.textContaining('ดำเนินการส่งสินค้าไปให้ลูกค้า').first,
-      );
-      await tester.pumpAndSettle();
-
+      // คนขับของสถานะ 6 ก็เห็นพร้อมกัน
       expect(find.text('ปวิช ทองท่อ (095-1058256)'), findsOneWidget);
-      // สถานะ 6 ไม่มีรูป การ์ดต้องไม่ค้างรูปของสถานะก่อนหน้า
-      expect(find.byType(RemoteImage), findsNothing);
-    });
-
-    testWidgets('ช่องที่มีรูปติดไอคอนบอกไว้', (tester) async {
-      await pumpTimeline(tester);
-
-      // มีแค่สถานะ 7 ที่มีรูปในข้อมูลชุดนี้
-      expect(find.byIcon(Icons.photo_library_outlined), findsOneWidget);
-    });
-
-    testWidgets('แถบเลื่อนแนวนอนได้', (tester) async {
-      await pumpTimeline(tester);
-
-      final scroller = find.byType(SingleChildScrollView);
-      expect(scroller, findsOneWidget);
-      expect(
-        tester.widget<SingleChildScrollView>(scroller).scrollDirection,
-        Axis.horizontal,
-      );
     });
   });
 
@@ -268,6 +241,28 @@ void main() {
       expect(find.text('Delivered'), findsOneWidget);
       expect(find.textContaining('เช็คสถานะไม่สำเร็จ'), findsNothing);
       expect(find.text('ลองใหม่'), findsNothing);
+    });
+
+    testWidgets('ดึงลงเพื่อรีเฟรช ล้มแล้วบอกผู้ใช้ แต่ของเดิมยังอยู่', (
+      tester,
+    ) async {
+      TrackingCache.I.save(code: 'HVR012609093457', result: _realResult());
+
+      await tester.pumpWidget(const MaterialApp(home: TrackingPage()));
+      await tester.pumpAndSettle(const Duration(seconds: 20));
+
+      // ใน widget test ทุก request ถูกตอบ 400 การรีเฟรชจึงล้มแน่นอน
+      await tester.fling(find.byType(ListView), const Offset(0, 400), 1000);
+      // ห้าม pumpAndSettle ยาว ๆ เพราะ SnackBar อยู่แค่ 4 วินาทีแล้วหายเอง
+      // เดินทีละวินาทีจนกว่าจะเห็น
+      var shown = false;
+      for (var i = 0; i < 20 && !shown; i++) {
+        await tester.pump(const Duration(seconds: 1));
+        shown = find.byType(SnackBar).evaluate().isNotEmpty;
+      }
+
+      expect(shown, isTrue);
+      expect(find.text('Delivered'), findsOneWidget);
     });
 
     testWidgets('กดค้นหาโดยไม่กรอกอะไร ต้องเตือน ไม่ยิง API', (tester) async {

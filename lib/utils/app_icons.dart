@@ -6,9 +6,30 @@ library;
 
 import 'package:flutter/widgets.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
+
+import 'package:claim/utils/app_colors.dart';
 
 class AppIcons {
   const AppIcons._();
+
+  /// ไอคอนสองโทนของหน้าหลัก: เส้นเป็น [color] ไส้เป็นเขียวแบรนด์โปร่ง ๆ
+  ///
+  /// ส่งไอคอนจาก `PhosphorIconsDuotone` มา ไส้ (ส่วนพื้นที่ข้างในไอคอน เช่น
+  /// ตัวกล่อง ตัวรถ) จะได้สีที่สองเอง ถ้าส่งไอคอนแบบเส้นธรรมดามาก็ยังวาดได้
+  /// แค่ไม่มีไส้
+  ///
+  /// ไส้ใช้เขียวสด ([AppColors.brand]) โปร่ง 30% ไม่ใช่เขียวอ่อนทึบ
+  /// greenPrimary100 ทึบอ่อนเกินจนบนการ์ดขาวแทบมองไม่เห็นว่ามีสองสี
+  static Widget duotone(IconData icon, {required double size, Color? color}) {
+    return PhosphorIcon(
+      icon,
+      size: size,
+      color: color,
+      duotoneSecondaryColor: AppColors.brand,
+      duotoneSecondaryOpacity: 0.3,
+    );
+  }
 
   /// ไอคอนสแกนบาร์โค้ด/QR: กรอบสี่มุมพร้อมเส้นกลาง
   ///

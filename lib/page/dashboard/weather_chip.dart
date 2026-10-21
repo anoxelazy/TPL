@@ -3,18 +3,24 @@
 /// ใช้ Open-Meteo ฟรีและไม่ต้องมี key ดึงครั้งเดียวแล้วเก็บไว้ 30 นาที
 /// ดึงหน้าหลักลงรีเฟรชกี่ครั้งก็ไม่ยิงซ้ำ
 ///
-/// **ไม่ขอสิทธิ์ตำแหน่งเอง** ใช้เฉพาะเมื่อเคยให้สิทธิ์ไว้แล้ว (ตอนถ่ายรูปไมล์
-/// หรือแนบพิกัด) หน้าหลักเด้งถามสิทธิ์ตั้งแต่เปิดแอปเพื่อเอาไปโชว์อากาศ
-/// เป็นเรื่องที่ไม่คุ้มให้คนกดปฏิเสธแล้วไปกระทบฟีเจอร์ที่ต้องใช้พิกัดจริง
+/// ป้ายขึ้นให้ทุกคนเห็นเสมอ ไม่หายไปเงียบ ๆ:
+/// - เปิดหน้าหลัก → ถ้ายังไม่เคยให้สิทธิ์ตำแหน่ง ขอทันทีด้วยหน้าต่างของระบบ
+///   ([WeatherAsk.prompt]) ให้สิทธิ์แล้วโชว์อุณหภูมิเลย ไม่ต้องรอไปแตะ
+/// - ปฏิเสธ / GPS ปิด / ดึงไม่ได้ → ป้าย "อากาศ" ให้แตะ แตะแล้วขอใหม่ และพาไป
+///   หน้าตั้งค่าถ้าระบบไม่ยอมให้ถามซ้ำแล้ว ([WeatherAsk.insist])
 ///
-/// ไม่ได้สิทธิ์ ไม่มีพิกัดล่าสุด หรือดึงไม่สำเร็จ ก็ไม่โชว์อะไรเลย ไม่เดาว่า
-/// อยู่กรุงเทพ เพราะคนขับต่างจังหวัดจะเห็นอากาศที่ไม่ใช่ของตัวเอง
+/// ตอนเปิดหน้าไม่พาออกไปหน้าตั้งค่าเอง เปิดแอปแล้วโดนดีดออกไปหน้าอื่นทันที
+/// แย่กว่าไม่เห็นอากาศ ทำแบบนั้นเฉพาะตอนผู้ใช้แตะเองเท่านั้น
+///
+/// ไม่เดาว่าอยู่กรุงเทพ เพราะคนขับต่างจังหวัดจะเห็นอากาศที่ไม่ใช่ของตัวเอง
 library;
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 
+import 'package:claim/page/dashboard/weather_animated_icon.dart';
+import 'package:claim/page/dashboard/weather_popup.dart';
 import 'package:claim/utils/dio_service.dart';
 
 /// โอกาสฝนตั้งแต่เท่านี้ขึ้นไปเปลี่ยนเป็นไอคอนร่ม เตือนให้เตรียมคลุมของ
@@ -88,11 +94,37 @@ IconData weatherIcon(int code) {
   return Icons.wb_cloudy_outlined;
 }
 
+/// คำบรรยายอากาศภาษาไทยตามรหัส WMO จัดกลุ่มเดียวกับ [weatherIcon]
+String weatherLabel(int code) {
+  if (code == 0) return 'ท้องฟ้าแจ่มใส';
+  if (code <= 2) return 'มีเมฆบางส่วน';
+  if (code == 3) return 'เมฆมาก';
+  if (code == 45 || code == 48) return 'มีหมอก';
+  if (code >= 95) return 'พายุฝนฟ้าคะนอง';
+  if (code >= 80) return 'ฝนซู่';
+  if (code >= 61) return 'ฝนตก';
+  if (code >= 51) return 'ฝนปรอย ๆ';
+  return 'มีเมฆ';
+}
+
 WeatherNow? _cached;
 DateTime? _cachedAt;
 
+/// ขอสิทธิ์ตำแหน่งได้แค่ไหน
+enum WeatherAsk {
+  /// ตอนเปิดหน้าหลัก: ยังไม่เคยให้สิทธิ์ก็ขอด้วยหน้าต่างของระบบ
+  /// แต่ไม่พาออกไปหน้าตั้งค่าเอง
+  prompt,
+
+  /// ผู้ใช้แตะป้ายเอง: ขอสิทธิ์ และพาไปหน้าตั้งค่าถ้าระบบไม่ให้ถามซ้ำแล้ว
+  /// หรือ GPS ปิดอยู่
+  insist,
+}
+
 /// อากาศตรงที่ผู้ใช้อยู่ null เมื่อไม่มีสิทธิ์ ไม่มีพิกัด หรือดึงไม่ได้
-Future<WeatherNow?> fetchWeatherHere() async {
+Future<WeatherNow?> fetchWeatherHere({
+  WeatherAsk ask = WeatherAsk.prompt,
+}) async {
   final cachedAt = _cachedAt;
   if (_cached != null &&
       cachedAt != null &&
@@ -100,17 +132,38 @@ Future<WeatherNow?> fetchWeatherHere() async {
     return _cached;
   }
 
+  final insist = ask == WeatherAsk.insist;
+
   try {
-    final permission = await Geolocator.checkPermission();
+    if (!await Geolocator.isLocationServiceEnabled()) {
+      if (insist) await Geolocator.openLocationSettings();
+      return null;
+    }
+
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+    if (permission == LocationPermission.deniedForever) {
+      // ระบบไม่ให้ถามซ้ำแล้ว ทางเดียวคือให้ผู้ใช้ไปเปิดเองในตั้งค่า
+      if (insist) await Geolocator.openAppSettings();
+      return null;
+    }
     if (permission != LocationPermission.always &&
         permission != LocationPermission.whileInUse) {
       return null;
     }
 
     // พิกัดล่าสุดที่เครื่องจำไว้ได้ทันที ไม่ต้องรอจับ GPS ใหม่
-    // อากาศคลาดไปไม่กี่กิโลไม่ต่างกัน
-    final position = await Geolocator.getLastKnownPosition();
-    if (position == null) return null;
+    // อากาศคลาดไปไม่กี่กิโลไม่ต่างกัน ไม่มีค่อยจับใหม่แบบหยาบ ๆ
+    final position =
+        await Geolocator.getLastKnownPosition() ??
+        await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.low,
+            timeLimit: Duration(seconds: 15),
+          ),
+        );
 
     final response = await dio.getUri(
       buildWeatherUrl(lat: position.latitude, lon: position.longitude),
@@ -139,9 +192,20 @@ Future<WeatherNow?> fetchWeatherHere() async {
 
 /// ป้ายอากาศเล็ก ๆ เช่น `☀ 31°` หรือ `☂ ฝน 63%`
 ///
-/// ยังไม่ได้ข้อมูลก็ไม่กินที่ แถบทักทายจะไม่กระตุกเพราะมีที่ว่างรอไว้
+/// ยังดึงไม่ได้ก็ขึ้นป้าย "อากาศ" ให้แตะ ไม่หายไปเฉย ๆ จนไม่มีใครรู้ว่ามี
 class WeatherChip extends StatefulWidget {
-  const WeatherChip({super.key});
+  /// ตัวดึงอากาศ เปลี่ยนได้เฉพาะในเทสต์ ของจริงใช้ [fetchWeatherHere]
+  final Future<WeatherNow?> Function({WeatherAsk ask}) fetch;
+
+  /// ได้อากาศครั้งแรกตอนเปิดแอปแล้วเด้งการ์ดอากาศลงมาจากด้านบนด้วยไหม
+  /// ปิดได้ในเทสต์ที่ไม่ได้ทดสอบตัวการ์ด
+  final bool showPopup;
+
+  const WeatherChip({
+    super.key,
+    this.fetch = fetchWeatherHere,
+    this.showPopup = true,
+  });
 
   @override
   State<WeatherChip> createState() => _WeatherChipState();
@@ -150,59 +214,113 @@ class WeatherChip extends StatefulWidget {
 class _WeatherChipState extends State<WeatherChip> {
   WeatherNow? _weather;
 
+  /// หมุนเฉพาะตอนผู้ใช้แตะแล้วรออยู่ ตอนเปิดหน้าโชว์ป้าย "อากาศ" ไปก่อน
+  /// (ระหว่างนั้นหน้าต่างขอสิทธิ์ของระบบอาจเด้งอยู่) ได้ค่าค่อยเปลี่ยนเป็นอุณหภูมิ
+  bool _loading = false;
+
   @override
   void initState() {
     super.initState();
-    _load();
+    // ขอสิทธิ์ตั้งแต่เข้าหน้าหลักเลย ไม่ต้องรอให้คนเห็นป้ายแล้วนึกจะแตะเอง
+    _load(WeatherAsk.prompt);
   }
 
-  Future<void> _load() async {
-    final weather = await fetchWeatherHere();
-    if (!mounted || weather == null) return;
-    setState(() => _weather = weather);
+  Future<void> _load(WeatherAsk ask) async {
+    if (ask == WeatherAsk.insist) setState(() => _loading = true);
+
+    final weather = await widget.fetch(ask: ask);
+    if (!mounted) return;
+
+    setState(() {
+      _weather = weather;
+      _loading = false;
+    });
+
+    // เด้งเฉพาะรอบเปิดหน้า ถ้าผู้ใช้แตะป้ายเองป้ายก็เปลี่ยนให้เห็นอยู่แล้ว
+    if (weather != null && widget.showPopup && ask == WeatherAsk.prompt) {
+      showWeatherPopupOnce(context, weather);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final weather = _weather;
-    if (weather == null) return const SizedBox.shrink();
-
     final scheme = Theme.of(context).colorScheme;
+    final weather = _weather;
+
+    if (weather == null) {
+      return Tooltip(
+        message: 'แตะเพื่อดูอากาศตรงที่คุณอยู่ (ต้องเปิดตำแหน่ง)',
+        child: _chip(
+          background: scheme.surfaceContainerHighest,
+          onTap: _loading ? null : () => _load(WeatherAsk.insist),
+          icon: _loading
+              ? SizedBox.square(
+                  dimension: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                )
+              : Icon(
+                  Icons.wb_cloudy_outlined,
+                  size: 16,
+                  color: scheme.onSurfaceVariant,
+                ),
+          label: Text(
+            'อากาศ',
+            style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+          ),
+        ),
+      );
+    }
+
     final rain = weather.rainLikely;
     final color = rain ? scheme.onTertiaryContainer : scheme.onSurfaceVariant;
 
     return Tooltip(
-      message: rain
-          ? 'โอกาสฝน ${weather.rainChance}% ใน 3 ชั่วโมงนี้ เตรียมคลุมของด้วย'
-          : 'อุณหภูมิตอนนี้ตรงที่คุณอยู่',
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: rain
-              ? scheme.tertiaryContainer
-              : scheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(12),
+      message: 'แตะเพื่อดูอากาศ',
+      child: _chip(
+        // แตะดูรายละเอียดได้ทุกเมื่อ ไม่ต้องรอป๊อปอัปเด้งตอนเปิดแอป
+        onTap: () => showWeatherPopup(context, weather),
+        background: rain
+            ? scheme.tertiaryContainer
+            : scheme.surfaceContainerHighest,
+        // ขยับท่าเดียวกับในกล่องอากาศ ป้ายบนหน้าหลักจะได้ไม่ดูนิ่งตาย
+        icon: AnimatedWeatherIcon(weather: weather, size: 16, color: color),
+        label: Text(
+          rain
+              ? 'ฝน ${weather.rainChance}%'
+              : '${weather.temperature.round()}°',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: rain ? color : scheme.onSurface,
+          ),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              rain ? Icons.umbrella_outlined : weatherIcon(weather.code),
-              size: 16,
-              color: color,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              rain
-                  ? 'ฝน ${weather.rainChance}%'
-                  : '${weather.temperature.round()}°',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: rain ? color : scheme.onSurface,
-              ),
-            ),
-          ],
+      ),
+    );
+  }
+
+  Widget _chip({
+    required Color background,
+    required Widget icon,
+    required Widget label,
+    VoidCallback? onTap,
+  }) {
+    final radius = BorderRadius.circular(12);
+
+    return Material(
+      color: background,
+      borderRadius: radius,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: radius,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [icon, const SizedBox(width: 4), label],
+          ),
         ),
       ),
     );

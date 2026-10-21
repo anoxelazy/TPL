@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:claim/page/chat/chat_session.dart';
+import 'package:claim/page/dashboard/weather_popup.dart';
 import 'package:claim/page/tracking/models.dart';
 import 'package:claim/page/tracking/tracking_cache.dart';
 import 'package:claim/utils/announcement_service.dart';
@@ -102,6 +103,15 @@ void main() {
       expect(RankService.I.rank.value, isNull);
       expect(RankService.I.board.value, isNull);
       expect(RankService.I.currentEmpId, isEmpty);
+    });
+
+    test('ล็อกอินใหม่แล้วกล่องอากาศเด้งให้อีกครั้ง', () async {
+      await signedIn();
+      markWeatherPopupShown();
+
+      await forgetSignedInUser();
+
+      expect(weatherPopupShownThisSession, isFalse);
     });
 
     test('เรียกซ้ำตอนไม่มีใครล็อกอินก็ไม่ระเบิด', () async {

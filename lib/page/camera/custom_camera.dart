@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:claim/utils/app_colors.dart';
 
 class CustomCamera extends StatefulWidget {
   final Function(List<File>) onImagesCaptured;
@@ -77,7 +78,9 @@ class _CustomCameraState extends State<CustomCamera> {
 
       _controller = CameraController(
         cameras![cameraIndex],
-        ResolutionPreset.max,
+        // 720p พอสำหรับรูปที่ส่งจริงซึ่งย่อเหลือด้านยาว 720 อยู่แล้ว ถ่ายที่ max
+        // ได้ไฟล์หลายเมกะไบต์ที่แอปต้องมาถอดรหัสแล้วย่อเองทีละรูป ช้าและกินแรม
+        ResolutionPreset.high,
         enableAudio: false,
       );
 
@@ -308,8 +311,8 @@ class _CustomCameraState extends State<CustomCamera> {
                       Container(
                         decoration: BoxDecoration(
                           color: _isProcessingImages
-                              ? Colors.grey.withOpacity(0.8)
-                              : Colors.green.withOpacity(0.8),
+                              ? Colors.grey.withValues(alpha: 0.8)
+                              : AppColors.brand.withValues(alpha: 0.8),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: IconButton(

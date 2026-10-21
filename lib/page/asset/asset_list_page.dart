@@ -110,10 +110,7 @@ class _AssetListPageState extends State<AssetListPage> {
     final name = assetDeptNameOf(asset.siteId);
     if (name.isEmpty) return asset.placeLabel;
 
-    return [
-      name,
-      if (asset.custodian.isNotEmpty) asset.custodian,
-    ].join(' · ');
+    return [name, if (asset.custodian.isNotEmpty) asset.custodian].join(' · ');
   }
 
   @override
@@ -239,9 +236,9 @@ class _AssetListPageState extends State<AssetListPage> {
   }
 
   /// ไม่ต้องดึงทะเบียนใหม่หลังกลับมา การตั้งผู้อนุมัติไม่แตะข้อมูลทรัพย์สิน
-  Future<void> _openApprovers() => Navigator.of(context).push(
-    MaterialPageRoute(builder: (_) => const AssetApproverPage()),
-  );
+  Future<void> _openApprovers() => Navigator.of(
+    context,
+  ).push(MaterialPageRoute(builder: (_) => const AssetApproverPage()));
 
   Future<void> _pickLookup({
     required String title,
@@ -366,11 +363,11 @@ class _AssetListPageState extends State<AssetListPage> {
         filled: true,
         fillColor: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppSizes.innerRadius),
           borderSide: BorderSide(color: scheme.outlineVariant),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppSizes.innerRadius),
           borderSide: BorderSide(color: scheme.outlineVariant),
         ),
         suffixIcon: Row(
@@ -416,7 +413,7 @@ class _AssetListPageState extends State<AssetListPage> {
           minimumSize: const Size(0, 46),
           padding: const EdgeInsets.symmetric(horizontal: 14),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(AppSizes.innerRadius),
           ),
           side: BorderSide(
             color: count > 0 ? scheme.primary : scheme.outlineVariant,

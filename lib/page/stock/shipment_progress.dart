@@ -170,7 +170,7 @@ class _StageNode extends StatelessWidget {
       foreground =
           ThemeData.estimateBrightnessForColor(accent) == Brightness.dark
           ? Colors.white
-          : Colors.black87;
+          : AppColors.ink;
     } else {
       background = scheme.surfaceContainerHighest;
       foreground = scheme.onSurfaceVariant;

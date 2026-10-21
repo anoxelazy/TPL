@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'package:claim/colors.dart' as palette;
 import 'package:claim/utils/app_colors.dart';
 
 class AppTheme {
@@ -52,18 +53,83 @@ class AppTheme {
       brightness: brightness,
     );
 
+    // พื้นผิวทั้งหมด (พื้นหลัง การ์ด เส้นขอบ ตัวหนังสือรอง) เอาจากชุดเป็นกลาง
+    //
+    // fromSeed ย้อมพื้นผิวทุกชั้นด้วยสีของ seed พื้นหลังกับการ์ดเลยออกเขียว
+    // จาง ๆ ไปทั้งแอป เขียวเลยไม่เด่นตรงไหนเพราะมีอยู่ทุกที่ ใช้เทาเป็นกลาง
+    // แล้วเก็บเขียวไว้แค่ primary (ปุ่มหลัก ของที่เลือกอยู่)
+    final ColorScheme neutral = ColorScheme.fromSeed(
+      seedColor: AppColors.brand,
+      brightness: brightness,
+      dynamicSchemeVariant: DynamicSchemeVariant.neutral,
+    );
+    //
+    // ธีมสว่างกำหนดเทาเองทุกชั้นจากชุดสีของฝั่งออกแบบ (lib/colors.dart)
+    // ชุดสีมีเทาอยู่ไม่กี่ขั้น ชั้นที่ไม่มีในชุดจึงใช้ขั้นที่ใกล้ที่สุดซ้ำ
+    final ColorScheme base = brightness == Brightness.light
+        ? seeded.copyWith(
+            surface: palette.AppColors.completeWhite,
+            onSurface: palette.AppColors.baseBlack,
+            // ตัวหนังสือรองเป็นเทาเข้มนอกชุดสี greyNeutral400 ของชุดสีได้
+            // contrast แค่ 2.7:1 บนพื้นขาว คำอธิบายใต้หัวข้อจะอ่านยาก
+            // ตัวนี้โทนเดียวกันแต่เข้มขึ้นจนได้ 5.5:1
+            onSurfaceVariant: const Color(0xFF6B6868),
+            surfaceDim: palette.AppColors.greyNeutral200,
+            surfaceBright: palette.AppColors.completeWhite,
+            surfaceContainerLowest: palette.AppColors.completeWhite,
+            surfaceContainerLow: palette.AppColors.baseWhite,
+            surfaceContainer: palette.AppColors.greyNeutral100,
+            surfaceContainerHigh: palette.AppColors.greyNeutral100,
+            surfaceContainerHighest: palette.AppColors.greyNeutral200,
+            outline: palette.AppColors.greyNeutral400,
+            outlineVariant: palette.AppColors.greyNeutral100,
+            error: palette.AppColors.redError,
+            onError: palette.AppColors.completeWhite,
+            errorContainer: palette.AppColors.redSecondary100,
+            onErrorContainer: palette.AppColors.redSecondary,
+          )
+        : seeded.copyWith(
+            surface: neutral.surface,
+            onSurface: neutral.onSurface,
+            onSurfaceVariant: neutral.onSurfaceVariant,
+            surfaceDim: neutral.surfaceDim,
+            surfaceBright: neutral.surfaceBright,
+            surfaceContainerLowest: neutral.surfaceContainerLowest,
+            surfaceContainerLow: neutral.surfaceContainerLow,
+            surfaceContainer: neutral.surfaceContainer,
+            surfaceContainerHigh: neutral.surfaceContainerHigh,
+            surfaceContainerHighest: neutral.surfaceContainerHighest,
+            outline: neutral.outline,
+            outlineVariant: neutral.outlineVariant,
+          );
+
     // ธีมสว่างบังคับ primary ให้เป็นสีแบรนด์เป๊ะ ๆ ไม่ใช้โทนที่ M3 คำนวณให้
     //
     // fromSeed จะลดความสดของ seed ลงเพื่อความสบายตา ผลคือแถบหัวเรื่องออกมา
     // เขียวหม่นคนละสีกับที่บริษัทใช้จริง พอเป็นสีประจำแบรนด์ที่คนจำได้ ความ
     // ตรงของสีสำคัญกว่าโทนที่ระบบเลือกให้
     //
-    // ธีมมืดปล่อยตามที่คำนวณมา เพราะแถบหัวเรื่องของธีมมืดใช้ primaryContainer
-    // อยู่แล้ว และเขียวสดบนพื้นดำจะแสบตา
+    // ธีมมืดปล่อยตามที่คำนวณมา เพราะเขียวสดบนพื้นดำจะแสบตา
     return brightness == Brightness.light
-        ? seeded.copyWith(primary: AppColors.brand, onPrimary: Colors.white)
-        : seeded;
+        ? base.copyWith(primary: AppColors.brand, onPrimary: Colors.white)
+        : base;
   }
+
+  /// สีพื้นหลังของหน้า (ใต้การ์ด)
+  ///
+  /// ธีมสว่างเป็นเทาอ่อนกว่าการ์ดหนึ่งขั้น การ์ดขาวจะลอยขึ้นมาเองโดยไม่ต้อง
+  /// พึ่งเงาหรือขอบสี ธีมมืดใช้พื้นผิวปกติ การ์ดเป็นชั้นที่สว่างกว่าอยู่แล้ว
+  @visibleForTesting
+  static Color pageBackground(ColorScheme scheme) =>
+      scheme.brightness == Brightness.light
+      ? scheme.surfaceContainerLow
+      : scheme.surface;
+
+  /// สีการ์ด ธีมสว่างเป็นขาวสนิทให้ตัดกับพื้นเทา
+  static Color cardColor(ColorScheme scheme) =>
+      scheme.brightness == Brightness.light
+      ? scheme.surfaceContainerLowest
+      : scheme.surfaceContainer;
 
   static ThemeData _buildTheme(Brightness brightness) {
     final ColorScheme colorScheme = buildColorScheme(brightness);
@@ -92,30 +158,41 @@ class AppTheme {
         ? textTheme.apply(bodyColor: Colors.white, displayColor: Colors.white)
         : textTheme;
 
-    // แถบหัวเรื่องเป็นสีเขียวแบรนด์ทุกหน้า ธีมมืดใช้ primaryContainer
-    // เพราะ primary ของธีมมืดเป็นเขียวพาสเทลสว่าง จ้าเกินไปเมื่อเต็มแถบ
+    // แถบหัวเรื่องสีเดียวกับพื้นหลังของหน้า ไม่ใช่เขียวทึบอีกต่อไป
+    //
+    // เดิมทุกหน้ามีแถบเขียวเต็มความกว้าง บวกกับสีประจำเมนูอีกหลายสี
+    // จอเลยแน่นไปด้วยสี แถบที่กลืนกับหน้าทำให้เนื้อหาเป็นพระเอก และพอเขียว
+    // เหลือแค่ปุ่มหลัก ตาก็วิ่งไปหาปุ่มเอง
     final bool isDark = brightness == Brightness.dark;
-    final Color appBarBg = isDark
-        ? colorScheme.primaryContainer
-        : colorScheme.primary;
-    final Color appBarFg = isDark
-        ? colorScheme.onPrimaryContainer
-        : colorScheme.onPrimary;
+    final Color pageBg = pageBackground(colorScheme);
+    final Color appBarBg = pageBg;
+    final Color appBarFg = colorScheme.onSurface;
 
     return ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
       textTheme: finalTextTheme,
-      scaffoldBackgroundColor: colorScheme.surface,
+      scaffoldBackgroundColor: pageBg,
+      dividerTheme: DividerThemeData(
+        color: colorScheme.outlineVariant,
+        thickness: 0.6,
+        space: 1,
+      ),
       appBarTheme: AppBarTheme(
         backgroundColor: appBarBg,
         foregroundColor: appBarFg,
+        surfaceTintColor: Colors.transparent,
         centerTitle: true,
         elevation: 0,
-        scrolledUnderElevation: 0,
-        titleTextStyle: textTheme.titleMedium?.copyWith(color: appBarFg),
+        // เลื่อนเนื้อหาลอดใต้แถบแล้วขึ้นเงาบาง ๆ บอกว่ามีของอยู่ข้างใต้
+        scrolledUnderElevation: 0.5,
+        shadowColor: colorScheme.shadow.withValues(alpha: 0.3),
+        titleTextStyle: textTheme.titleMedium?.copyWith(
+          color: appBarFg,
+          fontSize: 18,
+        ),
         iconTheme: IconThemeData(color: appBarFg),
-        // แถบหัวเรื่องเป็นเขียวเข้ม ไอคอนของเครื่องต้องเป็นสีขาวจึงจะเห็น
+        actionsIconTheme: IconThemeData(color: appBarFg),
         systemOverlayStyle: statusBarStyleFor(appBarBg),
       ),
       dialogTheme: DialogThemeData(
@@ -193,27 +270,40 @@ class AppTheme {
         side: BorderSide(color: colorScheme.outlineVariant),
       ),
       cardTheme: CardThemeData(
-        color: colorScheme.surface,
+        color: cardColor(colorScheme),
+        surfaceTintColor: Colors.transparent,
         shadowColor: colorScheme.shadow,
         elevation: 0,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       ),
+      // ช่องกรอกโค้งเท่ากล่องเล็กอื่น ๆ ในหน้า ([AppSizes.innerRadius])
+      // เดิมเป็น 16 เท่าการ์ด ขณะที่ช่องค้นหาที่แต่ละเมนูทำเองเป็น 12
+      // ช่องกรอกสองแบบในหน้าเดียวกันเลยโค้งไม่เท่ากัน
       inputDecorationTheme: InputDecorationTheme(
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppSizes.innerRadius),
+        ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppSizes.innerRadius),
           borderSide: BorderSide(color: colorScheme.primary, width: 2),
         ),
         labelStyle: TextStyle(color: colorScheme.onSurfaceVariant),
         filled: true,
         fillColor: colorScheme.surface,
       ),
+      // ปุ่มลอยเป็นเขียวปุ่มหลักเหมือนปุ่มอื่น ค่าตั้งต้นของ M3 เป็น
+      // primaryContainer (เขียวอ่อน) แต่ละหน้าเลยเคยต้องตั้งสีเองทีละที่
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: colorScheme.primary,
+        foregroundColor: colorScheme.onPrimary,
+      ),
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
-        // ป้ายใต้ไอคอนเป็นตัวอักษร 12 จุด เล็กเกินกว่าจะใช้สีแบรนด์สดบนพื้นขาว
-        // ได้ตามเกณฑ์ contrast จึงใช้เวอร์ชันเข้มแทน สายตายังเห็นเป็นเขียวเดียวกัน
-        selectedItemColor: isDark ? colorScheme.primary : AppColors.brandText,
-        unselectedItemColor: Colors.grey[400],
+        // เขียวเดียวกับปุ่มและไอคอนทั้งแอป (ป้ายเป็นตัวหนาอยู่แล้ว อ่านออก)
+        selectedItemColor: colorScheme.primary,
+        unselectedItemColor: isDark
+            ? Colors.grey[400]
+            : palette.AppColors.greyNeutral400,
         type: BottomNavigationBarType.fixed,
         backgroundColor: colorScheme.surface,
         elevation: 0,

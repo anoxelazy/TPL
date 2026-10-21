@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:claim/page/dashboard/dashboard_menu.dart';
@@ -45,9 +46,9 @@ void main() {
       await pumpBanner(tester);
 
       expect(find.text('แจ้งเคสถึงทีม IT'), findsOneWidget);
-      expect(find.byIcon(Icons.support_agent), findsOneWidget);
+      expect(find.byIcon(PhosphorIconsDuotone.headset), findsOneWidget);
       expect(
-        find.byIcon(Icons.arrow_forward),
+        find.byIcon(Icons.chevron_right_rounded),
         findsOneWidget,
         reason: 'ต้องมีลูกศรบอกว่ากดได้ ไม่ใช่ป้ายประกาศเฉย ๆ',
       );
@@ -100,20 +101,9 @@ void main() {
     });
   });
 
-  test('สีของแจ้งเคสไม่ซ้ำกับเมนูอื่น', () {
-    // แยกเมนูออกมาแล้วแต่ใช้สีซ้ำกับตัวอื่น สายตาจะยังจับคู่ผิด
-    const others = [
-      AppColors.repairIcon,
-      AppColors.claimIcon,
-      AppColors.stockIcon,
-      AppColors.planIcon,
-      AppColors.pmIcon,
-      AppColors.assetIcon,
-      AppColors.meterIcon,
-      AppColors.scanIcon,
-      AppColors.trackingIcon,
-    ];
-
-    expect(others.contains(AppColors.caseIcon), isFalse);
+  test('แถบแจ้งเคสใช้สีเน้นของแบรนด์', () {
+    // เมนูในตารางเป็นเขียวแบรนด์อ่อน ๆ ด้วยแล้ว แถบจึงเด่นด้วยรูปทรง
+    // (แถวเต็มความกว้าง มีชื่อกับคำอธิบาย) ไม่ใช่ด้วยสีที่ต่างจากเมนู
+    expect(AppColors.caseIcon, AppColors.brandText);
   });
 }

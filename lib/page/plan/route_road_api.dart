@@ -1,12 +1,12 @@
 /// ขอเส้นทางตามถนนจริงมาวาดบนแมป
 ///
 /// ไล่ลองทีละที่ ได้ที่ไหนก่อนใช้ที่นั่น:
-/// 1. OpenRouteService — ฟรีแต่ต้องมี key ([kOrsApiKey]) มีโควตาต่อวันชัดเจน
+/// 1. OpenRouteService — ฟรีแต่ต้องมี key ([MapKeys.ors]) มีโควตาต่อวันชัดเจน
 ///    และทำมาให้แอปใช้งานจริง ต่างจาก OSRM สาธารณะที่เป็นแค่เซิร์ฟเวอร์ทดลอง
 /// 2. OSRM ตัวสาธารณะ — ไม่ต้องมี key แต่ไม่มีใครรับประกันว่าจะขึ้นตลอด
 /// 3. ผู้เรียกลากเส้นตรงระหว่างจุดเอง (ฟังก์ชันนี้คืนลิสต์ว่าง)
 ///
-/// ไม่ได้ใส่ key ตอน build ก็ข้ามข้อ 1 ไปเลย แอปทำงานแบบเดิมทุกอย่าง
+/// ไม่มี key ก็ข้ามข้อ 1 ไปเลย แอปทำงานแบบเดิมทุกอย่าง
 library;
 
 import 'package:dio/dio.dart';
@@ -14,14 +14,12 @@ import 'package:flutter/foundation.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'package:claim/utils/dio_service.dart';
+import 'package:claim/utils/map_keys.dart';
 
 const String kOsrmBaseUrl = 'https://router.project-osrm.org';
 
-/// key ของ OpenRouteService ใส่ตอน build:
-/// `flutter run --dart-define=ORS_API_KEY=...`
-///
-/// สมัครฟรีที่ openrouteservice.org ไม่ฝังไว้ในโค้ดเพราะ repo นี้ไม่ได้ลับ
-const String kOrsApiKey = String.fromEnvironment('ORS_API_KEY');
+// key ของ OpenRouteService มาจากไฟล์คีย์กลาง ดู [MapKeys]
+// สมัครฟรีที่ openrouteservice.org ไม่ฝังไว้ในโค้ดเพราะ repo นี้ไม่ได้ลับ
 
 const String kOrsDirectionsUrl =
     'https://api.openrouteservice.org/v2/directions/driving-car/geojson';
@@ -113,7 +111,7 @@ List<LatLng> parseOrsGeometry(dynamic data) {
 Future<List<LatLng>> fetchRoadRoute(List<LatLng> points) async {
   if (points.length < 2) return const [];
 
-  if (kOrsApiKey.isNotEmpty) {
+  if (MapKeys.ors.isNotEmpty) {
     final road = await _fetchOrsRoute(points);
     if (road.isNotEmpty) return road;
   }
@@ -127,7 +125,7 @@ Future<List<LatLng>> _fetchOrsRoute(List<LatLng> points) async {
       kOrsDirectionsUrl,
       data: buildOrsRouteBody(points),
       options: Options(
-        headers: {'Authorization': kOrsApiKey},
+        headers: {'Authorization': MapKeys.ors},
         receiveTimeout: const Duration(seconds: 20),
         validateStatus: (_) => true,
       ),

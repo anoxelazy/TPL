@@ -77,7 +77,7 @@ void main() {
 
       // ในเทสต์ไม่มีสิทธิ์ module ไหนเลย เมนูที่ล็อกจึงต้องถูกพับไว้
       expect(find.text('เมนูอื่น ๆ'), findsOneWidget);
-      expect(find.text('คลังสินค้า -'), findsNothing);
+      expect(find.text('คลัง-'), findsNothing);
       // ไม่ทวงกับผู้ใช้ทุกครั้งที่เปิดแอปว่าเขาใช้อะไรไม่ได้บ้าง
       expect(find.textContaining('ไม่มีสิทธิ์'), findsNothing);
     });
@@ -95,7 +95,7 @@ void main() {
       await tester.tap(find.text('เมนูอื่น ๆ'));
       await tester.pumpAndSettle();
 
-      expect(find.text('คลังสินค้า -'), findsOneWidget);
+      expect(find.text('คลัง-'), findsOneWidget);
     });
   });
 }

@@ -343,7 +343,7 @@ class _StatusNode extends StatelessWidget {
       foreground =
           ThemeData.estimateBrightnessForColor(color) == Brightness.dark
           ? Colors.white
-          : Colors.black87;
+          : AppColors.ink;
     } else {
       background = scheme.surfaceContainerHighest;
       foreground = scheme.onSurfaceVariant;

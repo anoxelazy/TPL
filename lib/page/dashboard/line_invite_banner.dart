@@ -63,7 +63,7 @@ class _LineInviteBannerState extends State<LineInviteBanner>
     final scheme = Theme.of(context).colorScheme;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.only(bottom: 20),
       child: Material(
         color: Colors.transparent,
         borderRadius: BorderRadius.circular(AppSizes.cardRadius),

@@ -260,7 +260,7 @@ class _ItCaseJobDetailPageState extends State<ItCaseJobDetailPage>
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(AppSizes.innerRadius),
               border: Border.all(color: color),
             ),
             child: Text(
@@ -496,7 +496,7 @@ class _Field extends StatelessWidget {
     // แถบสีต้องโดนตัดตามมุมโค้ง จึงต้องครอบด้วย ClipRRect ไม่ใช่ใส่ Border
     // ด้านเดียวใน BoxDecoration ที่มี borderRadius (Flutter ไม่ยอมให้ทำ)
     return ClipRRect(
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(AppSizes.innerRadius),
       child: IntrinsicHeight(
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -575,18 +575,11 @@ class _CloseButton extends StatelessWidget {
       child: FilledButton.icon(
         // กดค้างไว้ระหว่างส่งไม่ได้ ไม่งั้นยิงซ้ำสองรอบ
         onPressed: busy ? null : onPressed,
-        style: FilledButton.styleFrom(
-          backgroundColor: AppColors.success,
-          foregroundColor: Colors.white,
-        ),
         icon: busy
             ? const SizedBox(
                 width: 18,
                 height: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.white,
-                ),
+                child: CircularProgressIndicator(strokeWidth: 2),
               )
             : const Icon(Icons.task_alt),
         label: Text(busy ? 'กำลังปิดงาน...' : 'ตรวจสอบแล้ว ปิดงาน'),

@@ -15,6 +15,7 @@ import 'package:flutter/material.dart';
 
 import 'package:claim/page/asset/asset_api.dart';
 import 'package:claim/page/asset/asset_models.dart';
+import 'package:claim/utils/app_colors.dart';
 import 'package:claim/utils/mobile_api.dart';
 import 'package:claim/widgets/state_views.dart';
 
@@ -253,7 +254,10 @@ class _BranchListState extends State<_BranchList> {
 
     final error = _error;
     if (error != null) {
-      return ErrorStateView(message: error, onRetry: () => _load(refresh: true));
+      return ErrorStateView(
+        message: error,
+        onRetry: () => _load(refresh: true),
+      );
     }
 
     final shown = _shown;
@@ -339,7 +343,9 @@ class _DeptListState extends State<_DeptList> {
     if (query.isEmpty) return _all;
 
     final words = query.split(RegExp(r'\s+')).where((e) => e.isNotEmpty);
-    return _all.where((dept) => words.every(dept.searchIndex.contains)).toList();
+    return _all
+        .where((dept) => words.every(dept.searchIndex.contains))
+        .toList();
   }
 
   @override
@@ -348,7 +354,10 @@ class _DeptListState extends State<_DeptList> {
 
     final error = _error;
     if (error != null) {
-      return ErrorStateView(message: error, onRetry: () => _load(refresh: true));
+      return ErrorStateView(
+        message: error,
+        onRetry: () => _load(refresh: true),
+      );
     }
 
     final shown = _shown;
@@ -648,7 +657,8 @@ class AssetPickerField extends StatelessWidget {
 
     return InkWell(
       onTap: enabled ? onTap : null,
-      borderRadius: BorderRadius.circular(8),
+      // ให้เงาตอนแตะโค้งเท่ากรอบช่องกรอกของธีม
+      borderRadius: BorderRadius.circular(AppSizes.innerRadius),
       child: InputDecorator(
         isEmpty: false,
         decoration: InputDecoration(

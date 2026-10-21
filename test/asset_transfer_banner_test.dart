@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:claim/page/asset/transfer_list_page.dart';
@@ -64,9 +65,9 @@ void main() {
       await pumpBanner(tester);
 
       expect(find.text('ใบโอนย้าย'), findsOneWidget);
-      expect(find.byIcon(Icons.swap_horiz), findsOneWidget);
+      expect(find.byIcon(PhosphorIconsDuotone.arrowsLeftRight), findsOneWidget);
       expect(
-        find.byIcon(Icons.arrow_forward),
+        find.byIcon(Icons.chevron_right_rounded),
         findsOneWidget,
         reason: 'ต้องมีลูกศรบอกว่ากดได้ ไม่ใช่ป้ายประกาศเฉย ๆ',
       );
@@ -93,7 +94,10 @@ void main() {
         find.byType(DashboardBanner),
       );
       expect(banner.badgeCount, 0);
-      expect(find.text('ขอย้ายทรัพย์สิน อนุมัติ ส่งออก รับเข้า'), findsOneWidget);
+      expect(
+        find.text('ขอย้ายทรัพย์สิน อนุมัติ ส่งออก รับเข้า'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('วาดได้ทั้งธีมสว่างและมืด ไม่มี overflow', (tester) async {
@@ -172,10 +176,7 @@ void main() {
 
       // คนละเรื่องกัน: ทะเบียนคือค้นว่าของอยู่ไหน เปิดดูเมื่อไหร่ก็ได้
       // ส่วนใบโอนย้ายมีคนปลายทางรอรับ จึงต้องเด่นกว่าและมีตัวเลขบอก
-      expect(
-        items.where((e) => e.label == 'ทะเบียนทรัพย์สิน'),
-        hasLength(1),
-      );
+      expect(items.where((e) => e.label == 'โอนทรัพย์สิน'), hasLength(1));
       expect(
         items.where((e) => e.label.contains('โอนย้าย')),
         isEmpty,
@@ -187,10 +188,5 @@ void main() {
         reason: 'เมนูอื่นในตารางต้องไม่หายไปด้วย',
       );
     });
-  });
-
-  test('สีของสองแถบต้องไม่ซ้ำกัน', () {
-    // วางติดกันบนหน้าเดียว ใช้สีเดียวกันจะกลายเป็นก้อนเดียวในสายตา
-    expect(AppColors.assetIcon, isNot(AppColors.caseIcon));
   });
 }

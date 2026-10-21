@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import '../page/claim/image_utils.dart';
+import 'package:claim/utils/app_colors.dart';
 
 class _ProcessImagesParams {
   final List<File> images;
@@ -14,17 +15,6 @@ Future<List<File>> _processImagesInBackground(
   _ProcessImagesParams params,
 ) async {
   return processImagesBatch(params.images, maxSize: params.maxSize);
-}
-
-class _ThumbnailParams {
-  final File imageFile;
-  final int size;
-
-  _ThumbnailParams(this.imageFile, this.size);
-}
-
-Future<File> _generateThumbnailInBackground(_ThumbnailParams params) async {
-  return generateThumbnail(params.imageFile, size: params.size);
 }
 
 class ClaimFormResult {
@@ -51,88 +41,46 @@ class ClaimFormResult {
   });
 }
 
-class FastImagePreview extends StatefulWidget {
+/// รูปตัวอย่างในฟอร์ม แสดงจากไฟล์รูปโดยตรง
+///
+/// เดิมสร้างไฟล์ thumbnail ขนาด 720 แยกอีกไฟล์ก่อนแสดง ซึ่งต้องถอดรหัสรูป
+/// ซ้ำอีกรอบ (มีตัวหมุนค้างบนช่องรูป) ทั้งที่รูปถูกย่อเหลือ 720 ไว้แล้วตอนเพิ่ม
+/// และช่องแสดงกว้างแค่ราว 120 จุด ตอนนี้ให้ Flutter ถอดรหัสเป็นขนาดเท่าช่อง
+/// ([Image.cacheWidth]) ตอนวาดเลย ไม่ต้องเขียนไฟล์ใหม่ ไม่ต้องรอ
+class FastImagePreview extends StatelessWidget {
   final File imageFile;
   final double width;
   final double height;
   final BoxFit fit;
 
   const FastImagePreview({
-    Key? key,
+    super.key,
     required this.imageFile,
     this.width = 120,
     this.height = 120,
     this.fit = BoxFit.cover,
-  }) : super(key: key);
-
-  @override
-  State<FastImagePreview> createState() => _FastImagePreviewState();
-}
-
-class _FastImagePreviewState extends State<FastImagePreview> {
-  File? _thumbnailFile;
-  bool _isLoading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadThumbnail();
-  }
-
-  Future<void> _loadThumbnail() async {
-    try {
-      final thumbnail = await compute(
-        _generateThumbnailInBackground,
-        _ThumbnailParams(widget.imageFile, 720),
-      );
-      if (mounted) {
-        setState(() {
-          _thumbnailFile = thumbnail;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      debugPrint('Thumbnail generation error: $e');
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
-  }
+  });
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return Container(
-        width: widget.width,
-        height: widget.height,
-        color: Colors.grey[200],
-        child: const Center(
-          child: SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-        ),
-      );
-    }
+    final scheme = Theme.of(context).colorScheme;
+    final dpr = MediaQuery.devicePixelRatioOf(context);
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(AppSizes.innerRadius),
       child: Image.file(
-        _thumbnailFile ?? widget.imageFile,
-        width: widget.width,
-        height: widget.height,
-        fit: widget.fit,
-        errorBuilder: (context, error, stackTrace) {
-          return Container(
-            width: widget.width,
-            height: widget.height,
-            color: Colors.grey[300],
-            child: const Icon(Icons.broken_image, color: Colors.grey),
-          );
-        },
+        imageFile,
+        width: width,
+        height: height,
+        fit: fit,
+        cacheWidth: (width * dpr).round(),
+        gaplessPlayback: true,
+        errorBuilder: (context, error, stackTrace) => Container(
+          width: width,
+          height: height,
+          color: scheme.surfaceContainerHighest,
+          child: Icon(Icons.broken_image, color: scheme.onSurfaceVariant),
+        ),
       ),
     );
   }

@@ -5,6 +5,7 @@ import 'package:claim/page/claim/image_utils.dart';
 import 'package:claim/utils/claim_store.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {
   late Directory root;
@@ -29,13 +30,21 @@ void main() {
     'fromFrontStore': true,
   };
 
-  setUp(() {
-    root = Directory.systemTemp.createTempSync('claim_store_root');
-    scratch = Directory.systemTemp.createTempSync('claim_store_cache');
-    ClaimStore.I.debugUseDirectory(root);
+  // SQLite ของจริงต้องมีปลั๊กอินมือถือ เทสต์บนเครื่องพัฒนาใช้แบบ FFI แทน
+  setUpAll(() {
+    sqfliteFfiInit();
+    ClaimStore.debugDatabaseFactory = databaseFactoryFfi;
   });
 
-  tearDown(() {
+  setUp(() async {
+    root = Directory.systemTemp.createTempSync('claim_store_root');
+    scratch = Directory.systemTemp.createTempSync('claim_store_cache');
+    await ClaimStore.I.debugUseDirectory(root);
+  });
+
+  tearDown(() async {
+    // ปิดฐานข้อมูลก่อนลบโฟลเดอร์ Windows ไม่ยอมลบไฟล์ที่ยังเปิดอยู่
+    await ClaimStore.I.debugUseDirectory(root);
     if (root.existsSync()) root.deleteSync(recursive: true);
     if (scratch.existsSync()) scratch.deleteSync(recursive: true);
   });
@@ -51,10 +60,10 @@ void main() {
     expect(stored.existsSync(), isTrue);
     expect(stored.path, isNot(source.path));
     expect(p.basename(stored.parent.path), claim['id']);
-    expect(File(p.join(root.path, 'claims.json')).existsSync(), isTrue);
+    expect(File(p.join(root.path, 'claims.db')).existsSync(), isTrue);
 
     // จำลองเปิดแอปใหม่: ล้าง memory แล้วโหลดจากดิสก์
-    ClaimStore.I.debugUseDirectory(root);
+    await ClaimStore.I.debugUseDirectory(root);
     expect(ClaimStore.I.count, 0);
     await ClaimStore.I.init();
 
@@ -77,12 +86,82 @@ void main() {
     ClaimStore.I.markAsSent(0);
     await ClaimStore.I.flush();
 
-    ClaimStore.I.debugUseDirectory(root);
+    await ClaimStore.I.debugUseDirectory(root);
     await ClaimStore.I.init();
 
     expect(ClaimStore.I.count, 1);
     expect(ClaimStore.I.claims.single['isSent'], isTrue);
     expect(ClaimStore.I.unsentCount, 0);
+  });
+
+  group('ตัวเลขแถบสรุป ส่งสำเร็จ / รอส่ง / ไม่สำเร็จ', () {
+    // รอให้เขียนลงดิสก์เสร็จก่อน tearDown ด้านนอกลบโฟลเดอร์ทิ้ง ไม่งั้น
+    // การเขียนที่ค้างจะไปเขียนลงโฟลเดอร์ของเทสต์ถัดไปแล้วชนกันเป็นบางที
+    tearDown(() => ClaimStore.I.flush());
+
+    Future<void> addThree() async {
+      for (var i = 0; i < 3; i++) {
+        ClaimStore.I.addClaim(
+          await ClaimStore.I.prepareClaim(claimData([fakeImage('s$i.jpg')])),
+        );
+      }
+    }
+
+    test('นับแยกสามกลุ่มตามสถานะ', () async {
+      await addThree();
+      ClaimStore.I.markAsSent(0);
+      ClaimStore.I.markSendFailed(1);
+
+      expect(ClaimStore.I.sentCount, 1);
+      expect(ClaimStore.I.failedCount, 1);
+      expect(ClaimStore.I.pendingCount, 1);
+    });
+
+    test('ส่งไม่สำเร็จถูกจำไว้ข้ามการเปิดแอป', () async {
+      await addThree();
+      ClaimStore.I.markSendFailed(2);
+      await ClaimStore.I.flush();
+
+      await ClaimStore.I.debugUseDirectory(root);
+      await ClaimStore.I.init();
+
+      expect(ClaimStore.I.failedCount, 1);
+      expect(ClaimStore.I.claims[2]['sendFailed'], isTrue);
+    });
+
+    test('ส่งใหม่สำเร็จแล้วไม่นับเป็นไม่สำเร็จอีก', () async {
+      await addThree();
+      ClaimStore.I.markSendFailed(0);
+      ClaimStore.I.markAsSent(0);
+
+      expect(ClaimStore.I.failedCount, 0);
+      expect(ClaimStore.I.sentCount, 1);
+    });
+
+    test(
+      'รายการที่ส่งสำเร็จแล้ว กดส่งซ้ำไม่ผ่าน ยังนับเป็นส่งสำเร็จ',
+      () async {
+        await addThree();
+        ClaimStore.I.markAsSent(0);
+        ClaimStore.I.markSendFailed(0);
+
+        expect(ClaimStore.I.sentCount, 1);
+        expect(ClaimStore.I.failedCount, 0);
+      },
+    );
+
+    test('ขึ้นวันใหม่ ตัวเลขทั้งหมดกลับเป็นศูนย์', () async {
+      await addThree();
+      ClaimStore.I.markAsSent(0);
+      ClaimStore.I.markSendFailed(1);
+
+      final tomorrow = DateTime.now().add(const Duration(days: 1));
+      await ClaimStore.I.purgeExpired(now: tomorrow);
+
+      expect(ClaimStore.I.sentCount, 0);
+      expect(ClaimStore.I.pendingCount, 0);
+      expect(ClaimStore.I.failedCount, 0);
+    });
   });
 
   test('แก้ไขรายการแล้วลบรูปออก ไฟล์ที่ไม่ใช้ถูกลบตาม', () async {
@@ -112,7 +191,7 @@ void main() {
       reason: 'รูปที่ลบออกต้องหายไปจากเครื่อง',
     );
 
-    ClaimStore.I.debugUseDirectory(root);
+    await ClaimStore.I.debugUseDirectory(root);
     await ClaimStore.I.init();
     expect((ClaimStore.I.claims.single['images'] as List).length, 1);
   });
@@ -133,7 +212,7 @@ void main() {
     }
 
     expect(dir.existsSync(), isFalse);
-    ClaimStore.I.debugUseDirectory(root);
+    await ClaimStore.I.debugUseDirectory(root);
     await ClaimStore.I.init();
     expect(ClaimStore.I.count, 0);
   });
@@ -147,7 +226,7 @@ void main() {
 
     (claim['images'] as List).cast<File>().single.deleteSync();
 
-    ClaimStore.I.debugUseDirectory(root);
+    await ClaimStore.I.debugUseDirectory(root);
     await ClaimStore.I.init();
 
     expect(ClaimStore.I.count, 1);
@@ -161,7 +240,7 @@ void main() {
     final orphanBase = Directory(p.join(root.path, 'claim_images'));
     expect(orphanBase.listSync().length, 1);
 
-    ClaimStore.I.debugUseDirectory(root);
+    await ClaimStore.I.debugUseDirectory(root);
     await ClaimStore.I.init();
 
     expect(orphanBase.listSync(), isEmpty);
@@ -214,7 +293,7 @@ void main() {
       await ClaimStore.I.flush();
       final dir = (claim['images'] as List).cast<File>().single.parent;
 
-      ClaimStore.I.debugUseDirectory(root);
+      await ClaimStore.I.debugUseDirectory(root);
       await ClaimStore.I.init();
 
       expect(ClaimStore.I.count, 0);
@@ -230,7 +309,7 @@ void main() {
 
       expect(await ClaimStore.I.purgeExpired(), 0);
 
-      ClaimStore.I.debugUseDirectory(root);
+      await ClaimStore.I.debugUseDirectory(root);
       await ClaimStore.I.init();
       expect(ClaimStore.I.count, 1);
     });
@@ -304,6 +383,68 @@ void main() {
     });
   });
 
+  group('ย้ายจาก claims.json เดิมเข้า SQLite', () {
+    void writeLegacy(List<Map<String, dynamic>> claims) {
+      File(
+        p.join(root.path, 'claims.json'),
+      ).writeAsStringSync(jsonEncode({'version': 1, 'claims': claims}));
+    }
+
+    Map<String, dynamic> legacy(String id, {bool sent = false}) => {
+      'id': id,
+      'docNumber': 'DOC-$id',
+      'type': 'สูญหาย',
+      'carCode': 'CAR-$id',
+      'timestamp': DateTime.now().toIso8601String(),
+      'createdAt': DateTime.now().toIso8601String(),
+      'images': <String>[],
+      'empID': '67057',
+      'isSent': sent,
+      'uploadedLinks': ['https://x/$id'],
+    };
+
+    test('รายการค้างในเครื่องย้ายมาครบ ลำดับและสถานะเหมือนเดิม', () async {
+      writeLegacy([legacy('a'), legacy('b', sent: true)]);
+
+      await ClaimStore.I.init();
+
+      expect(ClaimStore.I.claims.map((c) => c['id']), ['a', 'b']);
+      expect(ClaimStore.I.claims[0]['docNumber'], 'DOC-a');
+      expect(ClaimStore.I.claims[0]['type'], 'สูญหาย');
+      expect(ClaimStore.I.claims[1]['isSent'], isTrue);
+      expect(ClaimStore.I.claims[1]['uploadedLinks'], ['https://x/b']);
+    });
+
+    test('ย้ายแล้วไฟล์เก่าถูกเปลี่ยนชื่อ เปิดแอปรอบถัดไปไม่ย้ายซ้ำ', () async {
+      writeLegacy([legacy('a')]);
+      await ClaimStore.I.init();
+
+      expect(File(p.join(root.path, 'claims.json')).existsSync(), isFalse);
+      expect(
+        File(p.join(root.path, 'claims.json.migrated')).existsSync(),
+        isTrue,
+      );
+
+      await ClaimStore.I.debugUseDirectory(root);
+      await ClaimStore.I.init();
+      expect(ClaimStore.I.count, 1);
+    });
+
+    test('ฐานข้อมูลมีรายการอยู่แล้ว ไม่เอาของเก่ามาซ้อน', () async {
+      ClaimStore.I.addClaim(
+        await ClaimStore.I.prepareClaim(claimData([fakeImage('n.jpg')])),
+      );
+      await ClaimStore.I.flush();
+      await ClaimStore.I.debugUseDirectory(root);
+
+      writeLegacy([legacy('old')]);
+      await ClaimStore.I.init();
+
+      expect(ClaimStore.I.count, 1);
+      expect(ClaimStore.I.claims.single['docNumber'], 'A1-0001');
+    });
+  });
+
   test('clear ลบทั้งรายการและรูปทั้งหมด', () async {
     ClaimStore.I.addClaim(
       await ClaimStore.I.prepareClaim(claimData([fakeImage('a.jpg')])),
@@ -315,7 +456,7 @@ void main() {
     expect(ClaimStore.I.count, 0);
     expect(Directory(p.join(root.path, 'claim_images')).existsSync(), isFalse);
 
-    ClaimStore.I.debugUseDirectory(root);
+    await ClaimStore.I.debugUseDirectory(root);
     await ClaimStore.I.init();
     expect(ClaimStore.I.count, 0);
   });

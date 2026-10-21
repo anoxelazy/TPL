@@ -76,15 +76,19 @@ class _ReceiveSheetState extends State<_ReceiveSheet> {
   TextEditingController _noteOf(String assetId) =>
       _notes.putIfAbsent(assetId, TextEditingController.new);
 
-  /// ชิ้นที่เลือกผลที่มีปัญหาไว้ ต้องบังคับให้เขียนหมายเหตุ
+  /// ชิ้นที่ชำรุดหรือไม่มาถึง ต้องบังคับให้เขียนหมายเหตุ
   bool _needsNote(AssetTransferLine line) =>
+      transferOutcomeNeedsNote(_outcomes[line.assetId] ?? '');
+
+  /// ผลที่มีปัญหาทุกแบบมีช่องหมายเหตุให้ แต่บังคับเฉพาะ [_needsNote]
+  bool _showsNote(AssetTransferLine line) =>
       transferOutcomeIsProblem(_outcomes[line.assetId] ?? '');
 
   String? get _blocker {
     for (final line in _lines) {
       if (_done.contains(line.assetId)) continue;
       if (_needsNote(line) && _noteOf(line.assetId).text.trim().isEmpty) {
-        return 'ชิ้นที่ไม่ได้รับตามปกติต้องเขียนหมายเหตุว่าเกิดอะไรขึ้น';
+        return 'ชิ้นที่ชำรุดหรือไม่มาถึงต้องเขียนหมายเหตุว่าเกิดอะไรขึ้น';
       }
     }
     return null;
@@ -208,9 +212,9 @@ class _ReceiveSheetState extends State<_ReceiveSheet> {
               if (_saving) const LinearProgressIndicator(minHeight: 2),
               Expanded(
                 child: ListView.separated(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                   itemCount: _lines.length,
-                  separatorBuilder: (_, _) => const Divider(height: 20),
+                  separatorBuilder: (_, _) => const SizedBox(height: 10),
                   itemBuilder: (context, index) => _lineCard(_lines[index]),
                 ),
               ),
@@ -251,8 +255,18 @@ class _ReceiveSheetState extends State<_ReceiveSheet> {
     final saved = _done.contains(line.assetId);
     final failure = _failed[line.assetId];
 
-    return Opacity(
-      opacity: saved ? 0.55 : 1,
+    // กล่องของแต่ละชิ้นแบบเดียวกับการ์ดในหน้าอื่น ชิ้นที่บันทึกแล้วพื้นเขียวอ่อน
+    // ชิ้นที่ยิงไม่ผ่านขอบแดง กวาดตาดูก็รู้ว่าเหลือชิ้นไหนต้องจัดการ
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: saved ? AppColors.brand.withValues(alpha: 0.12) : scheme.surface,
+        borderRadius: BorderRadius.circular(AppSizes.innerRadius),
+        border: Border.all(
+          color: failure != null ? AppColors.danger : scheme.outlineVariant,
+          width: failure != null ? 1.2 : AppSizes.cardBorder,
+        ),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -321,16 +335,20 @@ class _ReceiveSheetState extends State<_ReceiveSheet> {
                   ),
               ],
             ),
-            if (_needsNote(line)) ...[
+            if (_showsNote(line)) ...[
               const SizedBox(height: 8),
               TextField(
                 controller: _noteOf(line.assetId),
                 enabled: !_saving,
                 maxLength: kTransferNoteMax,
                 maxLines: 2,
-                decoration: const InputDecoration(
-                  labelText: 'เกิดอะไรขึ้น',
-                  hintText: 'เช่น กล่องบุบ หน้าจอมีรอยร้าว',
+                decoration: InputDecoration(
+                  labelText: _needsNote(line)
+                      ? 'เกิดอะไรขึ้น'
+                      : 'เหตุผลที่ปฏิเสธ (ไม่บังคับ)',
+                  hintText: _needsNote(line)
+                      ? 'เช่น กล่องบุบ หน้าจอมีรอยร้าว'
+                      : 'เช่น ไม่ใช่ของที่ขอ',
                   counterText: '',
                   isDense: true,
                 ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import 'package:claim/page/asset/asset_list_page.dart';
 import 'package:claim/page/claim/claim.dart';
@@ -16,7 +17,6 @@ import 'package:claim/page/tracking/tracking_screen.dart';
 import 'package:claim/utils/app_colors.dart';
 import 'package:claim/utils/permission_service.dart';
 import 'package:claim/utils/pm_access_service.dart';
-import 'package:claim/utils/app_icons.dart';
 
 class DashboardMenuItem {
   final IconData icon;
@@ -57,75 +57,68 @@ List<DashboardMenuItem> buildDashboardMenu(BuildContext context) {
 
   final items = <DashboardMenuItem>[
     DashboardMenuItem(
-      icon: Icons.archive_outlined,
-      label: 'บันทึกสินค้าเสียหาย',
+      icon: PhosphorIconsDuotone.boxArrowDown,
+      label: 'สินค้าเสียหาย',
       iconColor: AppColors.claimIcon,
       iconBg: AppColors.claimBg,
       onTap: () => go(const ClaimPage()),
     ),
     DashboardMenuItem(
-      icon: Icons.warehouse_outlined,
-      label: 'คลังสินค้า ${hasBranch ? branchId : '-'}',
+      icon: PhosphorIconsDuotone.warehouse,
+      label: 'คลัง${hasBranch ? branchId : '-'}',
       iconColor: AppColors.stockIcon,
       iconBg: AppColors.stockBg,
       locked: !canAccessStock,
       onTap: () => go(const StockStatusPage()),
     ),
     DashboardMenuItem(
-      icon: Icons.local_shipping_outlined,
-      label: 'เช็คสถานะพัสดุ',
+      icon: PhosphorIconsDuotone.truck,
+      label: 'เช็คสถานะ',
       iconColor: AppColors.trackingIcon,
       iconBg: AppColors.trackingBg,
       onTap: () => go(const TrackingPage()),
     ),
     DashboardMenuItem(
-      icon: Icons.assignment_outlined,
-      label: 'แผนรถของคุณ',
+      icon: PhosphorIconsDuotone.mapTrifold,
+      label: 'แผนรถ',
       iconColor: AppColors.planIcon,
       iconBg: AppColors.planBg,
       locked: !canAccessPlan,
       onTap: () => go(const PlanPage()),
     ),
     DashboardMenuItem(
-      icon: AppIcons.scan,
-      label: 'ถ่ายบาร์โค้ด',
+      icon: PhosphorIconsDuotone.barcode,
+      label: 'สแกนบาร์โค้ด',
       iconColor: AppColors.scanIcon,
       iconBg: AppColors.scanBg,
       locked: !canAccessScan,
       onTap: () => go(const ScanPage()),
     ),
     DashboardMenuItem(
-      icon: Icons.local_gas_station_outlined,
-      label: 'ชดเชยค่าน้ำมัน',
+      icon: PhosphorIconsDuotone.gasPump,
+      label: 'ชดเชยน้ำมัน',
       iconColor: AppColors.meterIcon,
       iconBg: AppColors.meterBg,
       locked: !canAccessMeter,
       onTap: () => go(const MeterPage()),
     ),
     DashboardMenuItem(
-      icon: Icons.build_outlined,
+      icon: PhosphorIconsDuotone.wrench,
       label: 'แจ้งซ่อม',
-      iconColor: AppColors.repairIcon,
-      iconBg: AppColors.repairBg,
+      iconColor: AppColors.repairMenuIcon,
+      iconBg: AppColors.repairMenuBg,
       onTap: () => go(const RepairPage()),
     ),
-    // ทะเบียนทรัพย์สินอยู่ในตาราง ส่วนใบโอนย้ายอยู่บนแถบ เพราะคนละเรื่องกัน:
-    // อันนี้คือค้นว่าของชิ้นนี้คืออะไรอยู่ไหน และเป็นที่เดียวที่เพิ่มของใหม่เข้า
-    // ทะเบียนได้ เปิดดูเมื่อไหร่ก็ได้ ไม่มีใครรอ ส่วนใบโอนย้ายมีของจริงเคลื่อนที่
-    // ตามและมีคนปลายทางรอรับ
-    //
-    // วางคู่กับแจ้งซ่อมและ PM เพราะเป็นงานฝั่ง IT เหมือนกัน และไม่ให้ไปอยู่
-    // ช่องสุดท้ายซึ่งเป็นที่ที่คนมองข้ามบ่อยสุด
     DashboardMenuItem(
-      icon: Icons.inventory_2_outlined,
-      label: 'ทะเบียนทรัพย์สิน',
+      icon: PhosphorIconsDuotone.archive,
+      label: 'ทรัพย์สินทั้งหมด',
       iconColor: AppColors.assetIcon,
       iconBg: AppColors.assetBg,
       onTap: () => go(const AssetListPage()),
     ),
     DashboardMenuItem(
-      icon: Icons.handyman_outlined,
-      label: 'PM เฉพาะ IT',
+      icon: PhosphorIconsDuotone.toolbox,
+      label: 'PM IT',
       iconColor: AppColors.pmIcon,
       iconBg: AppColors.pmBg,
       locked: !PmAccessService.I.allowed.value,

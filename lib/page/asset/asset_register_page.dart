@@ -11,20 +11,6 @@ import 'package:claim/utils/mobile_api.dart';
 import 'package:claim/widgets/barcode_scanner.dart';
 import 'package:claim/widgets/state_views.dart';
 
-/// ฟอร์มเพิ่มทรัพย์สินเข้าทะเบียน และแก้ไขของที่มีอยู่แล้ว
-///
-/// ส่ง [asset] มา = แก้ของเดิม (PUT) ไม่ส่ง = เพิ่มใหม่ (POST) แบบเดียวกับ
-/// หน้าทะเบียนเครื่องของระบบแจ้งซ่อม
-///
-/// ตอนแก้ไขมีสองช่องที่แก้ไม่ได้ **รหัสทรัพย์สิน** เป็น path ของ endpoint และ
-/// **สถานะ** ไม่มีอยู่ใน `requestUpdateAsset` เลย ต้องไปแก้ที่เว็บ
-///
-/// บันทึกสำเร็จแล้วปิดหน้ากลับไปทะเบียนทันทีทั้งสองโหมด คืน `true` ไปให้
-/// หน้าที่เรียกดึงของใหม่ กดย้อนกลับเองโดยไม่บันทึกคืน `false`
-///
-/// เดิมโหมดเพิ่มค้างหน้าไว้ให้กรอกชิ้นถัดไปต่อ (ตั้งใจให้ลงของทีละล็อตได้เร็ว)
-/// แต่ของที่เพิ่งเพิ่มไม่โผล่ให้เห็นสักที คนกดเลยไม่แน่ใจว่าเข้าไปจริงไหม
-/// แล้วกดบันทึกซ้ำ — เห็นของตัวเองอยู่ในทะเบียนสำคัญกว่าประหยัดการกดสองที
 class AssetRegisterPage extends StatefulWidget {
   final Asset? asset;
 
@@ -64,32 +50,18 @@ class _AssetRegisterPageState extends State<AssetRegisterPage> {
   String? _loadError;
   bool _needLogin = false;
 
-  /// โหลดรายการสถานะไม่สำเร็จ บันทึกต่อได้แต่จะไม่มีสถานะติดไปด้วย
   bool _statusUnavailable = false;
 
-  /// กลุ่มที่ไม่มีช่องบังคับสักช่อง เริ่มมาแบบพับไว้
-  ///
-  /// ฟอร์มนี้มีสิบกว่าช่องแต่บังคับจริง ๆ แค่สามช่องแรก ถ้ากางหมดตั้งแต่เปิดมา
-  /// คนที่แค่จะลงทะเบียนของชิ้นหนึ่งต้องเลื่อนผ่านช่องที่ไม่ได้จะกรอกทั้งหน้า
-  /// ตอนแก้ไขจะกางเฉพาะกลุ่มที่มีของอยู่แล้ว เพื่อไม่ให้ค่าเดิมหายไปจากสายตา
   bool _deviceOpen = false;
   bool _placeOpen = false;
   bool _purchaseOpen = false;
 
-  /// ชื่อของรหัสในช่องแผนกกับช่องผู้ครอบครอง
-  ///
-  /// ค่าที่บันทึกจริงยังเป็นรหัสใน [_siteId] / [_custodian] เหมือนเดิม สองตัวนี้
-  /// มีไว้โชว์ใต้รหัสให้คนกรอกยืนยันว่าหยิบถูกตัว ไม่ได้ส่งไปกับคำขอ
-  ///
-  /// ⚠️ [_siteId] เก็บ **รหัสแผนก** ไม่ใช่รหัสสาขา แม้ชื่อช่องฝั่ง API จะเป็น
-  /// `current_site_id` — ดูหัวหมวดแผนกใน `asset_api.dart`
   AssetDept? _dept;
   AssetEmployee? _employee;
 
   bool _resolvingSite = false;
   bool _resolvingCustodian = false;
 
-  /// หาชื่อไม่ได้เพราะยิง API ไม่ผ่าน ไม่ใช่เพราะรหัสไม่มีจริง
   bool _siteLookupFailed = false;
   bool _custodianLookupFailed = false;
 
@@ -106,10 +78,6 @@ class _AssetRegisterPageState extends State<AssetRegisterPage> {
       _placeOpen = _placeFilled > 0;
       _purchaseOpen = _purchaseFilled > 0;
     } else {
-      // ของใหม่ตั้งต้นว่าคนที่ลงทะเบียนเป็นคนถือเอง ซึ่งเป็นกรณีปกติ
-      //
-      // แผนกไม่เติมตรงนี้เพราะต้องรอ `/me` ตอบก่อนถึงจะรู้ — ปล่อยให้
-      // [_fillDeptFromMe] เติมให้ทีหลัง
       _custodian.text = MobileSession.I.empNo ?? '';
       _fillDeptFromMe();
     }
@@ -119,7 +87,6 @@ class _AssetRegisterPageState extends State<AssetRegisterPage> {
     _load();
   }
 
-  /// เปลี่ยนแผนก [known] คือแผนกที่รู้มาแล้ว ไม่รู้ก็ส่ง null แล้วจะไปหาชื่อเอง
   void _setSite(String id, AssetDept? known) {
     setState(() {
       _siteId.text = id;
@@ -140,10 +107,6 @@ class _AssetRegisterPageState extends State<AssetRegisterPage> {
     if (_resolvingCustodian) _resolveCustodian(id);
   }
 
-  /// หาชื่อแผนกจากรหัส ทิ้งผลถ้าผู้ใช้เปลี่ยนไปเลือกตัวอื่นระหว่างรอ
-  ///
-  /// ล้มเหลวไม่ขวางการบันทึก ฟอร์มนี้ทำงานได้ด้วยรหัสล้วน ชื่อเป็นของแถมที่
-  /// ช่วยให้คนกรอกมั่นใจว่าหยิบถูกตัว
   Future<void> _resolveSite(String id) async {
     if (id.isEmpty) return;
     setState(() => _resolvingSite = true);
@@ -154,7 +117,6 @@ class _AssetRegisterPageState extends State<AssetRegisterPage> {
     try {
       dept = await findAssetDept(id);
     } on MobileApiException {
-      // ยิงไม่ผ่านต่างจากหาแล้วไม่มี ดู [AssetPickerField.lookupFailed]
       failed = true;
     }
 
@@ -189,12 +151,6 @@ class _AssetRegisterPageState extends State<AssetRegisterPage> {
     });
   }
 
-  /// เติมแผนกตั้งต้นจากแผนกของคนที่ล็อกอิน
-  ///
-  /// ใช้ `/me` ไม่ใช่ `PermissionService` เพราะตัวหลังให้มาแค่รหัส**สาขา** ซึ่ง
-  /// เป็นคนละชุดรหัสกับแผนก เอามาใส่ช่องนี้แล้วจะได้รหัสที่ไม่มีอยู่จริง
-  ///
-  /// ล้มเหลวก็แค่ไม่มีค่าตั้งต้น คนกรอกเลือกเองได้
   Future<void> _fillDeptFromMe() async {
     AssetProfile? me;
     try {
@@ -215,13 +171,6 @@ class _AssetRegisterPageState extends State<AssetRegisterPage> {
     _setSite(dept.code, dept);
   }
 
-  /// เลือกผู้ครอบครอง แล้วเติมแผนกของเขาลงช่องแผนกให้เลย
-  ///
-  /// แผนกของทรัพย์สินคือแผนกของคนที่ถือมันอยู่ ให้คนกรอกเลือกเองอีกช่องคือ
-  /// ถามซ้ำในสิ่งที่ระบบรู้อยู่แล้ว และเปิดช่องให้กรอกไม่ตรงกันได้
-  ///
-  /// ทับของเดิมเสมอเมื่อเปลี่ยนคนถือ เพราะของย้ายไปอยู่กับคนใหม่แล้ว แผนกเดิม
-  /// ไม่เกี่ยวอีกต่อไป คนที่ตั้งใจให้ต่างกันจริง ๆ ยังกดแก้ช่องแผนกทีหลังได้
   Future<void> _pickCustodian() async {
     final employee = await pickAssetEmployee(
       context,
@@ -258,9 +207,6 @@ class _AssetRegisterPageState extends State<AssetRegisterPage> {
     _warrantyExpireDate = asset.warrantyExpireDate;
   }
 
-  /// ราคาที่เอากลับมาโชว์ในช่องกรอก ตัด .0 ของจำนวนเต็มทิ้ง
-  ///
-  /// ไม่งั้นของที่ราคา 25900 จะกลายเป็น "25900.0" ทุกครั้งที่เปิดมาแก้
   String _priceText(double price) =>
       price == price.roundToDouble() ? price.round().toString() : '$price';
 
@@ -295,8 +241,6 @@ class _AssetRegisterPageState extends State<AssetRegisterPage> {
     try {
       final types = await fetchAssetTypes();
 
-      // สถานะไม่ใช่ช่องบังคับ โหลดไม่ได้ก็ยังลงทะเบียนต่อได้ จึงไม่ปล่อยให้
-      // error ของลิสต์นี้ไปปิดทั้งหน้า ต่างจากประเภทที่ขาดไม่ได้
       List<AssetLookup> statuses = const [];
       var statusFailed = false;
       try {
@@ -310,8 +254,6 @@ class _AssetRegisterPageState extends State<AssetRegisterPage> {
         _types = types;
         _statuses = statuses;
         _statusUnavailable = statusFailed || statuses.isEmpty;
-        // ของที่เปิดมาแก้ต้องเลือกประเภท/สถานะเดิมไว้ให้ ไม่ใช่เริ่มจากว่าง
-        // ไม่งั้นคนแก้แค่ยี่ห้อจะเผลอเปลี่ยนประเภทไปด้วยโดยไม่รู้ตัว
         _type = _lookupOf(types, widget.asset?.typeId ?? '');
         _status = _lookupOf(statuses, widget.asset?.statusId ?? '');
         _loading = false;
@@ -333,10 +275,6 @@ class _AssetRegisterPageState extends State<AssetRegisterPage> {
     }
   }
 
-  /// หาตัวที่ตรงรหัสในลิสต์ คืน null เมื่อไม่มี
-  ///
-  /// ต้องคืนตัวที่อยู่ใน [_types]/[_statuses] จริง ๆ ไม่ใช่สร้างตัวใหม่ที่รหัส
-  /// ตรงกัน ไม่งั้น DropdownButtonFormField จะ assert ตายเพราะหาค่าที่เลือกไม่เจอ
   AssetLookup? _lookupOf(List<AssetLookup> items, String code) {
     if (code.isEmpty) return null;
     for (final item in items) {
@@ -345,10 +283,8 @@ class _AssetRegisterPageState extends State<AssetRegisterPage> {
     return null;
   }
 
-  /// รหัสประเภทที่จะส่งไป มาจากช่องเลือกเมื่อโหลดลิสต์ได้ ไม่ได้ก็มาจากช่องพิมพ์
   String get _typeCode => _type?.code ?? _typeId.text;
 
-  /// สถานะของชิ้นที่กำลังแก้ ใช้ชื่อจากลิสต์ถ้าหาเจอ ไม่เจอก็ใช้ที่ติดมากับของ
   String get _currentStatusLabel {
     final fromList = _status?.label ?? '';
     if (fromList.isNotEmpty) return fromList;
@@ -359,8 +295,6 @@ class _AssetRegisterPageState extends State<AssetRegisterPage> {
 
   bool get _hasTypeList => _types.isNotEmpty;
 
-  /// จำนวนช่องที่มีของอยู่ในแต่ละกลุ่มที่พับได้ ใช้ทั้งตอนตัดสินใจว่าจะกางไหม
-  /// และตอนเขียนบรรทัดสรุปท้ายหัวข้อ
   int get _deviceFilled =>
       _countFilled([_serialNo.text, _brand.text, _model.text]);
 
@@ -376,7 +310,6 @@ class _AssetRegisterPageState extends State<AssetRegisterPage> {
   int _countFilled(List<String> values) =>
       values.where((value) => value.trim().isNotEmpty).length;
 
-  /// บรรทัดสรุปของกลุ่มที่พับอยู่ ไม่งั้นกลุ่มที่พับจะดูเหมือนว่างเปล่าเสมอ
   String _filledLabel(int count) =>
       count == 0 ? 'ยังไม่ได้กรอก' : 'กรอกแล้ว $count ช่อง';
 
@@ -394,8 +327,6 @@ class _AssetRegisterPageState extends State<AssetRegisterPage> {
     final picked = await showDatePicker(
       context: context,
       initialDate: current ?? now,
-      // ทรัพย์สินเก่าที่เพิ่งเอาเข้าระบบมีของที่ซื้อมาสิบกว่าปีแล้ว ส่วนวันหมด
-      // ประกันเป็นอนาคต ช่วงจึงต้องกว้างทั้งสองทาง
       firstDate: DateTime(now.year - 30),
       lastDate: DateTime(now.year + 30),
     );
@@ -418,8 +349,6 @@ class _AssetRegisterPageState extends State<AssetRegisterPage> {
   Future<void> _save() async {
     if (_saving) return;
     if (!(_formKey.currentState?.validate() ?? false)) {
-      // ช่องที่กรอกผิดอาจอยู่ในกลุ่มที่พับไว้ (ราคาซื้อ) ถ้าไม่กางให้ คนกดจะ
-      // เห็นแค่ปุ่มที่กดแล้วไม่มีอะไรเกิดขึ้น
       setState(() {
         _deviceOpen = true;
         _placeOpen = true;
@@ -464,16 +393,10 @@ class _AssetRegisterPageState extends State<AssetRegisterPage> {
     }
   }
 
-  /// บันทึกการแก้ไขแล้วปิดหน้ากลับไปเลย
-  ///
-  /// ต่างจากโหมดเพิ่มที่ค้างไว้ให้กรอกชิ้นถัดไป เพราะแก้ของชิ้นเดิมซ้ำ ๆ ไม่มี
-  /// ประโยชน์ และหน้ารายละเอียดที่รออยู่ต้องดึงของใหม่มาโชว์
   Future<void> _update(Asset asset) async {
     try {
       final message = await updateAsset(
         assetId: asset.id,
-        // ส่งสถานะที่อยากให้เป็นทั้งก้อน ไม่ใช่เฉพาะช่องที่แก้
-        // (เหตุผลอยู่ที่ buildAssetUpdatePayload)
         next: asset.copyWith(
           name: _assetName.text.trim(),
           typeId: _typeCode.trim(),
@@ -510,8 +433,6 @@ class _AssetRegisterPageState extends State<AssetRegisterPage> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      // บันทึกสำเร็จจะ pop(true) ไปเองแล้ว ตรงนี้ดักเฉพาะตอนกดย้อนกลับเอง
-      // ซึ่งแปลว่ายังไม่ได้บันทึกอะไร หน้าลิสต์ไม่ต้องดึงใหม่
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
@@ -534,8 +455,6 @@ class _AssetRegisterPageState extends State<AssetRegisterPage> {
           behavior: HitTestBehavior.translucent,
           child: _body(),
         ),
-        // ปุ่มบันทึกติดขอบล่างเหมือนหน้ารายละเอียดกับหน้าโอนย้าย ฟอร์มนี้ยาว
-        // เกินหนึ่งจอ ถ้าปุ่มอยู่ท้ายลิสต์ต้องเลื่อนลงไปหาทุกครั้ง
         bottomNavigationBar: _loading || _loadError != null
             ? null
             : _bottomBar(),
@@ -548,7 +467,6 @@ class _AssetRegisterPageState extends State<AssetRegisterPage> {
 
     final error = _loadError;
     if (error != null) {
-      // ปุ่มลองใหม่ไม่ช่วยอะไรเมื่อ token หมดอายุ บอกให้ล็อกอินใหม่แทน
       if (_needLogin) {
         return Center(
           child: Padding(
@@ -578,9 +496,6 @@ class _AssetRegisterPageState extends State<AssetRegisterPage> {
     );
   }
 
-  /// เหตุผลของการแก้ไข บังคับกรอกเพราะ `change_note` เป็นช่อง required ของ PUT
-  ///
-  /// ไม่ใช่พิธีกรรม มันคือบรรทัดที่จะไปโผล่ในประวัติของทรัพย์สินชิ้นนี้
   Widget _changeNoteCard() => _section(
     'เหตุผลที่แก้ไข',
     [
@@ -730,9 +645,7 @@ class _AssetRegisterPageState extends State<AssetRegisterPage> {
         enabled: !_saving,
         icon: Icons.person_outline,
         onTap: _pickCustodian,
-        onClear: _custodian.text.isEmpty
-            ? null
-            : () => _setCustodian('', null),
+        onClear: _custodian.text.isEmpty ? null : () => _setCustodian('', null),
       ),
       _dateRow(
         label: 'วันที่รับเข้า',

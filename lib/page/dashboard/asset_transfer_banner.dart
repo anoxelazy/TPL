@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import 'package:claim/page/asset/transfer_api.dart';
 import 'package:claim/page/asset/transfer_list_page.dart';
@@ -19,7 +20,10 @@ import 'package:claim/utils/mobile_api.dart';
 /// ตัวเลขบนแถบคือจำนวนใบที่รอคนคนนี้ทำ (`/transfers/pending` เซิร์ฟเวอร์คัดตาม
 /// สิทธิ์ให้แล้ว) คนที่มีใบรออนุมัติจะได้รู้ตั้งแต่เปิดแอป ไม่ต้องเข้าไปดูเอง
 class AssetTransferBanner extends StatefulWidget {
-  const AssetTransferBanner({super.key});
+  /// ดู [DashboardBanner.framed]
+  final bool framed;
+
+  const AssetTransferBanner({super.key, this.framed = true});
 
   @override
   State<AssetTransferBanner> createState() => _AssetTransferBannerState();
@@ -62,9 +66,10 @@ class _AssetTransferBannerState extends State<AssetTransferBanner> {
   @override
   Widget build(BuildContext context) {
     return DashboardBanner(
-      icon: Icons.swap_horiz,
-      color: AppColors.assetIcon,
-      background: AppColors.assetBg,
+      framed: widget.framed,
+      icon: PhosphorIconsDuotone.arrowsLeftRight,
+      color: AppColors.brandText,
+      background: AppColors.brandBg,
       title: 'ใบโอนย้าย',
       subtitle: _pending > 0
           ? 'มี $_pending ใบรอคุณอนุมัติหรือรับของ'

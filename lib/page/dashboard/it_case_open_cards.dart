@@ -190,7 +190,7 @@ class ItCaseOpenCasesState extends State<ItCaseOpenCases>
     final shown = _open.take(_maxCards).toList();
 
     return Padding(
-      padding: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.only(top: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -206,7 +206,7 @@ class ItCaseOpenCasesState extends State<ItCaseOpenCases>
                 'เคสที่ยังไม่ปิด',
                 style: TextStyle(
                   fontSize: 14,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
                   color: scheme.onSurface,
                 ),
               ),

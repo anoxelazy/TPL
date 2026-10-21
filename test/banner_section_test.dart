@@ -27,7 +27,7 @@ void main() {
         ),
       ),
     );
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     // รูปโหลดจากเน็ตไม่ได้ในเทสต์ ระบายทิ้งไป
     tester.takeException();
@@ -42,19 +42,11 @@ void main() {
     expect(find.byType(BannerCarousel), findsNothing);
   });
 
-  testWidgets('ไม่บอกจำนวนรูป ทั้งตอนพับและตอนกาง', (tester) async {
-    await pump(tester, expanded: false);
-    expect(find.text('2 รูป'), findsNothing);
-
-    await pump(tester, expanded: true);
-    expect(find.text('2 รูป'), findsNothing);
-  });
-
-  testWidgets('กางอยู่ เห็นสไลด์', (tester) async {
+  testWidgets('กางอยู่ เห็นสไลด์แบบการ์ดเลื่อน', (tester) async {
     await pump(tester, expanded: true);
 
     expect(find.byType(BannerCarousel), findsOneWidget);
-    expect(find.byIcon(Icons.expand_less), findsOneWidget);
+    expect(find.text('ประชาสัมพันธ์'), findsOneWidget);
   });
 
   testWidgets('กดที่หัวข้อแล้วสั่งพับ/กาง', (tester) async {

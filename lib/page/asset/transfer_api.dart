@@ -48,7 +48,9 @@ Future<AssetTransferSearchResult> fetchTransfers(
 
     final data = unwrapMobileResponse(response);
     if (data is Map) {
-      return AssetTransferSearchResult.fromJson(Map<String, dynamic>.from(data));
+      return AssetTransferSearchResult.fromJson(
+        Map<String, dynamic>.from(data),
+      );
     }
 
     // เผื่อวันหนึ่งเส้นนี้ตอบเป็น array เปล่า ๆ แบบ /transfers/pending
@@ -82,7 +84,10 @@ Future<AssetTransferDoc?> fetchTransfer(String transferNo) async {
   if (options == null) throw _noSession;
 
   try {
-    final response = await mobileDio.get(_docPath(transferNo), options: options);
+    final response = await mobileDio.get(
+      _docPath(transferNo),
+      options: options,
+    );
     final data = unwrapMobileResponse(response);
 
     // รับทั้ง object เดี่ยวและลิสต์สมาชิกเดียว แบบเดียวกับ fetchAsset
@@ -173,7 +178,7 @@ Future<String> createTransfer({
       options: options,
     );
 
-    final data = unwrapMobileResponse(response);
+    final data = _checkResult(unwrapMobileResponse(response));
     if (data is Map) {
       final id = jsonPick(Map<String, dynamic>.from(data), const ['id']);
       if (id.isNotEmpty) return id;
@@ -189,11 +194,8 @@ Future<String> createTransfer({
 }
 
 /// ส่งใบให้ผู้อนุมัติ
-Future<String> submitTransfer(String transferNo) => _action(
-  transferNo,
-  'submit',
-  fallback: 'ส่งใบให้ผู้อนุมัติแล้ว',
-);
+Future<String> submitTransfer(String transferNo) =>
+    _action(transferNo, 'submit', fallback: 'ส่งใบให้ผู้อนุมัติแล้ว');
 
 /// อนุมัติหรือไม่อนุมัติ
 ///
@@ -308,10 +310,27 @@ Future<String> _action(
       options: options,
     );
 
-    return assetMessageOf(unwrapMobileResponse(response), fallback: fallback);
+    return assetMessageOf(
+      _checkResult(unwrapMobileResponse(response)),
+      fallback: fallback,
+    );
   } on MobileApiException {
     rethrow;
   } catch (e) {
     throw MobileApiException(mobileNetworkMessage(e));
   }
+}
+
+/// `responseResult` มีช่อง `success` ของมันเอง ถ้าเซิร์ฟเวอร์ตอบ 2xx แต่
+/// `success: false` ต้องถือว่าไม่สำเร็จ ไม่งั้นหน้าจอจะขึ้นว่าทำแล้วทั้งที่ใบไม่ขยับ
+dynamic _checkResult(dynamic data) {
+  if (data is Map) {
+    final raw = jsonRaw(Map<String, dynamic>.from(data), const ['success']);
+    if (raw != null && !jsonBool(raw, fallback: true)) {
+      throw MobileApiException(
+        assetMessageOf(data, fallback: 'ทำรายการไม่สำเร็จ'),
+      );
+    }
+  }
+  return data;
 }

@@ -55,14 +55,75 @@ void main() {
     expect(weatherIcon(95), Icons.thunderstorm_outlined);
   });
 
-  testWidgets('ไม่มีพิกัด ป้ายไม่กินที่เลย', (tester) async {
-    // เทสต์ไม่มี plugin ตำแหน่ง ขอพิกัดไม่ได้ ต้องไม่ throw และไม่โชว์อะไร
+  testWidgets('ไม่มีพิกัด ป้ายยังขึ้นให้แตะ ไม่หายไปเฉย ๆ', (tester) async {
+    final asks = <WeatherAsk>[];
+    Future<WeatherNow?> fetch({WeatherAsk ask = WeatherAsk.prompt}) async {
+      asks.add(ask);
+      return null;
+    }
+
     await tester.pumpWidget(
-      const MaterialApp(home: Scaffold(body: WeatherChip())),
+      _NoMotionApp(
+        home: Scaffold(body: WeatherChip(fetch: fetch)),
+      ),
     );
     await tester.pumpAndSettle();
 
-    expect(find.byType(Icon), findsNothing);
-    expect(tester.getSize(find.byType(WeatherChip)), Size.zero);
+    expect(find.text('อากาศ'), findsOneWidget);
+    expect(find.byIcon(Icons.wb_cloudy_outlined), findsOneWidget);
+
+    // เปิดหน้าขอสิทธิ์ทันที (prompt) ยังไม่ได้ก็เป็นป้ายให้แตะ แตะแล้วขอแบบพาไป
+    // หน้าตั้งค่าได้ (insist) ยังไม่ได้อีกก็กลับมาเป็นป้ายเดิม ไม่ค้างหมุน
+    await tester.tap(find.text('อากาศ'));
+    await tester.pumpAndSettle();
+
+    expect(asks, [WeatherAsk.prompt, WeatherAsk.insist]);
+    expect(find.text('อากาศ'), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
   });
+
+  testWidgets('ได้อากาศแล้วโชว์อุณหภูมิ ฝนเยอะโชว์ร่ม', (tester) async {
+    Future<WeatherNow?> sunny({WeatherAsk ask = WeatherAsk.prompt}) async =>
+        const WeatherNow(temperature: 31.4, code: 0, rainChance: 10);
+    Future<WeatherNow?> rainy({WeatherAsk ask = WeatherAsk.prompt}) async =>
+        const WeatherNow(temperature: 27, code: 61, rainChance: 70);
+
+    await tester.pumpWidget(
+      _NoMotionApp(
+        home: Scaffold(body: WeatherChip(fetch: sunny, showPopup: false)),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('31°'), findsOneWidget);
+    expect(find.byIcon(Icons.wb_sunny_outlined), findsOneWidget);
+
+    await tester.pumpWidget(
+      _NoMotionApp(
+        home: Scaffold(
+          body: WeatherChip(key: UniqueKey(), fetch: rainy, showPopup: false),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('ฝน 70%'), findsOneWidget);
+    expect(find.byIcon(Icons.umbrella_outlined), findsOneWidget);
+  });
+}
+
+/// แอปที่ปิดแอนิเมชันวนซ้ำ (เหมือนเครื่องที่เปิด "ลดการเคลื่อนไหว")
+///
+/// ไอคอนบนป้ายขยับวนไม่หยุด pumpAndSettle จะรอไม่จบ
+class _NoMotionApp extends StatelessWidget {
+  final Widget home;
+
+  const _NoMotionApp({required this.home});
+
+  @override
+  Widget build(BuildContext context) => MaterialApp(
+    home: home,
+    builder: (context, child) => MediaQuery(
+      data: MediaQuery.of(context).copyWith(disableAnimations: true),
+      child: child!,
+    ),
+  );
 }

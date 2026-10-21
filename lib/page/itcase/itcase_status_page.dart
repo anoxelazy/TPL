@@ -295,11 +295,11 @@ class _ItCaseStatusPageState extends State<ItCaseStatusPage>
           filled: true,
           fillColor: scheme.surface,
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(AppSizes.innerRadius),
             borderSide: BorderSide(color: scheme.outlineVariant),
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(AppSizes.innerRadius),
             borderSide: BorderSide(color: scheme.outlineVariant),
           ),
         ),

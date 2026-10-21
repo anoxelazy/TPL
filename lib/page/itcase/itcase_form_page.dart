@@ -16,7 +16,7 @@ import 'package:claim/widgets/barcode_scanner.dart';
 import 'package:claim/widgets/state_views.dart';
 
 const int _maxDescription = 500;
-const double _kImageRadius = 12;
+const double _kImageRadius = AppSizes.innerRadius;
 const Map<String, IconData> _typeIcons = {
   'S001': Icons.desktop_windows_outlined, // คอมพิวเตอร์
   'S002': Icons.grid_view_outlined, // โปรแกรม
@@ -259,10 +259,6 @@ class _ItCaseFormPageState extends State<ItCaseFormPage> {
             width: double.infinity,
             child: FilledButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.caseIcon,
-                foregroundColor: Colors.white,
-              ),
               child: const Text('ตกลง'),
             ),
           ),
@@ -551,10 +547,6 @@ class _ItCaseFormPageState extends State<ItCaseFormPage> {
 
   InputDecoration _pickerDecoration() => InputDecoration(
     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-    focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(AppSizes.cardRadius),
-      borderSide: const BorderSide(color: AppColors.caseIcon, width: 2),
-    ),
   );
 
   Widget _descriptionField(ColorScheme scheme) => TextField(
@@ -572,10 +564,6 @@ class _ItCaseFormPageState extends State<ItCaseFormPage> {
           ? '${_description.text.length}/$_maxDescription'
           : '',
       counterStyle: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(AppSizes.cardRadius),
-        borderSide: const BorderSide(color: AppColors.caseIcon, width: 2),
-      ),
     ),
   );
 
@@ -652,24 +640,16 @@ class _ItCaseFormPageState extends State<ItCaseFormPage> {
   );
 
   /// ปุ่มส่งอยู่ท้ายฟอร์ม ไม่ใช่แถบติดขอบล่าง เหมือนฟอร์มอื่นของแอป
+  ///
+  /// ยังกรอกไม่ครบก็ยังกดได้ แล้วบอกว่าขาดอะไร ปิดปุ่มเฉพาะตอนกำลังส่ง
   Widget _submitButton() => FilledButton.icon(
     onPressed: _sending ? null : _submit,
-    style: FilledButton.styleFrom(
-      minimumSize: const Size.fromHeight(48),
-      backgroundColor: AppColors.caseIcon,
-      foregroundColor: Colors.white,
-      // ครบแล้วค่อยเด่นเต็มที่ ยังไม่ครบก็ยังกดได้ แล้วบอกว่าขาดอะไร
-      disabledBackgroundColor: AppColors.caseIcon.withValues(alpha: 0.4),
-      disabledForegroundColor: Colors.white,
-    ),
+    style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
     icon: _sending
         ? const SizedBox(
             width: 18,
             height: 18,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: Colors.white,
-            ),
+            child: CircularProgressIndicator(strokeWidth: 2),
           )
         : Icon(_isComplete ? Icons.send : Icons.edit_outlined, size: 18),
     label: Text(_sending ? 'กำลังส่ง...' : 'ส่งเคส'),

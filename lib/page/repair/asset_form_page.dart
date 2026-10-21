@@ -333,8 +333,6 @@ class _AssetFormPageState extends State<AssetFormPage> {
                     : const Icon(Icons.save_outlined),
                 label: Text(_saving ? 'กำลังบันทึก...' : 'บันทึก'),
                 style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.repairIcon,
-                  foregroundColor: Colors.white,
                   minimumSize: const Size.fromHeight(48),
                 ),
               ),
@@ -356,7 +354,7 @@ class _AssetFormPageState extends State<AssetFormPage> {
             width: double.infinity,
             decoration: BoxDecoration(
               color: scheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(AppSizes.innerRadius),
             ),
             clipBehavior: Clip.antiAlias,
             child: photo != null

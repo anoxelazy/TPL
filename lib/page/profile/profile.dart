@@ -3,6 +3,8 @@ import 'package:claim/screen/login.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:claim/page/dashboard/line_support.dart';
+import 'package:claim/page/dashboard/support_links.dart';
 import 'package:claim/utils/app_colors.dart';
 import 'package:claim/utils/permission_service.dart';
 import 'package:claim/utils/session_reset.dart';
@@ -31,6 +33,8 @@ class _ProfilePageState extends State<ProfilePage> {
   void initState() {
     super.initState();
     _loadUserData();
+    // ลิงก์ LINE/เว็บของแผ่นแจ้งปัญหา อ่าน cache ก่อนแล้วดึงของใหม่เบื้องหลัง
+    SupportLinksService.I.load();
   }
 
   Future<void> _loadUserData() async {
@@ -281,6 +285,17 @@ class _ProfilePageState extends State<ProfilePage> {
               showChevron: false,
             ),
           ],
+          const _RowDivider(),
+          // ย้ายมาจากมุมขวาของแถบทักทายบนหน้าหลัก แจ้งปัญหาไม่ใช่ของที่กด
+          // ทุกวัน ไม่ควรกินที่บนหัวหน้าหลัก แต่ต้องหาเจอเมื่อจำเป็น
+          // หน้าโปรไฟล์เป็นที่ที่คนมองหาเรื่องการตั้งค่าและความช่วยเหลืออยู่แล้ว
+          _SettingRow(
+            icon: Icons.support_agent,
+            color: AppColors.ink,
+            background: AppColors.inkBg,
+            title: 'แจ้งปัญหาการใช้งานแอป',
+            onTap: () => showLineSupportSheet(context),
+          ),
           const _RowDivider(),
           _SettingRow(
             icon: Icons.info_outline,

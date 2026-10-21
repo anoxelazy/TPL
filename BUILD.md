@@ -23,32 +23,37 @@ https://raw.githubusercontent.com/anoxelazy/API_json/main/key_sapu.json
 
 ขอคีย์จาก Supabase Dashboard → Project Settings → API Keys → `publishable`
 
-## คีย์แผนที่ต้องใส่ตอน build
+## คีย์แผนที่ก็มาจากลิงก์เหมือนกัน
 
-หน้าแผนที่เส้นทางใช้คีย์ 2 ตัว เก็บไว้ใน `env.json` ที่รากโปรเจกต์
-(อยู่ใน .gitignore ไม่ถูกอัปขึ้น git เครื่องใหม่ต้องสร้างไฟล์เอง)
+หน้าแผนที่เส้นทางใช้คีย์ 2 ตัว แอปอ่านจาก JSON ที่ลิงก์ `kMapKeysUrl`
+ใน `lib/utils/map_keys.dart` (ตอนนี้ชี้ไฟล์เดียวกับคีย์ Supabase ข้างบน)
+ใส่สองฟิลด์นี้เพิ่มในไฟล์นั้น หรือ host ไฟล์ใหม่แล้วเปลี่ยนลิงก์ก็ได้
 
 ```json
 {
+  "SUPABASE_ANON_KEY": "sb_publishable_...",
   "ORS_API_KEY": "<คีย์ openrouteservice.org>",
   "LONGDO_API_KEY": "<คีย์ map.longdo.com>"
 }
 ```
 
 - `ORS_API_KEY` ใช้ขอเส้นทางตามถนน ไม่มีก็ถอยไปใช้ OSRM สาธารณะ
-- `LONGDO_API_KEY` ใช้หาที่อยู่ให้จุดส่งที่ไม่มีที่อยู่ ไม่มีก็ไม่แสดง
+- `LONGDO_API_KEY` ใช้ภาพแผนที่ Longdo และหาที่อยู่ให้จุดส่งที่ไม่มีที่อยู่
+  ไม่มีก็ใช้แผนที่ OSM และไม่แสดงที่อยู่
 
-**ลืมใส่ แอปไม่พัง แต่จะกลับไปทำงานแบบเดิมเงียบ ๆ** ไม่มีอะไรเตือน
-build APK ตัวแจกจึงต้องมี `--dart-define-from-file=env.json` ทุกครั้ง
+เปลี่ยนคีย์ = แก้ไฟล์นี้ ไม่ต้อง build ใหม่ คีย์ที่โหลดได้ถูก cache ไว้ในเครื่อง
 
 ## คำสั่ง
 
 ```bash
 # APK สำหรับแจกให้พนักงาน
-flutter build apk --release --dart-define-from-file=env.json
+flutter build apk --release
+
+# AAB สำหรับอัปขึ้น Play Store (เพิ่มเลขหลัง + ใน version ของ pubspec.yaml ก่อน)
+flutter build appbundle --release
 
 # รันบนเครื่องทดสอบ
-flutter run --dart-define-from-file=env.json
+flutter run
 ```
 
 ## อยากทดสอบด้วยคีย์อื่น

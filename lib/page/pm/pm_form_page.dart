@@ -391,12 +391,12 @@ class _PmFormPageState extends State<PmFormPage> {
         const SizedBox(height: 4),
         InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(AppSizes.innerRadius),
           child: AspectRatio(
             aspectRatio: 1,
             child: Container(
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(AppSizes.innerRadius),
                 border: Border.all(
                   color: isNew ? AppColors.pending : scheme.outlineVariant,
                   width: isNew ? 1.5 : 1,

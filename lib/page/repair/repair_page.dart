@@ -120,8 +120,6 @@ class _RepairPageState extends State<RepairPage> {
           FloatingActionButton.extended(
             heroTag: 'repair-new',
             onPressed: _openForm,
-            backgroundColor: AppColors.repairIcon,
-            foregroundColor: Colors.white,
             icon: const Icon(Icons.add),
             label: const Text('แจ้งซ่อม'),
           ),
@@ -144,7 +142,7 @@ class _RepairPageState extends State<RepairPage> {
   /// ทั้งที่อันหนึ่งเป็นงานหลักอีกอันเป็นของรอง
   Widget _chatButton() {
     final scheme = Theme.of(context).colorScheme;
-    final radius = BorderRadius.circular(18);
+    final radius = BorderRadius.circular(AppSizes.pillRadius);
 
     return Material(
       color: scheme.surface,
@@ -262,8 +260,11 @@ class _RepairPageState extends State<RepairPage> {
 
 /// ป้ายบอกสิทธิ์บนแถบหัวเรื่อง
 ///
-/// อยู่บนพื้นเขียวทึบ จึงเป็นกรอบขาวโปร่งแทนสีพื้น ถ้าใส่พื้นขาวทึบมันจะเด่น
-/// กว่าปุ่มจริง ๆ ข้าง ๆ ทั้งที่กดไม่ได้
+/// แถบหัวเรื่องเป็นสีพื้นหน้า จึงเป็นกรอบเขียวโปร่ง ไม่ใส่พื้นทึบ
+/// ถ้าทึบมันจะเด่นกว่าปุ่มจริง ๆ ข้าง ๆ ทั้งที่กดไม่ได้
+///
+/// โหมดมืดใช้ primary ของธีมแทน เพราะเขียวเข้มของ [AppColors.brandText]
+/// จมไปกับพื้นมืดจนอ่านไม่ออก
 class _RoleBadge extends StatelessWidget {
   final String label;
 
@@ -271,20 +272,25 @@ class _RoleBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = theme.brightness == Brightness.dark
+        ? theme.colorScheme.primary
+        : AppColors.brandText;
+
     return Center(
       child: Container(
         margin: const EdgeInsets.only(left: 2, right: 12),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.7)),
+          borderRadius: BorderRadius.circular(AppSizes.pillRadius),
+          border: Border.all(color: color.withValues(alpha: 0.7)),
         ),
         child: Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w700,
-            color: Colors.white,
+            color: color,
             letterSpacing: 0.5,
           ),
         ),

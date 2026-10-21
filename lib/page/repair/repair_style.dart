@@ -68,7 +68,7 @@ class RepairStatusChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(AppSizes.pillRadius),
         border: Border.all(color: color.withValues(alpha: 0.5)),
       ),
       child: Row(
@@ -111,7 +111,7 @@ class RepairInfoChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: scheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(AppSizes.pillRadius),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

@@ -132,9 +132,10 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
 
       for (final change in event.changes) {
         final field = change.field.toLowerCase().replaceAll('_', '');
-        final values = [change.oldValue, change.newValue].where(
-          (e) => e.isNotEmpty,
-        );
+        final values = [
+          change.oldValue,
+          change.newValue,
+        ].where((e) => e.isNotEmpty);
 
         if (field == 'currentcustodian') people.addAll(values);
         if (field == 'currentsiteid') sites.addAll(values);
@@ -377,9 +378,7 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
   Widget _logSection() => AssetSection(
     title: 'ประวัติการเปลี่ยนแปลง',
     divider: false,
-    children: [
-      AssetLogTimeline(events: _log, statusNames: _statusNames),
-    ],
+    children: [AssetLogTimeline(events: _log, statusNames: _statusNames)],
   );
 
   /// ปุ่มโอนย้ายเป็นตัวเด่น เพราะเป็นงานหลักของเมนูนี้ ส่วนแก้ไขข้อมูลเป็นงาน

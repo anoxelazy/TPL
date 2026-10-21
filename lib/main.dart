@@ -15,6 +15,7 @@ import 'package:claim/page/repair/repair_watch_service.dart';
 import 'package:claim/utils/profile_avatar_service.dart';
 import 'package:claim/utils/rank_service.dart';
 import 'package:claim/utils/role_service.dart';
+import 'package:claim/utils/map_keys.dart';
 import 'package:claim/utils/supabase_config.dart';
 import 'package:claim/widgets/offline_banner.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -35,6 +36,7 @@ void main() async {
   BootTiming.mark('prefs services');
 
   unawaited(SupabaseConfig.refresh());
+  unawaited(MapKeys.ensureLoaded());
 
   unawaited(RankService.I.init());
 

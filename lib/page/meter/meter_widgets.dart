@@ -279,13 +279,13 @@ class MeterImageSlot extends StatelessWidget {
         const SizedBox(height: 8),
         InkWell(
           onTap: uploading ? null : onPick,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppSizes.innerRadius),
           child: Container(
             height: 190,
             width: double.infinity,
             clipBehavior: Clip.antiAlias,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(AppSizes.innerRadius),
               border: Border.all(
                 color: _hasImage
                     ? AppColors.success.withValues(alpha: 0.5)
@@ -323,10 +323,12 @@ class MeterImageSlot extends StatelessWidget {
                     bottom: 8,
                     child: Material(
                       color: Colors.black.withValues(alpha: 0.6),
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(AppSizes.pillRadius),
                       child: InkWell(
                         onTap: onPick,
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(
+                          AppSizes.pillRadius,
+                        ),
                         child: const Padding(
                           padding: EdgeInsets.symmetric(
                             horizontal: 12,
@@ -419,7 +421,7 @@ class MeterSavedTile extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: AppColors.success.withValues(alpha: 0.07),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSizes.innerRadius),
         border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
       ),
       child: Row(
@@ -433,7 +435,7 @@ class MeterSavedTile extends StatelessWidget {
                 height: 62,
                 clipBehavior: Clip.antiAlias,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(AppSizes.innerRadius),
                   border: Border.all(color: scheme.outlineVariant),
                 ),
                 child: Image.network(

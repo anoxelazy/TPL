@@ -198,7 +198,7 @@ class _CloseDialogState extends State<_CloseDialog> {
                       vertical: 10,
                     ),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(AppSizes.innerRadius),
                     ),
                     hintText: _isRedo
                         ? 'ยังติดตรงไหน บอกทีม IT ด้วย'
@@ -318,11 +318,11 @@ class _CloseDialogState extends State<_CloseDialog> {
 
     return InkWell(
       onTap: () => _choose(status),
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(AppSizes.innerRadius),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(AppSizes.innerRadius),
           color: selected ? color.withValues(alpha: 0.10) : null,
           // ความหนาเท่ากันทั้งสองสถานะ ต่างกันแค่สี เส้นที่หนาขึ้นตอนเลือก
           // จะดันกล่องให้สูงกว่าอีกใบนิดหนึ่ง มองเห็นเป็นการขยับทุกครั้งที่สลับ

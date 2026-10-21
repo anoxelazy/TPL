@@ -11,8 +11,11 @@ import 'package:claim/page/claim/claim_dialogs.dart' as claim_dialogs;
 import 'package:claim/page/claim/claim_scan.dart';
 import 'package:claim/page/claim/image_utils.dart';
 import 'package:claim/page/claim/claim_card.dart';
+import 'package:claim/page/claim/claim_summary_bar.dart';
+import 'package:claim/utils/app_colors.dart';
 import 'package:claim/utils/app_logger.dart';
 import 'package:claim/utils/claim_store.dart';
+import 'package:claim/widgets/state_views.dart';
 
 class _SimpleHttpResponse {
   final int statusCode;
@@ -79,7 +82,7 @@ class ClaimPageState extends State<ClaimPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('เกิดข้อผิดพลาด: ${error.toString()}'),
-          backgroundColor: Colors.red,
+          backgroundColor: AppColors.danger,
           duration: const Duration(seconds: 5),
           action: SnackBarAction(
             label: 'ลองใหม่',
@@ -542,6 +545,7 @@ class ClaimPageState extends State<ClaimPage> {
     if (isAlreadySent) {
       final bool confirmed = await claim_dialogs.showConfirmResendDialog(
         context,
+        docNumber: ClaimStore.I.claims[index]['docNumber']?.toString(),
       );
 
       if (!confirmed) return;
@@ -576,6 +580,8 @@ class ClaimPageState extends State<ClaimPage> {
         _closeAllDialogs();
       } else {
         statusNotifier.value = claim_dialogs.SendingStatus.error;
+        // จำไว้ให้แถบสรุปกับการ์ดบอกว่ารายการนี้ต้องส่งใหม่
+        setState(() => ClaimStore.I.markSendFailed(index));
         await Future.delayed(const Duration(seconds: 2));
         _closeAllDialogs();
 
@@ -587,6 +593,7 @@ class ClaimPageState extends State<ClaimPage> {
         'claim_send_one_exception',
         data: {'error': e.toString()},
       );
+      if (mounted) setState(() => ClaimStore.I.markSendFailed(index));
       _closeAllDialogs();
       await _showResultDialog(title: 'ผิดพลาด', message: 'เกิดข้อผิดพลาด: $e');
     }
@@ -598,25 +605,10 @@ class ClaimPageState extends State<ClaimPage> {
   }
 
   Future<void> _deleteClaim(int index) async {
-    final confirmed =
-        await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('ยืนยันการลบ'),
-            content: const Text('คุณแน่ใจหรือว่าต้องการลบรายการนี้?'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('ยกเลิก'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('ลบ'),
-              ),
-            ],
-          ),
-        ) ??
-        false;
+    final confirmed = await claim_dialogs.showConfirmDeleteDialog(
+      context,
+      docNumber: ClaimStore.I.claims[index]['docNumber']?.toString() ?? '',
+    );
     if (confirmed && mounted) {
       ClaimStore.I.removeClaim(index);
       widget.unsentCountNotifier?.value = ClaimStore.I.unsentCount;
@@ -781,38 +773,43 @@ class ClaimPageState extends State<ClaimPage> {
         child: ClaimStore.I.claims.isEmpty
             ? ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                children: [
-                  SizedBox(
-                    height: MediaQuery.of(context).size.height - 100,
-                    child: Center(
-                      child: Text(
-                        'ไม่มีรายการบันทึกสินค้า',
-                        style: TextStyle(
-                          fontSize: 18,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
+                padding: const EdgeInsets.only(top: 60),
+                children: const [
+                  EmptyStateView(
+                    message: 'ไม่มีรายการบันทึกสินค้า',
+                    icon: Icons.inventory_2_outlined,
                   ),
                 ],
               )
             : ListView.builder(
                 physics: const AlwaysScrollableScrollPhysics(),
-                itemCount: ClaimStore.I.claims.length,
-                itemBuilder: (context, index) => ClaimListItem(
-                  claim: ClaimStore.I.claims[index],
-                  index: index,
-                  onEdit: () => _showClaimDialog(editIndex: index),
-                  onSend: () => _sendSingleClaim(index),
-                  onDelete: () => _deleteClaim(index),
-                ),
+                // ช่องแรกเป็นแถบสรุปของวันนี้ ที่เหลือเป็นการ์ดรายการ
+                itemCount: ClaimStore.I.claims.length + 1,
+                itemBuilder: (context, i) {
+                  if (i == 0) {
+                    return ClaimSummaryBar(
+                      sent: ClaimStore.I.sentCount,
+                      pending: ClaimStore.I.pendingCount,
+                      failed: ClaimStore.I.failedCount,
+                    );
+                  }
+                  // ใบที่บันทึกล่าสุดอยู่บนสุด กลับลำดับแค่ตอนแสดง ใน store
+                  // ยังเรียงตามลำดับที่บันทึก index ที่ส่งต่อให้แก้ไข/ส่ง/ลบ
+                  // ต้องเป็นตำแหน่งใน store ไม่ใช่ตำแหน่งบนจอ
+                  final index = ClaimStore.I.claims.length - i;
+                  return ClaimListItem(
+                    claim: ClaimStore.I.claims[index],
+                    index: index,
+                    onEdit: () => _showClaimDialog(editIndex: index),
+                    onSend: () => _sendSingleClaim(index),
+                    onDelete: () => _deleteClaim(index),
+                  );
+                },
               ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         icon: const Icon(Icons.add),
         label: const Text('สินค้าเสียหาย/สูญหาย'),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Theme.of(context).colorScheme.onPrimary,
         onPressed: () => _showClaimDialog(),
       ),
     );
@@ -839,15 +836,51 @@ class ClaimListItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Slidable(
-      key: ValueKey(claim['docNumber'] ?? index),
+      // ใช้ id ไม่ใช่เลขเอกสาร เลขเอกสารซ้ำกันได้ ปัดใบหนึ่งแล้วอีกใบจะขยับตาม
+      key: ValueKey(claim['id'] ?? index),
       endActionPane: ActionPane(
-        motion: const DrawerMotion(),
+        motion: const BehindMotion(),
+        extentRatio: 0.26,
         children: [
-          SlidableAction(
+          // ปุ่มลบเป็นการ์ดมุมโค้งสูงเท่าการ์ดรายการ ไม่ใช่แถบแดงทึบเต็มแถว
+          //
+          // ห่างการ์ด 16 (ขอบขวาของการ์ดเอง) และห่างขอบจอขวา 16 เท่าการ์ดอื่น
+          // กล่องต้องขยายเต็มพื้นที่ปุ่ม (กว้าง/สูงเต็ม) เดิมกล่องหดเหลือ
+          // แค่กว้างเท่าไอคอนแล้วลอยอยู่กลาง กลายเป็นแท่งผอมห่างการ์ดไกล
+          CustomSlidableAction(
             onPressed: (_) => onDelete(),
-            backgroundColor: Colors.red,
-            icon: Icons.delete,
-            label: 'ลบ',
+            backgroundColor: Colors.transparent,
+            padding: EdgeInsets.zero,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(0, 6, 16, 6),
+              child: Container(
+                width: double.infinity,
+                height: double.infinity,
+                decoration: BoxDecoration(
+                  color: AppColors.dangerBg,
+                  borderRadius: BorderRadius.circular(AppSizes.cardRadius),
+                ),
+                child: const Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.delete_outline_rounded,
+                      color: AppColors.dangerText,
+                      size: 26,
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'ลบ',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.dangerText,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ],
       ),

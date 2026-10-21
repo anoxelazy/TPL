@@ -127,14 +127,11 @@ Future<String?> sendClaimToAPI({
       );
     }
 
+    // ส่งไฟล์ตามที่อยู่ในเครื่องเลย ไม่บีบซ้ำ รูปถูกย่อเหลือ 720 ไว้แล้วตั้งแต่
+    // ตอนเพิ่มเข้าฟอร์ม เดิมถอดรหัสแล้วบีบใหม่ตรงนี้อีกรอบ ช้าและคุณภาพลดซ้ำ
+    // (เหมือนทางหลัก sendClaimToAPIMultipart ที่ส่งไฟล์ตรง ๆ อยู่แล้ว)
     final bytes = await imageFile.readAsBytes();
-    final compressedBytes = await _compressImage(bytes);
-
-    if (compressedBytes.length > 30 * 1024 * 1024) {
-      throw Exception('Compressed image too large (max 30MB)');
-    }
-
-    final String base64Image = await compute(_encodeBase64, compressedBytes);
+    final String base64Image = await compute(_encodeBase64, bytes);
 
     final response = await dio.post(
       '/api/GETImageLink_Folder',

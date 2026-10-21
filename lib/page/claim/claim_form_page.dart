@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/foundation.dart';
+import 'package:claim/utils/app_colors.dart';
 import 'package:claim/utils/app_icons.dart';
 import 'image_utils.dart';
 import '../camera/custom_camera.dart';
 import 'claim_form.dart';
+import 'claim_dialogs.dart' as claim_dialogs;
 import '../../widgets/image_widgets.dart';
 
 class _ProcessImagesParams {
@@ -22,99 +24,46 @@ Future<List<File>> _processImagesInBackground(
   return processImagesBatch(params.images, maxSize: params.maxSize);
 }
 
-class _ThumbnailParams {
-  final File imageFile;
-  final int size;
-
-  _ThumbnailParams(this.imageFile, this.size);
-}
-
-Future<File> _generateThumbnailInBackground(_ThumbnailParams params) async {
-  return generateThumbnail(params.imageFile, size: params.size);
-}
-
-class FastImagePreview extends StatefulWidget {
+/// รูปตัวอย่างในฟอร์ม แสดงจากไฟล์รูปโดยตรง
+///
+/// เดิมสร้างไฟล์ thumbnail ขนาด 720 แยกอีกไฟล์ก่อนแสดง ซึ่งต้องถอดรหัสรูป
+/// ซ้ำอีกรอบ (มีตัวหมุนค้างบนช่องรูป) ทั้งที่รูปถูกย่อเหลือ 720 ไว้แล้วตอนเพิ่ม
+/// และช่องแสดงกว้างแค่ราว 120 จุด ตอนนี้ให้ Flutter ถอดรหัสเป็นขนาดเท่าช่อง
+/// ([Image.cacheWidth]) ตอนวาดเลย ไม่ต้องเขียนไฟล์ใหม่ ไม่ต้องรอ
+class FastImagePreview extends StatelessWidget {
   final File imageFile;
   final double width;
   final double height;
   final BoxFit fit;
 
   const FastImagePreview({
-    Key? key,
+    super.key,
     required this.imageFile,
     this.width = 120,
     this.height = 120,
     this.fit = BoxFit.cover,
-  }) : super(key: key);
-
-  @override
-  State<FastImagePreview> createState() => _FastImagePreviewState();
-}
-
-class _FastImagePreviewState extends State<FastImagePreview> {
-  File? _thumbnailFile;
-  bool _isLoading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadThumbnail();
-  }
-
-  Future<void> _loadThumbnail() async {
-    try {
-      final thumbnail = await compute(
-        _generateThumbnailInBackground,
-        _ThumbnailParams(widget.imageFile, 720),
-      );
-      if (mounted) {
-        setState(() {
-          _thumbnailFile = thumbnail;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      debugPrint('Thumbnail generation error: $e');
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
-  }
+  });
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return Container(
-        width: widget.width,
-        height: widget.height,
-        color: Colors.grey[200],
-        child: const Center(
-          child: SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-        ),
-      );
-    }
+    final scheme = Theme.of(context).colorScheme;
+    final dpr = MediaQuery.devicePixelRatioOf(context);
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(AppSizes.innerRadius),
       child: Image.file(
-        _thumbnailFile ?? widget.imageFile,
-        width: widget.width,
-        height: widget.height,
-        fit: widget.fit,
-        errorBuilder: (context, error, stackTrace) {
-          return Container(
-            width: widget.width,
-            height: widget.height,
-            color: Colors.grey[300],
-            child: const Icon(Icons.broken_image, color: Colors.grey),
-          );
-        },
+        imageFile,
+        width: width,
+        height: height,
+        fit: fit,
+        cacheWidth: (width * dpr).round(),
+        gaplessPlayback: true,
+        errorBuilder: (context, error, stackTrace) => Container(
+          width: width,
+          height: height,
+          color: scheme.surfaceContainerHighest,
+          child: Icon(Icons.broken_image, color: scheme.onSurfaceVariant),
+        ),
       ),
     );
   }
@@ -168,7 +117,7 @@ class _ImageListWidgetState extends State<ImageListWidget> {
                         width: 28,
                         height: 28,
                         decoration: BoxDecoration(
-                          color: Colors.red.withOpacity(0.8),
+                          color: AppColors.danger.withValues(alpha: 0.8),
                           shape: BoxShape.circle,
                           border: Border.all(color: Colors.white, width: 2),
                         ),
@@ -230,7 +179,49 @@ class _ClaimFormPageState extends State<ClaimFormPage> {
       remarkController.text = widget.initialClaim!['remarkType'] ?? '';
       fromFrontStore = widget.initialClaim!['fromFrontStore'] ?? false;
     }
+    _initial = _snapshot();
   }
+
+  /// ค่าทุกช่องตอนเปิดฟอร์ม ใช้เทียบว่ากรอก/แก้อะไรไปแล้วหรือยัง
+  late final List<Object?> _initial;
+
+  /// ค่าทุกช่องตอนนี้ วันที่เทียบแค่วัน ไม่สนเวลา รูปเทียบด้วย path
+  List<Object?> _snapshot() => [
+    docNumberController.text.trim(),
+    carCodeController.text.trim(),
+    remarkController.text.trim(),
+    selectedType,
+    DateUtils.dateOnly(selectedDate),
+    claimImages.map((f) => f.path).join('|'),
+    fromFrontStore,
+  ];
+
+  /// มีอะไรเปลี่ยนจากตอนเปิดฟอร์มไหม
+  ///
+  /// ฟอร์มใหม่ที่ยังไม่ได้แตะอะไรเลย (หรือแก้ไขรายการเดิมแต่ยังไม่ได้แก้)
+  /// กดกลับแล้วออกได้เลย ไม่ต้องถาม ถามเฉพาะตอนมีของจะหาย
+  @visibleForTesting
+  bool get hasChanges => !listEquals(_snapshot(), _initial);
+
+  /// กดกลับ (ปุ่มลูกศรบนแถบ หรือปุ่มย้อนกลับของเครื่อง)
+  Future<void> _handleBack() async {
+    if (!hasChanges) {
+      Navigator.of(context).pop();
+      return;
+    }
+
+    final discard = await claim_dialogs.showDiscardChangesDialog(
+      context,
+      editing: widget.initialClaim != null,
+    );
+    if (discard && mounted) Navigator.of(context).pop();
+  }
+
+  /// ปล่อยโฟกัสจากช่องกรอกก่อนเปิดกล้องหรือแกลเลอรี
+  ///
+  /// ถ้าช่องไหนยังโฟกัสค้าง พอกลับจากหน้ากล้อง/แกลเลอรี Flutter จะคืนโฟกัส
+  /// ให้ช่องนั้น แป้นพิมพ์เลยเด้งขึ้นมาทับรูปที่เพิ่งเลือก ทั้งที่ไม่มีใครจะพิมพ์
+  void _dropFocus() => FocusManager.instance.primaryFocus?.unfocus();
 
   Future<void> _selectDate() async {
     final DateTime? picked = await showDatePicker(
@@ -300,28 +291,13 @@ class _ClaimFormPageState extends State<ClaimFormPage> {
       widget.empId,
     );
 
-    return WillPopScope(
-      onWillPop: () async {
-        final confirm = await showDialog<bool>(
-          context: context,
-          builder: (context) {
-            return AlertDialog(
-              title: const Text('ยกเลิกการแก้ไข'),
-              content: const Text('คุณต้องการยกเลิกการแก้ไขรายการนี้หรือไม่?'),
-              actions: [
-                TextButton(
-                  child: const Text('ไม่'),
-                  onPressed: () => Navigator.of(context).pop(false),
-                ),
-                TextButton(
-                  child: const Text('ใช่'),
-                  onPressed: () => Navigator.of(context).pop(true),
-                ),
-              ],
-            );
-          },
-        );
-        return confirm ?? false;
+    // กันการกดกลับไว้ก่อนเสมอ แล้วตัดสินใน [_handleBack] ว่าออกเลยหรือถามก่อน
+    // ปุ่มบันทึกปิดหน้าด้วย Navigator.pop ตรง ๆ ซึ่งไม่ผ่านตัวกันนี้ (didPop)
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        _handleBack();
       },
       child: Scaffold(
         appBar: AppBar(
@@ -457,22 +433,23 @@ class _ClaimFormPageState extends State<ClaimFormPage> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
+                    // ยิ่งรูปครบ สียิ่งไล่จากสีรอ (ยังไม่พอ) ไปสีสำเร็จ
                     color: claimImages.isEmpty
                         ? Theme.of(context).colorScheme.surface
                         : Color.lerp(
-                            Colors.yellow[100],
-                            Colors.green[100],
+                            AppColors.pending.withValues(alpha: 0.12),
+                            AppColors.success.withValues(alpha: 0.12),
                             claimImages.length / 6.0,
                           ),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(AppSizes.innerRadius),
                     border: Border.all(
                       color: claimImages.isEmpty
                           ? Theme.of(
                               context,
-                            ).colorScheme.outline.withOpacity(0.3)
+                            ).colorScheme.outline.withValues(alpha: 0.3)
                           : Color.lerp(
-                              Colors.yellow[300]!,
-                              Colors.green[300]!,
+                              AppColors.pending.withValues(alpha: 0.4),
+                              AppColors.success.withValues(alpha: 0.4),
                               claimImages.length / 6.0,
                             )!,
                     ),
@@ -485,8 +462,8 @@ class _ClaimFormPageState extends State<ClaimFormPage> {
                         color: claimImages.isEmpty
                             ? Theme.of(context).colorScheme.onSurfaceVariant
                             : Color.lerp(
-                                Colors.orange[600],
-                                Colors.green[700],
+                                AppColors.pending,
+                                AppColors.success,
                                 claimImages.length / 6.0,
                               ),
                         size: 20,
@@ -497,9 +474,11 @@ class _ClaimFormPageState extends State<ClaimFormPage> {
                         style: TextStyle(
                           color: claimImages.isEmpty
                               ? Theme.of(context).colorScheme.onSurfaceVariant
+                              // ตัวหนังสือใช้สีสถานะเวอร์ชันเข้ม ส้ม/เขียวสด
+                              // บนพื้นอ่อนอ่านยากที่ขนาด 14
                               : Color.lerp(
-                                  Colors.orange[700],
-                                  Colors.green[700],
+                                  AppColors.pendingText,
+                                  AppColors.successText,
                                   claimImages.length / 6.0,
                                 ),
                           fontSize: 14,
@@ -541,6 +520,7 @@ class _ClaimFormPageState extends State<ClaimFormPage> {
                       onPressed: claimImages.length >= 6
                           ? null
                           : () async {
+                              _dropFocus();
                               try {
                                 final initialCount = claimImages.length;
                                 await openMultiImageCamera(
@@ -597,7 +577,7 @@ class _ClaimFormPageState extends State<ClaimFormPage> {
                                             content: Text(
                                               'เกิดข้อผิดพลาดในการประมวลผลรูปภาพ',
                                             ),
-                                            backgroundColor: Colors.red,
+                                            backgroundColor: AppColors.danger,
                                             duration: const Duration(
                                               seconds: 3,
                                             ),
@@ -617,7 +597,7 @@ class _ClaimFormPageState extends State<ClaimFormPage> {
                                       content: const Text(
                                         'เกิดข้อผิดพลาดในการเปิดกล้อง',
                                       ),
-                                      backgroundColor: Colors.red,
+                                      backgroundColor: AppColors.danger,
                                       duration: const Duration(seconds: 2),
                                     ),
                                   );
@@ -631,9 +611,16 @@ class _ClaimFormPageState extends State<ClaimFormPage> {
                       onPressed: claimImages.length >= 6
                           ? null
                           : () async {
+                              _dropFocus();
                               try {
-                                final List<XFile>? images = await picker
-                                    .pickMultiImage();
+                                final List<XFile>?
+                                images = await picker.pickMultiImage(
+                                  // ให้ระบบย่อรูปตั้งแต่ตอนเลือก (ตัวถอดรหัสของเครื่อง เร็วกว่าย่อเองในแอปมาก)
+                                  // ด้านยาวไม่เกิน 720 ตรงกับขนาดที่ส่งจริง ขั้นประมวลผลต่อจากนี้จึงข้ามไปได้
+                                  maxWidth: 720,
+                                  maxHeight: 720,
+                                  imageQuality: 85,
+                                );
                                 if (images != null && images.isNotEmpty) {
                                   final int remainingSlots =
                                       6 - claimImages.length;
@@ -649,7 +636,7 @@ class _ClaimFormPageState extends State<ClaimFormPage> {
                                           content: Text(
                                             'ไม่สามารถเพิ่มรูปภาพได้อีกแล้ว (จำกัด 6 รูป)',
                                           ),
-                                          backgroundColor: Colors.orange,
+                                          backgroundColor: AppColors.pending,
                                         ),
                                       );
                                     }
@@ -732,7 +719,7 @@ class _ClaimFormPageState extends State<ClaimFormPage> {
                                           content: Text(
                                             'เกิดข้อผิดพลาดในการประมวลผลรูปภาพ',
                                           ),
-                                          backgroundColor: Colors.red,
+                                          backgroundColor: AppColors.danger,
                                           duration: const Duration(seconds: 3),
                                         ),
                                       );
@@ -747,7 +734,7 @@ class _ClaimFormPageState extends State<ClaimFormPage> {
                                       content: const Text(
                                         'เกิดข้อผิดพลาดในการเลือกภาพ',
                                       ),
-                                      backgroundColor: Colors.red,
+                                      backgroundColor: AppColors.danger,
                                       duration: const Duration(seconds: 2),
                                     ),
                                   );

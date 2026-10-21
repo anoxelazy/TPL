@@ -1,7 +1,7 @@
 /// หน้าตาร่วมของหน้าทรัพย์สินทั้งหมด
 ///
-/// **สีเป็นของธีมรวม** แถบหัวเรื่องเขียวแบรนด์เหมือนทุกหน้าในแอป ไม่มีสีประจำ
-/// โมดูลแยกแบบแจ้งซ่อม (เขียว LINE) หรือแจ้งเคส (ม่วง)
+/// **สีเป็นของธีมรวม** แถบหัวเรื่องเป็นแถบปกติของธีมเหมือนทุกหน้าในแอป
+/// ไม่มีสีประจำโมดูล
 ///
 /// ที่โมดูลนี้ต่างจากหน้าอื่นคือ **โครงเนื้อหา** ไม่ใช่สี: ใช้ป้ายกำกับกลุ่มกับ
 /// เส้นคั่นแทนการ์ดที่มีขอบรอบด้าน เพราะหน้าพวกนี้เป็นทะเบียนที่มีรหัส ชื่อ
@@ -14,13 +14,15 @@ import 'package:flutter/material.dart';
 
 /// แถบหัวเรื่องของหน้าทรัพย์สิน
 ///
-/// ใช้สีจากธีมรวม จึงไม่ต้องตั้ง systemOverlayStyle เองเหมือน [repairAppBar]
-/// กับ [itCaseAppBar] ที่เปลี่ยนสีแถบไปจากธีม
+/// แถบปกติของธีมรวมเหมือนหน้าอื่น สีและ systemOverlayStyle มาจากธีมทั้งหมด
 PreferredSizeWidget assetAppBar(
   BuildContext context, {
   required String title,
   List<Widget>? actions,
 }) => AppBar(title: Text(title), actions: actions);
+
+/// ความโค้งของป้ายเล็ก ๆ ในหน้าทรัพย์สินและใบโอนย้าย ใช้ค่าเดียวกันทุกป้าย
+const double assetTagRadius = 6;
 
 /// หัวข้อกลุ่มของฟอร์มและหน้ารายละเอียด
 ///
@@ -259,7 +261,7 @@ class AssetTag extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(assetTagRadius),
         border: Border.all(color: tint.withValues(alpha: 0.45)),
       ),
       child: Text(

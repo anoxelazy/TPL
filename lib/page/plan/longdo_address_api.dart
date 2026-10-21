@@ -13,12 +13,11 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 import 'package:claim/utils/dio_service.dart';
+import 'package:claim/utils/map_keys.dart';
 
-/// key ของ Longdo Map ใส่ตอน build:
-/// `flutter run --dart-define=LONGDO_API_KEY=...`
+/// key ของ Longdo Map มาจากไฟล์คีย์กลาง ดู [MapKeys]
 ///
 /// สมัครฟรีที่ map.longdo.com ไม่ฝังไว้ในโค้ดเพราะ repo นี้ไม่ได้ลับ
-const String kLongdoApiKey = String.fromEnvironment('LONGDO_API_KEY');
 
 /// ภาพแผนที่ของ Longdo สำหรับ `TileLayer` ของ flutter_map ใช้ key ตัวเดียวกัน
 ///
@@ -34,12 +33,12 @@ const String kLongdoTileUrl =
 Uri buildLongdoAddressUrl({
   required double lat,
   required double lon,
-  String key = kLongdoApiKey,
+  String? key,
 }) => Uri.https('api.longdo.com', '/map/services/address', {
   'lat': '$lat',
   'lon': '$lon',
   'noelevation': '1',
-  'key': key,
+  'key': key ?? MapKeys.longdo,
 });
 
 /// ประกอบที่อยู่เป็นบรรทัดเดียว เช่น `ถนนสาทรเหนือ แขวงสีลม เขตบางรัก
@@ -60,7 +59,7 @@ String parseLongdoAddress(dynamic data) {
 ///
 /// ไม่ throw เพราะที่อยู่เป็นของเสริม ขอไม่ได้หน้าจอยังใช้งานได้ปกติ
 Future<String> fetchAddress({required double lat, required double lon}) async {
-  if (kLongdoApiKey.isEmpty) return '';
+  if (MapKeys.longdo.isEmpty) return '';
 
   try {
     final response = await dio.getUri(

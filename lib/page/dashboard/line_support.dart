@@ -6,45 +6,10 @@ import 'package:claim/page/dashboard/support_links.dart';
 import 'package:claim/utils/app_colors.dart';
 import 'package:claim/utils/update_service.dart';
 
-/// ปุ่มติดต่อผู้ดูแลแอปผ่าน LINE อยู่มุมขวาของแถบทักทายบนหน้าหลัก
-class LineSupportButton extends StatelessWidget {
-  const LineSupportButton({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: 'แจ้งปัญหาการใช้งานแอป',
-      child: InkWell(
-        onTap: () => showLineSupportSheet(context),
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-          decoration: BoxDecoration(
-            color: AppColors.lineGreen.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.support_agent, size: 17, color: AppColors.lineGreen),
-              SizedBox(width: 5),
-              Text(
-                'แจ้งปัญหา',
-                style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.lineGreen,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 /// แผ่นด้านล่างที่มีทั้ง QR ให้สแกนจากอีกเครื่อง และปุ่มเปิด LINE ในเครื่องเดียวกัน
+///
+/// เปิดจากแถว "แจ้งปัญหาการใช้งานแอป" ในหน้าโปรไฟล์ (เดิมเป็นปุ่มบนแถบทักทาย
+/// ของหน้าหลัก)
 Future<void> showLineSupportSheet(BuildContext context) {
   return showModalBottomSheet<void>(
     context: context,

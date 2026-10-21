@@ -1,5 +1,6 @@
 import 'package:claim/page/asset/asset_api.dart';
 import 'package:claim/page/chat/chat_session.dart';
+import 'package:claim/page/dashboard/weather_popup.dart';
 import 'package:claim/page/repair/repair_watch_service.dart';
 import 'package:claim/page/tracking/tracking_cache.dart';
 import 'package:claim/utils/announcement_service.dart';
@@ -55,6 +56,9 @@ Future<void> forgetSignedInUser() async {
   // ลิสต์สาขาทั้งบริษัทที่ช่องเลือกสาขาของระบบทรัพย์สินโหลดไว้ อยู่ในหน่วย
   // ความจำอย่างเดียว แต่ logout ไม่ได้ปิดแอป จึงต้องล้างเองเหมือนตัวอื่น
   clearAssetDirectoryCache();
+
+  // ล็อกอินใหม่ถือเป็นการเข้าแอปรอบใหม่ กล่องอากาศต้องเด้งให้อีก
+  resetWeatherPopupSession();
 
   await ClaimStore.I.clear();
   await ClaimReminderService.I.cancel();

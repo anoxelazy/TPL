@@ -176,7 +176,7 @@ class _Thumb extends StatelessWidget {
         width: 140,
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(AppSizes.innerRadius),
           border: Border.all(color: scheme.outlineVariant),
           color: scheme.surfaceContainerHighest,
         ),
@@ -199,11 +199,14 @@ class _CardShell extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppSizes.cardRadius),
         // ขอบต้องสีเดียวกันทุกด้าน ถ้าใส่ borderRadius คู่กับขอบหลายสี
         // Flutter จะ assert ตอน paint แล้วการ์ดทั้งใบไม่ถูกวาดเลย
         // (layout ยังผ่าน กดโดนอยู่ แต่มองไม่เห็น)
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+        border: Border.all(
+          color: color.withValues(alpha: 0.3),
+          width: AppSizes.cardBorder,
+        ),
       ),
       child: Stack(
         children: [
@@ -262,14 +265,17 @@ class ScanPhotoBox extends StatelessWidget {
 
     return InkWell(
       onTap: enabled ? onTap : null,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(AppSizes.cardRadius),
       child: Container(
         height: 180,
         width: double.infinity,
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: borderColor, width: hasBarcode ? 1.5 : 1),
+          borderRadius: BorderRadius.circular(AppSizes.cardRadius),
+          border: Border.all(
+            color: borderColor,
+            width: hasBarcode ? 1.5 : AppSizes.cardBorder,
+          ),
           color: hasBarcode
               ? AppColors.success.withValues(alpha: 0.06)
               : scheme.surfaceContainerHighest,

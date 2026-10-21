@@ -7,6 +7,7 @@ import 'package:claim/page/plan/longdo_address_api.dart';
 import 'package:claim/page/plan/route_plan_models.dart';
 import 'package:claim/page/plan/route_road_api.dart';
 import 'package:claim/utils/app_colors.dart';
+import 'package:claim/utils/map_keys.dart';
 
 /// จำนวนจุดแวะที่กูเกิลแมปรับได้ต่อหนึ่งลิงก์
 ///
@@ -119,6 +120,19 @@ class _RouteMapPageState extends State<RouteMapPage> {
   @override
   void initState() {
     super.initState();
+    _start();
+  }
+
+  /// รอคีย์แผนที่ก่อนค่อยขอเส้นทางกับที่อยู่
+  ///
+  /// ปกติคีย์มาถึงตั้งแต่เปิดแอป ([MapKeys.ensureLoaded] ใน main) รอบนี้เลยไม่ได้
+  /// รอจริง ที่ต้องรอคือการเปิดแอปครั้งแรกของเครื่องที่ยังไม่มีคีย์ใน cache
+  /// ไม่รอก็จะขอเส้นทางจาก OSRM และไม่หาที่อยู่ ทั้งที่อีกอึดใจคีย์ก็มา
+  Future<void> _start() async {
+    await MapKeys.ensureLoaded();
+    if (!mounted) return;
+    // แผนที่วาดไปก่อนด้วย OSM แล้ว ได้คีย์ Longdo มาก็ต้องวาดใหม่
+    setState(() {});
     _loadRoad();
     _loadMissingAddresses();
   }
@@ -127,7 +141,7 @@ class _RouteMapPageState extends State<RouteMapPage> {
   ///
   /// ทุกวิธีเรียงใช้จุดชุดเดียวกัน หาจากวิธีที่เปิดมาครั้งเดียวพอ
   Future<void> _loadMissingAddresses() async {
-    if (kLongdoApiKey.isEmpty) return;
+    if (MapKeys.longdo.isEmpty) return;
 
     for (final group in _route.order) {
       if (group.first.address.trim().isNotEmpty) continue;
@@ -269,10 +283,10 @@ class _RouteMapPageState extends State<RouteMapPage> {
                 ),
                 children: [
                   TileLayer(
-                    urlTemplate: kLongdoApiKey.isEmpty
+                    urlTemplate: MapKeys.longdo.isEmpty
                         ? 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
                         : kLongdoTileUrl,
-                    additionalOptions: const {'key': kLongdoApiKey},
+                    additionalOptions: {'key': MapKeys.longdo},
                     // OSM ขอให้บอกว่าแอปไหนเรียกใช้ ไม่ใส่เสี่ยงโดนบล็อก
                     userAgentPackageName: 'com.thaiparcels.claim',
                   ),
@@ -472,10 +486,10 @@ class _RouteMapPageState extends State<RouteMapPage> {
           const SizedBox(height: 2),
           Text(
             [
-              kLongdoApiKey.isEmpty
+              MapKeys.longdo.isEmpty
                   ? 'แผนที่จาก OpenStreetMap'
                   : 'แผนที่จาก Longdo Map',
-              if (kOrsApiKey.isNotEmpty) 'เส้นทางจาก openrouteservice',
+              if (MapKeys.ors.isNotEmpty) 'เส้นทางจาก openrouteservice',
             ].join(' · '),
             style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant),
           ),

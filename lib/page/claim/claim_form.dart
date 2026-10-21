@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/foundation.dart';
+import 'package:claim/utils/app_colors.dart';
 import 'package:claim/utils/app_icons.dart';
 import 'image_utils.dart';
 import '../../widgets/image_widgets.dart';
@@ -286,22 +287,32 @@ Future<ClaimFormResult?> showClaimFormDialog(
                             Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
+                                // ยิ่งรูปครบ สียิ่งไล่จากสีรอ (ยังไม่พอ) ไปสีสำเร็จ
                                 color: claimImages.isEmpty
                                     ? Theme.of(context).colorScheme.surface
                                     : Color.lerp(
-                                        Colors.yellow[100],
-                                        Colors.green[100],
+                                        AppColors.pending.withValues(
+                                          alpha: 0.12,
+                                        ),
+                                        AppColors.success.withValues(
+                                          alpha: 0.12,
+                                        ),
                                         claimImages.length / 6.0,
                                       ),
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(
+                                  AppSizes.innerRadius,
+                                ),
                                 border: Border.all(
                                   color: claimImages.isEmpty
-                                      ? Theme.of(
-                                          context,
-                                        ).colorScheme.outline.withOpacity(0.3)
+                                      ? Theme.of(context).colorScheme.outline
+                                            .withValues(alpha: 0.3)
                                       : Color.lerp(
-                                          Colors.yellow[300]!,
-                                          Colors.green[300]!,
+                                          AppColors.pending.withValues(
+                                            alpha: 0.4,
+                                          ),
+                                          AppColors.success.withValues(
+                                            alpha: 0.4,
+                                          ),
                                           claimImages.length / 6.0,
                                         )!,
                                 ),
@@ -316,8 +327,8 @@ Future<ClaimFormResult?> showClaimFormDialog(
                                             context,
                                           ).colorScheme.onSurfaceVariant
                                         : Color.lerp(
-                                            Colors.orange[600],
-                                            Colors.green[700],
+                                            AppColors.pending,
+                                            AppColors.success,
                                             claimImages.length / 6.0,
                                           ),
                                     size: 20,
@@ -330,9 +341,11 @@ Future<ClaimFormResult?> showClaimFormDialog(
                                           ? Theme.of(
                                               context,
                                             ).colorScheme.onSurfaceVariant
+                                          // ตัวหนังสือใช้สีสถานะเวอร์ชันเข้ม
+                                          // ส้ม/เขียวสดบนพื้นอ่อนอ่านยากที่ขนาด 14
                                           : Color.lerp(
-                                              Colors.orange[700],
-                                              Colors.green[700],
+                                              AppColors.pendingText,
+                                              AppColors.successText,
                                               claimImages.length / 6.0,
                                             ),
                                       fontSize: 14,
@@ -445,7 +458,7 @@ Future<ClaimFormResult?> showClaimFormDialog(
                                                           'เกิดข้อผิดพลาดในการประมวลผลรูปภาพ',
                                                         ),
                                                         backgroundColor:
-                                                            Colors.red,
+                                                            AppColors.danger,
                                                         duration:
                                                             const Duration(
                                                               seconds: 3,
@@ -469,7 +482,8 @@ Future<ClaimFormResult?> showClaimFormDialog(
                                                   content: const Text(
                                                     'เกิดข้อผิดพลาดในการเปิดกล้อง',
                                                   ),
-                                                  backgroundColor: Colors.red,
+                                                  backgroundColor:
+                                                      AppColors.danger,
                                                   duration: const Duration(
                                                     seconds: 2,
                                                   ),
@@ -486,8 +500,14 @@ Future<ClaimFormResult?> showClaimFormDialog(
                                       ? null
                                       : () async {
                                           try {
-                                            final List<XFile>? images =
-                                                await picker.pickMultiImage();
+                                            final List<XFile>?
+                                            images = await picker.pickMultiImage(
+                                              // ให้ระบบย่อรูปตั้งแต่ตอนเลือก (ตัวถอดรหัสของเครื่อง เร็วกว่าย่อเองในแอปมาก)
+                                              // ด้านยาวไม่เกิน 720 ตรงกับขนาดที่ส่งจริง ขั้นประมวลผลต่อจากนี้จึงข้ามไปได้
+                                              maxWidth: 720,
+                                              maxHeight: 720,
+                                              imageQuality: 85,
+                                            );
                                             if (images != null &&
                                                 images.isNotEmpty) {
                                               final int remainingSlots =
@@ -506,7 +526,7 @@ Future<ClaimFormResult?> showClaimFormDialog(
                                                         'ไม่สามารถเพิ่มรูปภาพได้อีกแล้ว (จำกัด 6 รูป)',
                                                       ),
                                                       backgroundColor:
-                                                          Colors.orange,
+                                                          AppColors.pending,
                                                     ),
                                                   );
                                                 }
@@ -602,7 +622,7 @@ Future<ClaimFormResult?> showClaimFormDialog(
                                                         'เกิดข้อผิดพลาดในการประมวลผลรูปภาพ',
                                                       ),
                                                       backgroundColor:
-                                                          Colors.red,
+                                                          AppColors.danger,
                                                       duration: const Duration(
                                                         seconds: 3,
                                                       ),
@@ -623,7 +643,8 @@ Future<ClaimFormResult?> showClaimFormDialog(
                                                   content: const Text(
                                                     'เกิดข้อผิดพลาดในการเลือกภาพ',
                                                   ),
-                                                  backgroundColor: Colors.red,
+                                                  backgroundColor:
+                                                      AppColors.danger,
                                                   duration: const Duration(
                                                     seconds: 2,
                                                   ),

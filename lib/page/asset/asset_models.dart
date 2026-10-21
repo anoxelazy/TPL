@@ -77,7 +77,6 @@ class AssetLookup {
   String get detailLabel => label == code ? code : '$label ($code)';
 }
 
-
 /// ข้อความบอกว่ารหัสผิดตรงไหน คืน null เมื่อใช้ได้
 ///
 /// [label] คือชื่อช่องที่เอาไปขึ้นต้นข้อความ ใช้ร่วมกันได้ทั้งรหัสทรัพย์สินและ
@@ -628,10 +627,12 @@ List<AssetLogEvent> groupAssetLog(List<AssetLogEntry> entries) {
       entry.actionType,
     ].join('|');
 
-    grouped.putIfAbsent(key, () {
-      order.add(key);
-      return <AssetLogEntry>[];
-    }).add(entry);
+    grouped
+        .putIfAbsent(key, () {
+          order.add(key);
+          return <AssetLogEntry>[];
+        })
+        .add(entry);
   }
 
   return [
@@ -854,9 +855,6 @@ Map<String, dynamic> buildAssetUpdatePayload({
 String? assetChangeNoteError(String value) =>
     assetRequiredError(value, label: 'เหตุผล', max: kAssetChangeNoteMax);
 
-
-
-
 /// สาขา 1 แห่งจาก `/api/AssetTransfer/branch`
 ///
 /// ลิสต์ทั้งก้อนมี 260 สาขา (~66 KB) เล็กพอจะโหลดครั้งเดียวแล้วกรองในเครื่อง
@@ -1040,7 +1038,6 @@ class AssetApprover {
   }
 }
 
-
 /// แผนกพร้อมผู้อนุมัติทั้งชุด จาก `/api/AssetTransfer/approvers/summary`
 ///
 /// เส้นนี้ให้ทุกอย่างที่หน้าตั้งผู้อนุมัติต้องใช้ในคำขอเดียว ไม่ต้องยิง
@@ -1076,7 +1073,8 @@ class AssetDeptApprovers {
   factory AssetDeptApprovers.fromJson(Map<String, dynamic> json) {
     final rows = [
       for (final item in _list(_raw(json, const ['approvers'])))
-        if (item is Map) AssetApprover.fromJson(Map<String, dynamic>.from(item)),
+        if (item is Map)
+          AssetApprover.fromJson(Map<String, dynamic>.from(item)),
     ].where((e) => e.id.isNotEmpty).toList();
 
     rows.sort((a, b) => a.order.compareTo(b.order));
@@ -1157,7 +1155,10 @@ Map<String, dynamic> buildApproverUpdatePayload({
   final payload = <String, dynamic>{};
 
   if (order != null) {
-    payload['approve_order'] = order.clamp(kApproverOrderMin, kApproverOrderMax);
+    payload['approve_order'] = order.clamp(
+      kApproverOrderMin,
+      kApproverOrderMax,
+    );
   }
   if (validFrom != null) payload['valid_from'] = assetDateText(validFrom);
   if (validTo != null) payload['valid_to'] = assetDateText(validTo);

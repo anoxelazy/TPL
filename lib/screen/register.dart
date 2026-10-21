@@ -32,10 +32,7 @@ class _RegisterPageState extends State<RegisterPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('ลงทะเบียน'),
-        backgroundColor: Colors.green,
-      ),
+      appBar: AppBar(title: const Text('ลงทะเบียน')),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
@@ -62,11 +59,7 @@ class _RegisterPageState extends State<RegisterPage> {
               height: 50,
               child: ElevatedButton(
                 onPressed: _register,
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                child: const Text(
-                  'ลงทะเบียน',
-                  style: TextStyle(fontSize: 18, color: Colors.white),
-                ),
+                child: const Text('ลงทะเบียน', style: TextStyle(fontSize: 18)),
               ),
             ),
           ],

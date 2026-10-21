@@ -9,13 +9,6 @@ import 'package:intl/intl.dart';
 
 import 'package:claim/utils/app_colors.dart';
 
-/// เทาอ่อนของสถานะตั้งต้น กับเทาเข้มของสถานะที่ยังไม่ได้จัดกลุ่ม
-///
-/// ไม่ดึงจาก colorScheme เพราะ seed ของแอปเป็นเขียว ทุกโทนที่ได้จะกลืนกับ
-/// สีของสถานะ "ส่งถึง" จนแยกไม่ออก
-const Color _grey = Color(0xFF9CA3AF);
-const Color _greyDark = Color(0xFF4B5563);
-
 /// สีประจำสถานะ เลือกจาก [statusId] เท่านั้น
 ///
 /// ห้ามใช้ค่านี้ตัดสินใจว่าจะแสดงข้อความอะไร ชื่อสถานะต้องมาจาก
@@ -24,10 +17,14 @@ const Color _greyDark = Color(0xFF4B5563);
 /// สถานะ 1-5 เป็นขั้นตอนกลางทาง (คีย์เอกสาร เข้าคลัง ส่งต่อศูนย์) ตกมาที่
 /// เทาเข้มตามค่าเริ่มต้น เพราะเป็นเรื่องปกติที่ไม่ต้องดึงสายตา ส่วนรหัสที่
 /// ไม่รู้จัก (เซิร์ฟเวอร์เพิ่มสถานะใหม่) ก็ตกมาที่เดียวกัน ไม่พัง
-Color trackingStatusColor(String? statusId) {
+///
+/// เทาสองโทน (ตั้งต้น / ยังไม่จัดกลุ่ม) เอามาจาก [scheme] ได้ เพราะธีมตั้ง
+/// เส้นขอบกับตัวหนังสือรองเป็นเทากลางไว้แล้ว ไม่ออกเขียวตาม seed จนกลืนกับ
+/// สถานะ "ส่งถึง" และเปลี่ยนตามโหมดมืดให้เอง
+Color trackingStatusColor(String? statusId, ColorScheme scheme) {
   switch (statusId?.trim().toUpperCase()) {
     case 'B00':
-      return _grey;
+      return scheme.outline;
     case '6':
       return AppColors.stageOrigin;
     case '6-1':
@@ -41,7 +38,7 @@ Color trackingStatusColor(String? statusId) {
     case '9':
       return AppColors.danger;
     default:
-      return _greyDark;
+      return scheme.onSurfaceVariant;
   }
 }
 

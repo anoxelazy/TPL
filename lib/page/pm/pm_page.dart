@@ -167,13 +167,13 @@ class _PmPageState extends State<PmPage> {
     if (saved == true) await _load();
   }
 
-  /// สีธีมของหน้าตามตัวกรองที่เลือกอยู่ ไม่ได้กรองจะใช้สีแถบหัวเรื่องปกติ
+  /// สีเน้นของเนื้อหาตามตัวกรองที่เลือกอยู่ ไม่ได้กรองใช้เขียวแบรนด์
   ///
-  /// ทำแบบเดียวกับหน้าสถานะคลังสินค้า ให้ทั้งแอปรู้สึกเป็นระบบเดียวกัน
+  /// ทำแบบเดียวกับหน้าสถานะคลังสินค้า: แถบหัวเรื่องเป็นสีปกติของธีม
+  /// สีของตัวกรองเหลือแค่ในเนื้อหา
   Color _accentColor() {
     final theme = Theme.of(context);
     return _filterColor(_filter, theme.colorScheme) ??
-        theme.appBarTheme.backgroundColor ??
         theme.colorScheme.primary;
   }
 
@@ -182,34 +182,7 @@ class _PmPageState extends State<PmPage> {
     final accent = _accentColor();
 
     return Scaffold(
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(kToolbarHeight),
-        // ไล่สีตอนสลับตัวกรอง ไม่ให้แถบกระโดดเปลี่ยนสีทันที
-        child: TweenAnimationBuilder<Color?>(
-          tween: ColorTween(end: accent),
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-          builder: (context, color, _) {
-            final background = color ?? accent;
-            // สีส้มต้องใช้ตัวหนังสือสีเข้มถึงจะอ่านออก ต่างจากเขียว/เทา
-            final foreground =
-                ThemeData.estimateBrightnessForColor(background) ==
-                    Brightness.dark
-                ? Colors.white
-                : Colors.black87;
-
-            return AppBar(
-              title: const Text('PM ประจำปี'),
-              backgroundColor: background,
-              foregroundColor: foreground,
-              titleTextStyle: Theme.of(
-                context,
-              ).appBarTheme.titleTextStyle?.copyWith(color: foreground),
-              iconTheme: IconThemeData(color: foreground),
-            );
-          },
-        ),
-      ),
+      appBar: AppBar(title: const Text('PM ประจำปี')),
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
         behavior: HitTestBehavior.translucent,
@@ -237,7 +210,7 @@ class _PmPageState extends State<PmPage> {
         padding: const EdgeInsets.fromLTRB(12, 6, 8, 6),
         decoration: BoxDecoration(
           color: scheme.surfaceContainerHighest.withValues(alpha: 0.6),
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(AppSizes.pillRadius),
           border: Border.all(color: scheme.outlineVariant),
         ),
         child: Row(
@@ -446,11 +419,11 @@ class _PmPageState extends State<PmPage> {
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(vertical: 12),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(AppSizes.innerRadius),
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(AppSizes.innerRadius),
           borderSide: BorderSide.none,
         ),
       ),
@@ -487,7 +460,7 @@ class _PmTile extends StatelessWidget {
             height: 42,
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(AppSizes.innerRadius),
             ),
             child: Icon(Icons.desktop_windows_outlined, size: 20, color: color),
           ),
@@ -555,7 +528,7 @@ class _PmTile extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(AppSizes.pillRadius),
             ),
             child: Text(
               label,

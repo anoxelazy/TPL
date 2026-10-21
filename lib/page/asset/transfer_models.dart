@@ -39,10 +39,11 @@ const String kReceiveDamaged = 'RECEIVED_DAMAGED';
 const String kReceiveNotArrived = 'NOT_ARRIVED';
 const String kReceiveRejected = 'REJECTED';
 
-/// ผลการรับพร้อมคำอธิบายไทย เรียงตามที่คนกดน่าจะเลือกบ่อยสุดลงไปหาน้อยสุด
+/// ผลการรับพร้อมคำอธิบายไทย ชื่อตามชีต "สถานะ" ของ Workflow v2.0
+/// เรียงตามที่คนกดน่าจะเลือกบ่อยสุดลงไปหาน้อยสุด
 const Map<String, String> kReceiveOutcomes = {
-  kReceiveOk: 'รับปกติ',
-  kReceiveDamaged: 'รับไว้แต่ชำรุด',
+  kReceiveOk: 'ได้รับปกติ',
+  kReceiveDamaged: 'ได้รับแต่ชำรุด',
   kReceiveNotArrived: 'ของไม่มาถึง',
   kReceiveRejected: 'ปฏิเสธการรับ',
 };
@@ -50,6 +51,17 @@ const Map<String, String> kReceiveOutcomes = {
 /// ผลการรับที่แปลว่ามีปัญหา ต้องเด่นกว่าปกติบนหน้าจอ
 bool transferOutcomeIsProblem(String outcome) =>
     outcome.isNotEmpty && outcome.toUpperCase() != kReceiveOk;
+
+/// ผลการรับที่ต้องมีหมายเหตุ — ของชำรุดกับของไม่มาถึงเท่านั้น
+///
+/// ตรงกับ CHECK `ck_dtl_note` ของฐานข้อมูล (Workflow v2.0 กฎข้อ 8): ไม่มี
+/// คำอธิบายก็ไม่มีอะไรไปเรียกค่าเสียหายจากผู้ขนส่ง ส่วนปฏิเสธการรับไม่บังคับ
+/// ของยังอยู่ IN_TRANSIT แล้วส่งกลับต้นทาง
+bool transferOutcomeNeedsNote(String outcome) =>
+    switch (outcome.toUpperCase()) {
+      kReceiveDamaged || kReceiveNotArrived => true,
+      _ => false,
+    };
 
 /// ทรัพย์สิน 1 ชิ้นในใบโอนย้าย
 ///

@@ -16,6 +16,7 @@ import 'package:claim/page/asset/asset_style.dart';
 import 'package:claim/page/asset/transfer_api.dart';
 import 'package:claim/page/asset/transfer_asset_picker.dart';
 import 'package:claim/page/asset/transfer_models.dart';
+import 'package:claim/page/asset/transfer_style.dart';
 import 'package:claim/utils/app_colors.dart';
 import 'package:claim/utils/mobile_api.dart';
 
@@ -88,11 +89,12 @@ class _TransferCreatePageState extends State<TransferCreatePage> {
   }
 
   Future<void> _pickCustodian() async {
-    // กรองเหลือคนที่เซ็นรับได้จริง เลือกคนที่ไม่มีสิทธิ์ไป ใบจะไปค้างตอนรับของ
+    // ไม่กรองด้วยสิทธิ์ TRANSFER_RECEIVE — ตาม Workflow v2.0 ผู้รับโอนไม่ต้องมี
+    // สิทธิ์นั้น ถูกระบุชื่อบนใบคืออำนาจในตัวเอง เคยกรองไว้แล้วพนักงานส่วนใหญ่
+    // เลยเลือกเป็นผู้รับไม่ได้
     final employee = await pickAssetEmployee(
       context,
       currentId: _toCustodian,
-      permCode: kAssetPermTransferReceive,
       title: 'เลือกผู้รับปลายทาง',
     );
     if (employee == null) return;
@@ -234,9 +236,15 @@ class _TransferCreatePageState extends State<TransferCreatePage> {
           key: _formKey,
           autovalidateMode: AutovalidateMode.onUserInteraction,
           child: ListView(
-            padding: const EdgeInsets.only(bottom: 24),
+            padding: AppSizes.pagePadding,
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            children: [_assetSection(), _toSection(), _reasonSection()],
+            children: [
+              _assetSection(),
+              const SizedBox(height: AppSizes.gap),
+              _toSection(),
+              const SizedBox(height: AppSizes.gap),
+              _reasonSection(),
+            ],
           ),
         ),
       ),
@@ -247,22 +255,43 @@ class _TransferCreatePageState extends State<TransferCreatePage> {
   Widget _assetSection() {
     final scheme = Theme.of(context).colorScheme;
 
-    return AssetSection(
+    return TransferSection(
       title: 'ทรัพย์สินที่จะย้าย',
-      note: _assets.isEmpty ? null : 'เลือกไว้ ${_assets.length} ชิ้น',
+      trailing: _assets.isEmpty ? null : 'เลือกไว้ ${_assets.length} ชิ้น',
       children: [
         if (_assets.isEmpty)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 4),
-            child: Text(
-              'ยังไม่ได้เลือกทรัพย์สิน',
-              style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 18),
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(AppSizes.innerRadius),
+            ),
+            child: Column(
+              children: [
+                Icon(
+                  Icons.inventory_2_outlined,
+                  size: 28,
+                  color: scheme.onSurfaceVariant,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'ยังไม่ได้เลือกทรัพย์สิน',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
             ),
           )
         else
           for (final asset in _assets) _assetRow(asset),
-        const SizedBox(height: 4),
+        const SizedBox(height: 10),
         OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size.fromHeight(44),
+          ),
           onPressed: _saving ? null : _pickAssets,
           icon: const Icon(Icons.add, size: 18),
           label: Text(_assets.isEmpty ? 'เลือกทรัพย์สิน' : 'แก้ไขรายการ'),
@@ -278,6 +307,20 @@ class _TransferCreatePageState extends State<TransferCreatePage> {
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: AppColors.brand.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(AppSizes.innerRadius),
+            ),
+            child: const Icon(
+              Icons.inventory_2_outlined,
+              size: 18,
+              color: AppColors.brandText,
+            ),
+          ),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -328,7 +371,7 @@ class _TransferCreatePageState extends State<TransferCreatePage> {
   Widget _toSection() {
     final scheme = Theme.of(context).colorScheme;
 
-    return AssetSection(
+    return TransferSection(
       title: 'ปลายทาง',
       children: [
         SegmentedButton<bool>(
@@ -350,12 +393,12 @@ class _TransferCreatePageState extends State<TransferCreatePage> {
               ? null
               : (selection) => _setNoCustodian(selection.first),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 14),
         if (_noCustodian)
           ..._noCustodianFields(scheme)
         else
           ..._custodianFields(scheme),
-        const SizedBox(height: 8),
+        const SizedBox(height: 14),
         _dateRow(),
       ],
     );
@@ -378,6 +421,7 @@ class _TransferCreatePageState extends State<TransferCreatePage> {
               _toBranch = null;
             }),
     ),
+    const SizedBox(height: 12),
     AssetPickerField(
       label: 'แผนกปลายทาง',
       hint: 'แตะเพื่อเลือกแผนก',
@@ -415,21 +459,31 @@ class _TransferCreatePageState extends State<TransferCreatePage> {
       onTap: _pickCustodian,
       onClear: _toCustodian.isEmpty ? null : _clearCustodian,
     ),
+    // ไม่บอกว่าใครอนุมัติ — ผู้อนุมัติคือของแผนกผู้ขอ ไม่ใช่แผนกปลายทาง
+    // เคยเขียนผิดว่าเป็นแผนกปลายทางจนคนเข้าใจผิด
     if (_toCustodian.isNotEmpty)
-      Padding(
-        padding: const EdgeInsets.only(top: 6),
-        child: Text(
-          [
-            // ไม่บอกว่าใครอนุมัติ — ผู้อนุมัติคือของแผนกผู้ขอ ไม่ใช่แผนก
-            // ปลายทาง เคยเขียนผิดว่าเป็นแผนกปลายทางจนคนเข้าใจผิด
-            'สาขาปลายทาง ${_placeLabel(_toBranch?.name ?? '', _toSiteId)}',
-            'แผนกปลายทาง ${_placeLabel(_toDeptName, _toDeptCode)}',
-          ].join('\n'),
-          style: TextStyle(
-            fontSize: 12,
-            height: 1.4,
-            color: scheme.onSurfaceVariant,
-          ),
+      Container(
+        width: double.infinity,
+        margin: const EdgeInsets.only(top: 8),
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+        decoration: BoxDecoration(
+          color: AppColors.brand.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(AppSizes.innerRadius),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TransferMeta(
+              icon: Icons.store_outlined,
+              text:
+                  'สาขาปลายทาง ${_placeLabel(_toBranch?.name ?? '', _toSiteId)}',
+            ),
+            const SizedBox(height: 4),
+            TransferMeta(
+              icon: Icons.groups_outlined,
+              text: 'แผนกปลายทาง ${_placeLabel(_toDeptName, _toDeptCode)}',
+            ),
+          ],
         ),
       ),
   ];
@@ -440,7 +494,8 @@ class _TransferCreatePageState extends State<TransferCreatePage> {
 
     return InkWell(
       onTap: _saving ? null : _pickDate,
-      borderRadius: BorderRadius.circular(8),
+      // ให้เงาตอนแตะโค้งเท่ากรอบช่องกรอกของธีม
+      borderRadius: BorderRadius.circular(AppSizes.innerRadius),
       child: InputDecorator(
         decoration: const InputDecoration(
           labelText: 'วันที่คาดว่าของจะถึง',
@@ -457,10 +512,9 @@ class _TransferCreatePageState extends State<TransferCreatePage> {
     );
   }
 
-  Widget _reasonSection() => AssetSection(
+  Widget _reasonSection() => TransferSection(
     title: 'เหตุผลและเอกสารอ้างอิง',
     note: 'เหตุผลจะไปอยู่ในใบให้ผู้อนุมัติอ่าน',
-    divider: false,
     children: [
       TextFormField(
         controller: _reason,
@@ -474,6 +528,7 @@ class _TransferCreatePageState extends State<TransferCreatePage> {
         ),
         validator: (value) => transferReasonError(value ?? ''),
       ),
+      const SizedBox(height: 12),
       TextFormField(
         controller: _crNo,
         enabled: !_saving,

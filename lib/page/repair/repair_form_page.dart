@@ -196,8 +196,6 @@ class _RepairFormPageState extends State<RepairFormPage> {
             FilledButton.icon(
               onPressed: _canSend ? _send : null,
               style: FilledButton.styleFrom(
-                backgroundColor: AppColors.repairIcon,
-                foregroundColor: Colors.white,
                 minimumSize: const Size.fromHeight(48),
               ),
               icon: _sending
@@ -273,12 +271,12 @@ class _RepairFormPageState extends State<RepairFormPage> {
   Widget _pickPrompt(ColorScheme scheme) {
     return InkWell(
       onTap: _pick,
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(AppSizes.innerRadius),
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(AppSizes.innerRadius),
           border: Border.all(color: scheme.outlineVariant),
           color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
         ),
@@ -388,7 +386,7 @@ class _RepairFormPageState extends State<RepairFormPage> {
 
           if (photo != null) ...[
             ClipRRect(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(AppSizes.innerRadius),
               child: LocalImageView(
                 file: photo,
                 height: 160,
@@ -496,7 +494,7 @@ class _RepairFormPageState extends State<RepairFormPage> {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(AppSizes.innerRadius),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
