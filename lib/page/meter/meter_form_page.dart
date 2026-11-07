@@ -9,9 +9,7 @@ import 'package:claim/page/meter/meter_controller.dart';
 import 'package:claim/page/meter/meter_result_page.dart';
 import 'package:claim/page/meter/meter_widgets.dart';
 
-/// หน้าบันทึกรายได้ชดเชยค่าน้ำมัน
-///
-/// ต้องมีสิทธิ์ module [meterModule] จึงเข้าใช้งานได้
+
 class MeterPage extends StatefulWidget {
   const MeterPage({super.key});
 
@@ -27,7 +25,7 @@ class _MeterPageState extends State<MeterPage> {
   final TextEditingController _startField = TextEditingController();
   final TextEditingController _endField = TextEditingController();
 
-  // ผูก focus ไว้เพื่อเด้ง cursor ไปช่องต่อไปให้เองหลังสแกน QR ติด
+
   final FocusNode _driverFocus = FocusNode();
   final FocusNode _truckFocus = FocusNode();
   final FocusNode _meterFocus = FocusNode();
@@ -53,8 +51,6 @@ class _MeterPageState extends State<MeterPage> {
     super.dispose();
   }
 
-  /// ข้อมูลเดิมที่โหลดมาต้องเด้งกลับเข้าช่องกรอกให้ผู้ใช้เห็น
-  /// เทียบก่อนเขียนทับ ไม่งั้น cursor จะกระโดดทุกครั้งที่พิมพ์
   void _onControllerChanged() {
     _syncField(_startField, _c.startMeter);
     _syncField(_endField, _c.endMeter);
@@ -80,13 +76,26 @@ class _MeterPageState extends State<MeterPage> {
     final problem = await _c.attachImage(side, file);
     if (!mounted || problem == null) return;
 
-    if (problem is MeterGpsError) {
-      _snack(problem.message, error: true);
+    if (problem is MeterBranchBlock) {
+      await _showBlock(problem);
       return;
     }
     if (problem is MeterApiException) {
       _snack(problem.message, error: true);
     }
+  }
+
+  /// แจ้งว่าบันทึกต่อไม่ได้เพราะเงื่อนไขตำแหน่งสาขา ไอคอนเลือกตามสาเหตุ
+  Future<void> _showBlock(MeterBranchBlock block) {
+    final icon = switch (block.kind) {
+      MeterBlockKind.noBranchData => Icons.sync_problem,
+      MeterBlockKind.permission || MeterBlockKind.gpsOff =>
+        Icons.location_disabled,
+      MeterBlockKind.noFix || MeterBlockKind.weakSignal => Icons.gps_not_fixed,
+      MeterBlockKind.mocked => Icons.gpp_bad_outlined,
+      MeterBlockKind.outside => Icons.location_off_outlined,
+    };
+    return _alert(block.message, title: block.title, icon: icon);
   }
 
   Future<void> _save() async {
@@ -102,7 +111,14 @@ class _MeterPageState extends State<MeterPage> {
       return;
     }
 
-    // ช่วงเช้าจบที่ dialog ช่วงเย็นถึงจะไปหน้าสรุปผล
+    // เช็คสาขาซ้ำด้วย GPS ใหม่ (ระหว่างนี้ปุ่มขึ้น "กำลังบันทึก...")
+    final block = await _c.verifyBranchForSave();
+    if (!mounted) return;
+    if (block != null) {
+      await _showBlock(block);
+      return;
+    }
+
     final goToResult = _c.phase == MeterPhase.evening;
 
     try {
@@ -127,7 +143,6 @@ class _MeterPageState extends State<MeterPage> {
     }
   }
 
-  /// ข้อมูลครบแล้วยังขอผลย้อนหลังได้ /InputMeter เป็นที่เดียวที่คืนตัวเลขเงิน
   Future<void> _viewResult() async {
     try {
       final result = await _c.save();
@@ -144,7 +159,6 @@ class _MeterPageState extends State<MeterPage> {
       context,
     ).push(MaterialPageRoute(builder: (_) => MeterResultPage(result: result)));
     if (!mounted) return;
-    // กลับมาแล้วเช็คสถานะใหม่ เผื่อฝั่งเซิร์ฟเวอร์เปลี่ยนไปแล้ว
     await _c.checkExisting();
   }
 
@@ -220,8 +234,6 @@ class _MeterPageState extends State<MeterPage> {
               child: Text(
                 'วันที่ ${DateFormat('d MMMM y', 'th').format(DateTime.now())}'
                 '${_c.recorderName.isEmpty ? '' : ' · ${_c.recorderName}'}',
-                // พื้นหลังตรงนี้เป็นแถบสีของ AppBar ไม่ใช่พื้นขาวของหน้า
-                // ต้องใช้สีตัวหนังสือของ AppBar ไม่งั้นจมหายไปกับพื้น
                 style: TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w500,

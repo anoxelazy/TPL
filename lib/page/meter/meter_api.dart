@@ -256,6 +256,9 @@ Future<MeterDay?> fetchTodayMeter({
       'driverID': driverId,
       'TruckID': truckId,
     },
+    // เซิร์ฟเวอร์ตอบ 404 เมื่อวันนี้ยังไม่มีข้อมูล ซึ่งเป็นเรื่องปกติ
+    // ไม่ใช่ error ที่ต้องให้ผู้ใช้กดลองใหม่
+    notFoundIsEmpty: true,
   );
 
   final list = _asList(data);
@@ -357,6 +360,7 @@ Future<dynamic> _post({
   required String token,
   required Map<String, dynamic> body,
   Map<String, dynamic>? logData,
+  bool notFoundIsEmpty = false,
 }) async {
   try {
     final response = await dio.post(
@@ -370,8 +374,14 @@ Future<dynamic> _post({
         },
         receiveTimeout: _apiTimeout,
         sendTimeout: _apiTimeout,
+        // ไม่ใช้ค่าเริ่มต้นของ dio ที่โยน error เมื่อได้ 404
+        validateStatus: notFoundIsEmpty
+            ? (status) => status != null && (status == 404 || status < 400)
+            : null,
       ),
     );
+
+    if (notFoundIsEmpty && response.statusCode == 404) return null;
 
     await AppLogger.I.log(
       'meter_api_ok',

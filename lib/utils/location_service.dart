@@ -38,8 +38,22 @@ class LocationResult {
   final GeoPoint? point;
   final LocationFailure? failure;
 
-  const LocationResult.success(GeoPoint this.point) : failure = null;
-  const LocationResult.failed(LocationFailure this.failure) : point = null;
+  /// ความคลาดเคลื่อนของพิกัดเป็นเมตร (ยิ่งมากยิ่งไม่แม่น) มีเฉพาะตอนสำเร็จ
+  final double accuracy;
+
+  /// เครื่องแจ้งว่าตำแหน่งนี้มาจากแอปปลอมตำแหน่ง (Mock location)
+  /// iOS ไม่มีข้อมูลนี้ จะเป็น false เสมอ
+  final bool isMocked;
+
+  const LocationResult.success(
+    GeoPoint this.point, {
+    this.accuracy = 0,
+    this.isMocked = false,
+  }) : failure = null;
+  const LocationResult.failed(LocationFailure this.failure)
+    : point = null,
+      accuracy = 0,
+      isMocked = false;
 
   bool get isSuccess => point != null;
 }
@@ -56,7 +70,8 @@ class LocationService {
   /// เผื่อเวลาให้เครื่องจับดาวเทียม แต่ไม่ปล่อยให้ผู้ใช้รอไม่จบ
   static const Duration _timeLimit = Duration(seconds: 20);
 
-  Future<LocationResult> current() async {
+  /// [timeLimit] ใช้แทนค่าเริ่มต้น ถ้าอยากให้ผู้ใช้รอสั้นกว่านี้
+  Future<LocationResult> current({Duration timeLimit = _timeLimit}) async {
     try {
       if (!await Geolocator.isLocationServiceEnabled()) {
         return const LocationResult.failed(LocationFailure.serviceDisabled);
@@ -75,14 +90,16 @@ class LocationService {
       }
 
       final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
+        locationSettings: LocationSettings(
           accuracy: LocationAccuracy.high,
-          timeLimit: _timeLimit,
+          timeLimit: timeLimit,
         ),
       );
 
       return LocationResult.success(
         GeoPoint(position.latitude, position.longitude),
+        accuracy: position.accuracy,
+        isMocked: position.isMocked,
       );
     } catch (e) {
       debugPrint('LocationService failed: $e');

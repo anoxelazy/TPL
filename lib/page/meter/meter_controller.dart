@@ -2,9 +2,11 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:geolocator/geolocator.dart';
 
 import 'package:claim/utils/app_logger.dart';
 import 'package:claim/utils/location_service.dart';
+import 'package:claim/utils/permission_service.dart';
 import 'package:claim/page/meter/meter_api.dart';
 
 /// ช่วงของวันที่ฟอร์มกำลังให้กรอก ตัดสินจากผลของ /getmeter
@@ -19,14 +21,46 @@ enum MeterPhase {
   complete,
 }
 
-/// เหตุที่ขอพิกัดไม่ได้ ส่งให้หน้าจอไปขึ้น snackbar
-class MeterGpsError {
-  final LocationFailure failure;
+/// เหตุที่บันทึกเลขไมล์ต่อไม่ได้เพราะเงื่อนไขตำแหน่งสาขา หน้าจอเลือกไอคอนตามชนิด
+enum MeterBlockKind {
+  /// ไม่มีพิกัดสาขา/รัศมีจากตอน login
+  noBranchData,
 
-  const MeterGpsError(this.failure);
+  /// ไม่ได้รับอนุญาตใช้ตำแหน่ง
+  permission,
 
-  String get message =>
-      'ไม่สามารถรับพิกัด GPS ได้ กรุณาถ่ายรูปใหม่หลังจากรับพิกัดเสร็จ';
+  /// ปิด GPS ที่ตัวเครื่อง
+  gpsOff,
+
+  /// ขอพิกัดแล้วไม่ได้ / หมดเวลา
+  noFix,
+
+  /// ตำแหน่งมาจากแอปปลอมตำแหน่ง
+  mocked,
+
+  /// สัญญาณคลาดเคลื่อนมากเกินกว่าจะตัดสินระยะได้
+  weakSignal,
+
+  /// อยู่ไกลจากสาขาเกินระยะที่อนุญาต
+  outside,
+}
+
+/// ผลที่ไม่ผ่านเงื่อนไขตำแหน่งสาขา พร้อมข้อความที่บอกผู้ใช้ได้ตรง ๆ
+class MeterBranchBlock {
+  final MeterBlockKind kind;
+  final String title;
+  final String message;
+
+  const MeterBranchBlock(this.kind, this.title, this.message);
+}
+
+/// ผลของการเช็คว่าอยู่ในพื้นที่สาขา: ผ่านจะมี [point] ไม่ผ่านจะมี [block]
+class BranchCheck {
+  final GeoPoint? point;
+  final MeterBranchBlock? block;
+
+  const BranchCheck.ok(GeoPoint this.point) : block = null;
+  const BranchCheck.blocked(MeterBranchBlock this.block) : point = null;
 }
 
 /// สถานะของรูปไมล์ 1 ช่วง: ไฟล์ที่เลือกในเครื่อง + URL หลังอัปโหลด + พิกัด
@@ -62,6 +96,9 @@ class MeterController extends ChangeNotifier {
 
   /// กันยิง /getmeter รัวทุกตัวอักษรที่พิมพ์
   static const Duration checkDebounce = Duration(milliseconds: 500);
+
+  /// ความยาวขั้นต่ำของรหัสคนขับ/หมายเลขรถก่อนจะเช็คข้อมูลเดิม
+  static const int minIdentityLength = 2;
 
   MeterSession? _session;
 
@@ -162,7 +199,9 @@ class MeterController extends ChangeNotifier {
       phase = MeterPhase.morning;
     }
 
-    if (driverId.isEmpty || truckId.isEmpty) {
+    // พิมพ์ยังไม่ถึง 2 ตัวอักษรไม่ต้องยิงเช็ค รหัสจริงสั้นกว่านี้ไม่มี
+    if (driverId.length < minIdentityLength ||
+        truckId.length < minIdentityLength) {
       _notify();
       return;
     }
@@ -173,7 +212,10 @@ class MeterController extends ChangeNotifier {
 
   /// ยิง /getmeter ทันที ใช้ตอนกลับจากหน้าสรุปผลหรือกดลองใหม่
   Future<void> checkExisting() async {
-    if (driverId.isEmpty || truckId.isEmpty) return;
+    if (driverId.length < minIdentityLength ||
+        truckId.length < minIdentityLength) {
+      return;
+    }
 
     final seq = ++_checkSeq;
     checking = true;
@@ -303,20 +345,18 @@ class MeterController extends ChangeNotifier {
       ..uploading = true;
     _notify();
 
-    final location = await LocationService.I.current();
-    if (!location.isSuccess) {
+    // ต้องอยู่ในพื้นที่สาขาตอนถ่ายรูป ไม่ผ่านจะทิ้งรูปที่เพิ่งเลือก
+    // ผู้ใช้ต้องไปที่สาขาแล้วถ่ายใหม่
+    final check = await locateAtBranch(logSide: side.slug);
+    if (check.block != null) {
       state
         ..clearLocal()
         ..gps = null;
       _notify();
-      await AppLogger.I.log(
-        'meter_gps_failed',
-        data: {'side': side.slug, 'reason': location.failure!.name},
-      );
-      return MeterGpsError(location.failure!);
+      return check.block;
     }
 
-    state.gps = location.point;
+    state.gps = check.point;
     _notify();
 
     try {
@@ -343,6 +383,138 @@ class MeterController extends ChangeNotifier {
       }
       sessionExpired = e.isUnauthorized;
       return e;
+    }
+  }
+
+  // ------------------------------------------------------- ตำแหน่งสาขา
+
+  /// ระยะคลาดเคลื่อนสูงสุดของ GPS ที่ยอมรับ เกินนี้ตัดสินระยะจากสาขาไม่ได้
+  static const double maxAccuracyMeters = 150;
+
+  /// รอพิกัดไม่เกินนี้ ไม่งั้นถือว่าได้ตำแหน่งไม่ทัน
+  static const Duration _fixTimeLimit = Duration(seconds: 15);
+
+  /// ขอพิกัดใหม่แล้วตรวจว่าอยู่ในพื้นที่สาขา ใช้ทั้งตอนถ่ายรูปและตอนกดบันทึก
+  ///
+  /// ไม่ผ่านเมื่อ: ไม่มีข้อมูลสาขา (ไม่ปล่อยผ่าน ไม่งั้นคีย์ไมล์ที่ไหนก็ได้),
+  /// ไม่ได้รับอนุญาตใช้ตำแหน่ง, ปิด GPS, ได้ตำแหน่งไม่ทัน 15 วินาที,
+  /// ตำแหน่งถูกปลอม, สัญญาณคลาดเคลื่อนเกิน [maxAccuracyMeters], หรืออยู่ไกลเกินรัศมี
+  Future<BranchCheck> locateAtBranch({String logSide = ''}) async {
+    final branch = PermissionService.I.getBranchLocation();
+    final limit = PermissionService.I.getBranchDistance();
+
+    Future<BranchCheck> blocked(
+      MeterBlockKind kind,
+      String title,
+      String message, {
+      Map<String, Object?> extra = const {},
+    }) async {
+      await AppLogger.I.log(
+        'meter_branch_blocked',
+        data: {'kind': kind.name, 'side': logSide, ...extra},
+      );
+      return BranchCheck.blocked(MeterBranchBlock(kind, title, message));
+    }
+
+    if (branch == null || limit == null) {
+      return blocked(
+        MeterBlockKind.noBranchData,
+        'ไม่พบข้อมูลสาขา',
+        'ยังไม่มีพิกัดสาขาในเครื่อง '
+            'กรุณาออกจากระบบแล้วเข้าสู่ระบบใหม่เพื่อดึงข้อมูลสาขา',
+      );
+    }
+
+    final location = await LocationService.I.current(timeLimit: _fixTimeLimit);
+    if (!location.isSuccess) {
+      switch (location.failure!) {
+        case LocationFailure.serviceDisabled:
+          return blocked(
+            MeterBlockKind.gpsOff,
+            'GPS ปิดอยู่',
+            'กรุณาเปิด GPS ของเครื่อง แล้วลองอีกครั้ง',
+          );
+        case LocationFailure.denied:
+        case LocationFailure.deniedForever:
+          return blocked(
+            MeterBlockKind.permission,
+            'ต้องอนุญาตการใช้ตำแหน่ง',
+            'การบันทึกเลขไมล์ต้องตรวจตำแหน่งว่าอยู่ที่สาขา '
+                'กรุณาเปิดสิทธิ์ตำแหน่งของแอปในการตั้งค่าเครื่อง',
+          );
+        case LocationFailure.unavailable:
+          return blocked(
+            MeterBlockKind.noFix,
+            'รับพิกัด GPS ไม่ได้',
+            'ไปยังที่โล่งแล้วลองอีกครั้ง',
+          );
+      }
+    }
+
+    final point = location.point!;
+
+    if (location.isMocked) {
+      return blocked(
+        MeterBlockKind.mocked,
+        'พบการจำลองตำแหน่ง',
+        'ปิดแอปหรือการตั้งค่าที่ปลอมตำแหน่ง (Mock location) แล้วลองอีกครั้ง',
+      );
+    }
+
+    if (location.accuracy > maxAccuracyMeters) {
+      return blocked(
+        MeterBlockKind.weakSignal,
+        'สัญญาณ GPS ไม่แม่นพอ',
+        'คลาดเคลื่อนประมาณ ${location.accuracy.round()} เมตร '
+            'ไปยังที่โล่งแล้วลองอีกครั้ง',
+        extra: {'accuracy': location.accuracy.round()},
+      );
+    }
+
+    final meters = Geolocator.distanceBetween(
+      point.lat,
+      point.lon,
+      branch.lat,
+      branch.lon,
+    );
+    if (meters > limit) {
+      return blocked(
+        MeterBlockKind.outside,
+        'อยู่นอกพื้นที่สาขา',
+        'ตำแหน่งปัจจุบันอยู่ห่างจากสาขา ${meters.round()} ม. '
+            'บันทึกเลขไมล์ได้ในระยะไม่เกิน ${limit.round()} ม. จากสาขาเท่านั้น',
+        extra: {
+          'meters': meters.round(),
+          'limit': limit.round(),
+          'branch': PermissionService.I.getBranchId() ?? '',
+        },
+      );
+    }
+
+    return BranchCheck.ok(point);
+  }
+
+  /// เช็คสาขาซ้ำตอนกดบันทึกด้วย GPS ใหม่ กันกรณีถ่ายรูปที่สาขาแล้วเดินออกไปบันทึกที่อื่น
+  /// และตั้งพิกัดที่จะส่งไปกับ /InputMeter เป็นตำแหน่ง ณ ตอนบันทึกจริง
+  ///
+  /// คืน null เมื่อผ่าน คืนเหตุผลเมื่อไม่ผ่าน
+  Future<MeterBranchBlock?> verifyBranchForSave() async {
+    saving = true;
+    _notify();
+
+    try {
+      final check = await locateAtBranch(logSide: 'save');
+      if (check.block != null) return check.block;
+
+      final point = check.point!;
+
+      // ไมล์ต้นที่บันทึกไปแล้วตั้งแต่เช้าใช้พิกัดเดิมจากเซิร์ฟเวอร์ ไม่ทับ
+      if (!startLocked) startImage.gps = point;
+      if (endMeter > 0 && !endLocked) endImage.gps = point;
+      return null;
+    } finally {
+      saving = false;
+      _notify();
     }
   }
 
