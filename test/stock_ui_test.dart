@@ -1,5 +1,6 @@
 import 'package:claim/page/stock/stock_api.dart';
 import 'package:claim/page/stock/stock_detail_page.dart';
+import 'package:claim/page/stock/stock_status_style.dart';
 import 'package:claim/widgets/donut_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -19,11 +20,11 @@ BillStockItem billItem({
 });
 
 void main() {
-  // mapping ตัวจริงโหลดจาก status.json ระยะไกล ในเทสต์ต้องใส่ให้เอง
+  // ตารางสถานะตัวจริงโหลดจาก /warehouse/job-statuses ในเทสต์ต้องใส่ให้เอง
   setUp(() {
-    setJobStatusStagesForTest({
-      '3': ShipmentStage.warehouse,
-      '6-1': ShipmentStage.parked,
+    setJobStatusesForTest({
+      '3': '(3) รับสินค้าเข้าคลังรอจัดส่ง',
+      '6-1': '(6-1) พักสินค้า',
     });
   });
 
@@ -164,11 +165,11 @@ void main() {
       expect(find.text('เลือกเหตุผล'), findsNothing);
     });
 
-    testWidgets('status.json โหลดไม่ได้ ก็ยังกันพักซ้ำจากชื่อสถานะ', (
+    testWidgets('ตารางสถานะโหลดไม่ได้ ก็ยังกันพักซ้ำจาก jobstatusid', (
       tester,
     ) async {
-      // จำลองว่า mapping ว่าง (เน็ตล่ม/ไม่มี cache) stage จะเป็น null
-      setJobStatusStagesForTest(const {});
+      // จำลองว่าตารางว่าง (เน็ตล่ม/ไม่มี cache)
+      setJobStatusesForTest(const {});
 
       await tester.pumpWidget(
         MaterialApp(
@@ -183,23 +184,84 @@ void main() {
     });
   });
 
+  group('ชื่อสถานะจาก /warehouse/job-statuses', () {
+    test('displayStatus ตัดรหัสนำหน้าออก เพราะการ์ดแสดงรหัสแยกอยู่แล้ว', () {
+      expect(billItem(jobStatusId: '6-1').displayStatus, 'พักสินค้า');
+      expect(
+        billItem(jobStatusId: '3').displayStatus,
+        'รับสินค้าเข้าคลังรอจัดส่ง',
+      );
+    });
+
+    test('ไม่รู้จัก jobstatusid ใช้ชื่อสถานะที่แถวส่งมาเอง', () {
+      expect(
+        billItem(jobStatusId: '99', statusName: 'สถานะพิเศษ').displayStatus,
+        'สถานะพิเศษ',
+      );
+      expect(billItem(jobStatusId: '99').displayStatus, '-');
+    });
+
+    test('เรียงตามลำดับในรายการจาก API ไม่รู้จักไว้ท้ายสุด', () {
+      expect(jobStatusOrder('3'), lessThan(jobStatusOrder('6-1')));
+      expect(jobStatusOrder('99'), greaterThan(jobStatusOrder('6-1')));
+      expect(jobStatusOrder(null), greaterThan(jobStatusOrder('6-1')));
+    });
+  });
+
+  group('หัวการ์ดสถานะ', () {
+    testWidgets('ชื่อสถานะยาวมากบนจอแคบต้องไม่ล้นแถว', (tester) async {
+      setJobStatusesForTest({
+        '9-8': '(9-8) ส่งสินค้าคืนลูกค้าต้นทางเรียบร้อย (ไม่ผ่านสถานีอื่น)',
+      });
+      tester.view.physicalSize = const Size(320, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Padding(
+              padding: const EdgeInsets.all(16),
+              child: StockBillHeader(item: billItem(jobStatusId: '9-8')),
+            ),
+          ),
+        ),
+      );
+
+      expect(tester.takeException(), isNull);
+      expect(find.textContaining('9-8'), findsWidgets);
+    });
+
+    testWidgets('หน้ารายละเอียดแสดงชื่อสถานะด้วย ไม่ใช่แค่รหัส', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: StockDetailPage(item: billItem(jobStatusId: '3')),
+        ),
+      );
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('รับสินค้าเข้าคลังรอจัดส่ง'), findsOneWidget);
+      
+    });
+  });
+
   group('isParked', () {
-    test('อ่านจาก stage เมื่อ mapping มีข้อมูล', () {
+    test('อ่านจาก jobstatusid', () {
       expect(billItem(jobStatusId: '6-1').isParked, isTrue);
       expect(billItem(jobStatusId: '3').isParked, isFalse);
     });
 
-    test('mapping ว่าง ให้ใช้ชื่อสถานะจาก API แทน', () {
-      setJobStatusStagesForTest(const {});
+    test('ตารางสถานะว่าง ให้ใช้ชื่อสถานะจาก API แทน', () {
+      setJobStatusesForTest(const {});
 
       expect(billItem(statusName: 'พักสินค้า').isParked, isTrue);
       expect(billItem(statusName: 'อยู่ที่คลัง').isParked, isFalse);
-      // ไม่มีทั้ง stage และชื่อสถานะ ต้องไม่เดาว่าพักอยู่ ไม่งั้นพักไม่ได้เลย
+      // ไม่มีทั้ง jobstatusid และชื่อสถานะ ต้องไม่เดาว่าพักอยู่ ไม่งั้นพักไม่ได้เลย
       expect(billItem().isParked, isFalse);
     });
 
-    test('stage ที่รู้จักแล้วมีน้ำหนักกว่าชื่อสถานะ', () {
-      // stage บอกว่าอยู่ที่คลัง แม้ชื่อสถานะจะมีคำว่าพัก ก็ยังพักได้
+    test('ระยะที่รู้จักแล้วมีน้ำหนักกว่าชื่อสถานะ', () {
+      // ระยะบอกว่าอยู่ที่คลัง แม้ชื่อสถานะจะมีคำว่าพัก ก็ยังพักได้
       expect(
         billItem(jobStatusId: '3', statusName: 'รอพักสถานะ').isParked,
         isFalse,

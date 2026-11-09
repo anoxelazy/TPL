@@ -12,7 +12,7 @@ import 'package:claim/utils/dio_service.dart';
 ///
 /// ระวัง: StatusCode ของ endpoint นี้เป็นรหัส "คนละชุด" กับ jobstatusid
 /// ที่ /api/Bill_Stock ส่งกลับมา เลข 2 ของสองชุดจึงคนละความหมายกัน
-/// (jobstatusid 2 = ต้นทาง ดู status.json ที่ kStatusJsonUrl)
+/// (jobstatusid 2 = ต้นทาง ดู kJobStatusesPath ใน stock_api.dart)
 /// อย่าเอาสองชุดมา map ถึงกัน
 ///
 /// ReasonCode ไม่ได้ hardcode ดึงจาก [fetchHoldReasons] ให้ผู้ใช้เลือก

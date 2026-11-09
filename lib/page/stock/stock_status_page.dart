@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:claim/page/stock/shipment_progress.dart';
 import 'package:claim/page/stock/stock_api.dart';
 import 'package:claim/page/stock/stock_detail_page.dart';
+import 'package:claim/page/stock/stock_status_style.dart';
 import 'package:claim/utils/app_colors.dart';
 import 'package:claim/utils/permission_service.dart';
 import 'package:claim/widgets/app_card.dart';
@@ -9,24 +10,14 @@ import 'package:claim/widgets/donut_chart.dart';
 import 'package:claim/widgets/info_row.dart';
 import 'package:claim/widgets/state_views.dart';
 
-/// สีของแต่ละระยะ ใช้ทั้งบนกราฟและ chip สถานะให้ตรงกัน
-Color _stageColor(ShipmentStage? stage, ColorScheme scheme) {
-  switch (stage) {
-    case ShipmentStage.origin:
-      return AppColors.stageOrigin;
-    case ShipmentStage.warehouse:
-      return AppColors.stageWarehouse;
-    case ShipmentStage.parked:
-      return AppColors.pending;
-    case ShipmentStage.delivering:
-      return AppColors.stageDelivering;
-    case ShipmentStage.delivered:
-      return AppColors.success;
-    case ShipmentStage.returned:
-      return AppColors.danger;
-    case null:
-      return scheme.onSurfaceVariant;
-  }
+/// บิลของแต่ละสถานะที่มีอยู่จริง 1 กลุ่ม
+class _StatusGroup {
+  final String key;
+  final int count;
+
+  const _StatusGroup(this.key, this.count);
+
+  String get label => stockStatusLabel(key);
 }
 
 /// หน้าเช็คสถานะคลังสินค้าของสาขาที่ผู้ใช้ login เข้ามา
@@ -43,7 +34,8 @@ class _StockStatusPageState extends State<StockStatusPage> {
   List<BillStockItem> _items = [];
   bool _isLoading = true;
   String? _error;
-  ShipmentStage? _stageFilter;
+  /// jobstatusid ที่กรองอยู่ ('' = บิลที่ไม่มี jobstatusid) null = ทั้งหมด
+  String? _statusFilter;
   String _query = '';
 
   String? get _branchId => PermissionService.I.getBranchId();
@@ -78,17 +70,17 @@ class _StockStatusPageState extends State<StockStatusPage> {
     });
 
     try {
-      // ยิงตารางแปลรหัสสถานะขนานไปกับข้อมูล ตัวมันไม่ throw
-      final stagesReady = loadJobStatusStages();
+      // ยิงตารางสถานะขนานไปกับข้อมูล ตัวมันไม่ throw
+      final statusesReady = loadJobStatuses();
       final items = await fetchBillStock(branchId: branchId);
-      await stagesReady;
+      await statusesReady;
       if (!mounted) return;
       setState(() {
         _items = items;
         _isLoading = false;
         // ตัวกรองเดิมอาจไม่มีอยู่ในชุดข้อมูลใหม่
-        if (_stageFilter != null && _countOf(_stageFilter!) == 0) {
-          _stageFilter = null;
+        if (_statusFilter != null && _countOf(_statusFilter!) == 0) {
+          _statusFilter = null;
         }
       });
     } catch (e) {
@@ -100,14 +92,34 @@ class _StockStatusPageState extends State<StockStatusPage> {
     }
   }
 
-  int _countOf(ShipmentStage stage) =>
-      _items.where((item) => item.stage == stage).length;
+  static String _keyOf(BillStockItem item) => item.jobStatusId?.trim() ?? '';
+
+  int _countOf(String key) =>
+      _items.where((item) => _keyOf(item) == key).length;
+
+  /// สถานะที่มีบิลอยู่จริง เรียงตามลำดับในรายการจาก API ที่ไม่รู้จักไว้ท้ายสุด
+  List<_StatusGroup> get _groups {
+    final counts = <String, int>{};
+    for (final item in _items) {
+      counts.update(_keyOf(item), (n) => n + 1, ifAbsent: () => 1);
+    }
+
+    final keys = counts.keys.toList()
+      ..sort((a, b) {
+        final byOrder = jobStatusOrder(a).compareTo(jobStatusOrder(b));
+        return byOrder != 0 ? byOrder : a.compareTo(b);
+      });
+    // ไม่มี jobstatusid ไว้ท้ายสุดเสมอ
+    if (keys.remove('')) keys.add('');
+
+    return [for (final key in keys) _StatusGroup(key, counts[key]!)];
+  }
 
   List<BillStockItem> get _filtered {
     final keyword = _query.trim().toLowerCase();
 
     return _items.where((item) {
-      if (_stageFilter != null && item.stage != _stageFilter) return false;
+      if (_statusFilter != null && _keyOf(item) != _statusFilter) return false;
       if (keyword.isEmpty) return true;
       return item.searchIndex.contains(keyword);
     }).toList();
@@ -121,15 +133,15 @@ class _StockStatusPageState extends State<StockStatusPage> {
     if (changed == true) await _load();
   }
 
-  /// สีเน้นของเนื้อหาตามระยะที่กรองอยู่ ไม่ได้กรองใช้เขียวแบรนด์
+  /// สีเน้นของเนื้อหาตามสถานะที่กรองอยู่ ไม่ได้กรองใช้เขียวแบรนด์
   ///
   /// เดิมทั้งแถบหัวเรื่องเปลี่ยนสีตามตัวกรองด้วย ตอนนี้แถบเป็นสีปกติของธีม
-  /// สีของระยะเหลือแค่ในเนื้อหา ไม่ใช่ทาทั้งหัวจอ
+  /// สีของสถานะเหลือแค่ในเนื้อหา ไม่ใช่ทาทั้งหัวจอ
   Color _accentColor() {
     final theme = Theme.of(context);
-    final stage = _stageFilter;
-    if (stage == null) return theme.colorScheme.primary;
-    return _stageColor(stage, theme.colorScheme);
+    final key = _statusFilter;
+    if (key == null) return theme.colorScheme.primary;
+    return stockStatusColor(key, theme.colorScheme);
   }
 
   @override
@@ -193,9 +205,9 @@ class _StockStatusPageState extends State<StockStatusPage> {
           if (index == 1) {
             return _SummaryCard(
               total: _items.length,
-              selected: _stageFilter,
-              countOf: _countOf,
-              onSelected: (stage) => setState(() => _stageFilter = stage),
+              groups: _groups,
+              selected: _statusFilter,
+              onSelected: (key) => setState(() => _statusFilter = key),
             );
           }
           if (noMatch) {
@@ -216,39 +228,37 @@ class _StockStatusPageState extends State<StockStatusPage> {
   }
 }
 
-/// กราฟภาพรวมของบิลทั้งสาขา พร้อม chip กรองตามระยะ
+/// กราฟภาพรวมของบิลทั้งสาขา พร้อม chip กรองตามสถานะงานที่มีบิลอยู่จริง
 class _SummaryCard extends StatelessWidget {
   final int total;
-  final ShipmentStage? selected;
-  final int Function(ShipmentStage) countOf;
-  final ValueChanged<ShipmentStage?> onSelected;
+  final List<_StatusGroup> groups;
+  final String? selected;
+  final ValueChanged<String?> onSelected;
 
   const _SummaryCard({
     required this.total,
+    required this.groups,
     required this.selected,
-    required this.countOf,
     required this.onSelected,
   });
 
-  /// chip ของแต่ละระยะ ตอนเลือกอยู่จะย้อมสีเดียวกับแถบหัวเรื่อง
-  Widget _stageChip(BuildContext context, ShipmentStage stage) {
+  /// chip ของแต่ละสถานะ ตอนเลือกอยู่จะย้อมสีเดียวกับเนื้อหา
+  Widget _statusChip(BuildContext context, _StatusGroup group) {
     final scheme = Theme.of(context).colorScheme;
 
     return StatusFilterChip(
-      label: stage.label,
-      count: countOf(stage),
-      color: _stageColor(stage, scheme),
-      selected: selected == stage,
-      onSelected: () => onSelected(stage),
+      label: group.label,
+      count: group.count,
+      color: stockStatusColor(group.key, scheme),
+      selected: selected == group.key,
+      onSelected: () => onSelected(group.key),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final stages = ShipmentStage.values
-        .where((stage) => countOf(stage) > 0)
-        .toList();
+    final selectedLabel = selected == null ? null : stockStatusLabel(selected!);
 
     return AppCard(
       padding: const EdgeInsets.all(14),
@@ -263,7 +273,7 @@ class _SummaryCard extends StatelessWidget {
                 child: Text(
                   'ภาพรวมทั้งหมด',
                   style: TextStyle(
-                    fontSize: 17,
+                    fontSize: 14,
                     fontWeight: FontWeight.w700,
                     color: scheme.onSurface,
                   ),
@@ -277,17 +287,17 @@ class _SummaryCard extends StatelessWidget {
             centerBottom: 'รายการ',
             diameter: 116,
             hideEmpty: true,
-            selectedLabel: selected?.label,
+            selectedLabel: selectedLabel,
             slices: [
-              for (final stage in ShipmentStage.values)
+              for (final group in groups)
                 DonutSlice(
-                  label: stage.label,
-                  value: countOf(stage),
-                  color: _stageColor(stage, scheme),
+                  label: group.label,
+                  value: group.count,
+                  color: stockStatusColor(group.key, scheme),
                 ),
             ],
           ),
-          if (stages.length > 1) ...[
+          if (groups.length > 1) ...[
             const SizedBox(height: 14),
             Divider(height: 1, color: scheme.outlineVariant),
             const SizedBox(height: 12),
@@ -302,7 +312,7 @@ class _SummaryCard extends StatelessWidget {
                   visualDensity: VisualDensity.compact,
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-                for (final stage in stages) _stageChip(context, stage),
+                for (final group in groups) _statusChip(context, group),
               ],
             ),
           ],
@@ -328,53 +338,9 @@ class _StockCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.billCode,
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: scheme.primary,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text.rich(
-                      TextSpan(
-                        children: [
-                          TextSpan(
-                            text: 'สถานะสินค้า: ',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: scheme.onSurfaceVariant,
-                            ),
-                          ),
-                          TextSpan(
-                            text: item.jobStatusId ?? '-',
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: scheme.onSurface,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              StatusChip(
-                label: item.displayStatus,
-                color: _stageColor(item.stage, scheme),
-              ),
-              const SizedBox(width: 4),
-              Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
-            ],
+          StockBillHeader(
+            item: item,
+            trailing: Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
           ),
           const SizedBox(height: 10),
           ShipmentProgress(stage: item.stage),

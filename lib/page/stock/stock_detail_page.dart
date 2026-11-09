@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'package:claim/page/stock/shipment_progress.dart';
 import 'package:claim/page/stock/stock_api.dart';
+import 'package:claim/page/stock/stock_status_style.dart';
 import 'package:claim/page/stock/status_post_api.dart';
 import 'package:claim/utils/app_colors.dart';
 import 'package:claim/widgets/app_card.dart';
@@ -139,43 +140,12 @@ class _StockDetailPageState extends State<StockDetailPage> {
   }
 
   Widget _billCard(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
     return AppCard(
       padding: const EdgeInsets.all(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            _item.billCode,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: scheme.primary,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text.rich(
-            TextSpan(
-              children: [
-                TextSpan(
-                  text: 'สถานะสินค้า: ',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-                TextSpan(
-                  text: _item.jobStatusId ?? '-',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: scheme.onSurface,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          StockBillHeader(item: _item),
           const SizedBox(height: 14),
           ShipmentProgress(stage: _item.stage),
           const SizedBox(height: 14),
@@ -207,7 +177,7 @@ class _StockDetailPageState extends State<StockDetailPage> {
               Text(
                 'ข้อมูลลูกค้า',
                 style: TextStyle(
-                  fontSize: 17,
+                  fontSize: 14,
                   fontWeight: FontWeight.w700,
                   color: scheme.onSurface,
                 ),
@@ -218,7 +188,7 @@ class _StockDetailPageState extends State<StockDetailPage> {
           if (_item.customer != null)
             Text(
               _item.customer!,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             ),
           if (_item.customer != null) const SizedBox(height: 8),
           _phoneRow(context),
@@ -285,7 +255,7 @@ class _StockDetailPageState extends State<StockDetailPage> {
               Text(
                 _alreadyParked ? 'พักสถานะแล้ว' : 'พักสถานะ',
                 style: TextStyle(
-                  fontSize: 17,
+                  fontSize: 14,
                   fontWeight: FontWeight.w700,
                   color: scheme.onSurface,
                 ),

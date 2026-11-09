@@ -4,8 +4,122 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:claim/utils/dio_service.dart';
 
-/// ชื่อ module ใน Permissions.Modules ที่ต้องเปิดให้ก่อนใช้ฟีเจอร์นี้
 const String stockModule = 'stock';
+
+class JobStatusInfo {
+  final String id;
+
+  final String rawName;
+
+  const JobStatusInfo({required this.id, required this.rawName});
+
+  String get name {
+    final stripped = rawName.replaceFirst(RegExp(r'^\s*\([^)]*\)\s*'), '').trim();
+    return stripped.isEmpty ? rawName.trim() : stripped;
+  }
+}
+
+const String kJobStatusesPath = '/warehouse/job-statuses';
+const String _kStatusCacheKey = 'job_statuses_json';
+
+
+Map<String, JobStatusInfo> _jobStatuses = const {};
+
+Map<String, JobStatusInfo> get kJobStatuses => _jobStatuses;
+
+JobStatusInfo? jobStatusOf(String? jobStatusId) {
+  if (jobStatusId == null) return null;
+  return _jobStatuses[jobStatusId.trim()];
+}
+
+int jobStatusOrder(String? jobStatusId) {
+  if (jobStatusId == null) return 1 << 20;
+  final index = _jobStatuses.keys.toList().indexOf(jobStatusId.trim());
+  return index < 0 ? 1 << 20 : index;
+}
+
+/// ใส่รายการสถานะให้เทสต์โดยไม่ต้องยิง API จริง (id -> ชื่อ)
+///
+/// ตัวจริงโหลดจากเน็ต ในเทสต์จึงว่างเสมอ
+@visibleForTesting
+void setJobStatusesForTest(Map<String, String> names) {
+  _jobStatuses = Map.unmodifiable({
+    for (final e in names.entries)
+      e.key: JobStatusInfo(id: e.key, rawName: e.value),
+  });
+}
+
+/// โหลดรายการสถานะจาก API ไม่ throw โหลดไม่ได้ก็ใช้ของที่แคชไว้รอบก่อนต่อ
+Future<void> loadJobStatuses() async {
+  SharedPreferences? prefs;
+
+  try {
+    prefs = await SharedPreferences.getInstance();
+
+    final token = prefs.getString('token');
+    if (token == null || token.isEmpty) {
+      throw Exception('ไม่พบ token');
+    }
+
+    final response = await dio.get(
+      kJobStatusesPath,
+      options: Options(
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+        receiveTimeout: const Duration(seconds: 20),
+      ),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('HTTP ${response.statusCode}');
+    }
+
+    final body = response.data is String
+        ? response.data as String
+        : jsonEncode(response.data);
+
+    final parsed = _parseJobStatuses(body);
+    if (parsed == null) throw Exception('รูปแบบข้อมูลไม่ถูกต้อง');
+
+    _jobStatuses = parsed;
+    await prefs.setString(_kStatusCacheKey, body);
+  } catch (e) {
+    // ออฟไลน์ / token หมดอายุ ฯลฯ ใช้ของที่แคชไว้รอบก่อน
+    debugPrint('job-statuses error: $e');
+
+    final cached = prefs?.getString(_kStatusCacheKey);
+    final parsed = cached == null ? null : _parseJobStatuses(cached);
+    if (parsed != null) _jobStatuses = parsed;
+  }
+}
+
+/// รูปแบบ { isSuccess, items: [ { jobstatusid, jobstatusname, ... } ] }
+Map<String, JobStatusInfo>? _parseJobStatuses(String body) {
+  try {
+    final trimmed = body.trim();
+    if (trimmed.isEmpty) return null;
+
+    final decoded = jsonDecode(trimmed);
+    final items = decoded is Map ? decoded['items'] : decoded;
+    if (items is! List) return null;
+
+    final result = <String, JobStatusInfo>{};
+    for (final item in items) {
+      if (item is! Map) continue;
+      final id = item['jobstatusid']?.toString().trim() ?? '';
+      final name = item['jobstatusname']?.toString().trim() ?? '';
+      if (id.isEmpty || name.isEmpty) continue;
+      result[id] = JobStatusInfo(id: id, rawName: name);
+    }
+
+    return result.isEmpty ? null : result;
+  } catch (e) {
+    debugPrint('job-statuses parse error: $e');
+    return null;
+  }
+}
 
 enum ShipmentStage {
   origin('ต้นทาง'),
@@ -19,93 +133,32 @@ enum ShipmentStage {
   const ShipmentStage(this.label);
 }
 
-const String kStatusJsonUrl =
-    'https://raw.githubusercontent.com/anoxelazy/API_json/main/status.json';
-const String _kStatusCacheKey = 'job_status_stages_json';
-
-Map<String, ShipmentStage> _jobStatusStages = const {};
-
-Map<String, ShipmentStage> get kJobStatusStages => _jobStatusStages;
-
-ShipmentStage? shipmentStageFromJobStatus(String? jobStatusId) {
-  if (jobStatusId == null) return null;
-  return _jobStatusStages[jobStatusId.trim()];
-}
-
-/// ใส่ mapping ให้เทสต์โดยไม่ต้องยิง status.json จริง
+/// ระยะของบิลสำหรับแถบ animation เท่านั้น เลือกจาก [jobStatusId] ที่ API ส่งมา
 ///
-/// ตัวจริงโหลดจากเน็ต ในเทสต์จึงว่างเสมอ ทำให้ [BillStockItem.stage]
-/// เป็น null และทดสอบพฤติกรรมที่ขึ้นกับสถานะไม่ได้
-@visibleForTesting
-void setJobStatusStagesForTest(Map<String, ShipmentStage> stages) {
-  _jobStatusStages = Map.unmodifiable(stages);
-}
-
-Future<void> loadJobStatusStages() async {
-  SharedPreferences? prefs;
-
-  try {
-    prefs = await SharedPreferences.getInstance();
-
-    final response = await dio.get(
-      kStatusJsonUrl,
-      options: Options(
-        headers: {'Accept': 'application/json'},
-        receiveTimeout: const Duration(seconds: 20),
-      ),
-    );
-
-    if (response.statusCode != 200) {
-      throw Exception('HTTP ${response.statusCode}');
-    }
-
-    final body = response.data is String
-        ? response.data as String
-        : jsonEncode(response.data);
-
-    final parsed = _parseJobStatusStages(body);
-    if (parsed == null) throw Exception('รูปแบบไฟล์ไม่ถูกต้อง');
-
-    _jobStatusStages = parsed;
-    await prefs.setString(_kStatusCacheKey, body);
-  } catch (e) {
-    debugPrint('status.json error: $e');
-
-    final cached = prefs?.getString(_kStatusCacheKey);
-    final parsed = cached == null ? null : _parseJobStatusStages(cached);
-    if (parsed != null) _jobStatusStages = parsed;
+/// ห้ามใช้ตัดสินว่าจะแสดงข้อความอะไร ชื่อสถานะมาจาก /warehouse/job-statuses
+/// เสมอ (แบบเดียวกับ trackingStatusColor ของหน้าเช็คสถานะพัสดุ)
+/// รหัสที่ไม่รู้จักได้ null แถบจะไม่ระบายเส้นใด ๆ ไม่พัง
+ShipmentStage? shipmentStageFromJobStatus(String? jobStatusId) {
+  switch (jobStatusId?.trim()) {
+    case '2':
+    case '2-2':
+      return ShipmentStage.origin;
+    case '3':
+    case '5':
+      return ShipmentStage.warehouse;
+    case '6-1':
+      return ShipmentStage.parked;
+    case '4':
+    case '6':
+    case '7':
+    case '9':
+      return ShipmentStage.delivering;
+    case '7-3':
+      return ShipmentStage.returned;
+    default:
+      return null;
   }
 }
-
-Map<String, ShipmentStage>? _parseJobStatusStages(String body) {
-  try {
-    final trimmed = body.trim();
-    if (trimmed.isEmpty) return null;
-
-    dynamic decoded = jsonDecode(trimmed);
-    if (decoded is Map && decoded['job_status_stages'] is Map) {
-      decoded = decoded['job_status_stages'];
-    }
-    if (decoded is! Map) return null;
-
-    final result = <String, ShipmentStage>{};
-    for (final entry in decoded.entries) {
-      final id = entry.key.toString().trim();
-      final stage = _stageByName[entry.value?.toString().trim()];
-      if (id.isEmpty || stage == null) continue;
-      result[id] = stage;
-    }
-
-    return result.isEmpty ? null : result;
-  } catch (e) {
-    debugPrint('status.json parse error: $e');
-    return null;
-  }
-}
-
-final Map<String, ShipmentStage> _stageByName = {
-  for (final stage in ShipmentStage.values) stage.name: stage,
-};
 
 class BillStockItem {
   final Map<String, dynamic> raw;
@@ -150,18 +203,21 @@ class BillStockItem {
   String? get jobStatusId =>
       _pick(['jobstatusid', 'job_status_id', 'jobStatusID', 'jobStatus']);
 
-  /// ระยะที่บิลไปถึงแล้ว null = jobstatusid ที่ยังไม่รู้จัก
+  /// สถานะงานตามตารางจาก /warehouse/job-statuses null = ยังไม่รู้จัก
+  /// (ตารางโหลดไม่ได้หรือไม่มี jobstatusid นี้)
+  JobStatusInfo? get jobStatus => jobStatusOf(jobStatusId);
+
+  /// ระยะที่บิลไปถึงแล้ว null = jobstatusid ที่ยังไม่รู้จักในตารางระยะ
   ShipmentStage? get stage => shipmentStageFromJobStatus(jobStatusId);
 
   /// บิลนี้พักสถานะอยู่แล้วหรือไม่ ใช้กันไม่ให้พักซ้ำ
   ///
-  /// ดู [stage] ก่อนเพราะแม่นที่สุด แต่ mapping ของมันโหลดมาจาก status.json
-  /// ระยะไกล ถ้าโหลดไม่ได้และไม่มี cache [stage] จะเป็น null ทั้งที่บิลพักอยู่จริง
-  /// แล้วจะพักซ้ำได้ จึงมีทางสำรองอ่านจากชื่อสถานะที่ API ส่งมาเอง
+  /// ดูระยะก่อนเพราะแม่นที่สุด ถ้าตารางระยะโหลดไม่ได้และไม่มีแคช [stage] จะเป็น null
+  /// ทั้งที่บิลพักอยู่จริง จึงมีทางสำรองอ่านจากชื่อสถานะที่ API ส่งมาเอง
   bool get isParked {
     if (stage != null) return stage == ShipmentStage.parked;
 
-    final text = status;
+    final text = jobStatus?.name ?? status;
     return text != '-' && text.contains('พัก');
   }
 
@@ -169,12 +225,9 @@ class BillStockItem {
       _pick(['statusName', 'status', 'statusText', 'stockStatus', 'state']) ??
       '-';
 
-  /// สถานะที่เอาไปโชว์: ใช้ของ API ก่อน ถ้าไม่มีค่อยแปลจาก jobstatusid
-  String get displayStatus {
-    final apiStatus = status;
-    if (apiStatus != '-') return apiStatus;
-    return stage?.label ?? '-';
-  }
+  /// สถานะที่เอาไปโชว์: ชื่อจากตารางสถานะ (ตรงกับปุ่มกรอง) ก่อน
+  /// ไม่รู้จักค่อยใช้ชื่อที่แถวส่งมาเอง
+  String get displayStatus => jobStatus?.name ?? status;
 
   String? get statusCode => _pick(['statusID', 'statusCode', 'stockStatusID']);
 
