@@ -257,9 +257,14 @@ class _TransferListPageState extends State<TransferListPage> {
         ],
         selected: {_view},
         showSelectedIcon: false,
-        style: const ButtonStyle(
+        // ต้องดึงจากธีมมาปรับ ไม่ใช่ TextStyle เปล่า ๆ เพราะสไตล์ของปุ่มไม่สืบ
+        // ฟอนต์จากข้างบนมาให้ ถ้าส่งเปล่าจะตกไปใช้ฟอนต์ของเครื่อง ไม่ใช่ตัวเดียวกับ
+        // ทั้งแอป
+        style: ButtonStyle(
           visualDensity: VisualDensity.compact,
-          textStyle: WidgetStatePropertyAll(TextStyle(fontSize: 13)),
+          textStyle: WidgetStatePropertyAll(
+            Theme.of(context).textTheme.labelLarge?.copyWith(fontSize: 12),
+          ),
         ),
         onSelectionChanged: (values) => _switchTo(values.first),
       ),
@@ -282,10 +287,10 @@ class _TransferListPageState extends State<TransferListPage> {
         textInputAction: TextInputAction.search,
         onSubmitted: (value) =>
             _applyFilter(_query.copyWith(keyword: value.trim())),
-        style: const TextStyle(fontSize: 13),
+        style: const TextStyle(fontSize: 12),
         decoration: InputDecoration(
           hintText: 'เลขที่ใบ รหัสทรัพย์สิน หรือชื่อคนขอ',
-          hintStyle: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant),
+          hintStyle: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
           prefixIcon: Icon(
             Icons.search,
             size: 18,
@@ -338,7 +343,7 @@ class _TransferListPageState extends State<TransferListPage> {
             Text(
               '$_total ใบ',
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 11,
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
@@ -428,8 +433,8 @@ class _TransferListPageState extends State<TransferListPage> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
                     color: AppColors.brandText,
                   ),
                 ),
@@ -454,7 +459,7 @@ class _TransferListPageState extends State<TransferListPage> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontSize: 13.5,
+                      fontSize: 12,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -469,7 +474,7 @@ class _TransferListPageState extends State<TransferListPage> {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 13,
+                fontSize: 12,
                 height: 1.35,
                 color: scheme.onSurface,
               ),
@@ -564,8 +569,8 @@ class _TransferListPageState extends State<TransferListPage> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -577,7 +582,7 @@ class _TransferListPageState extends State<TransferListPage> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 11,
                     color: scheme.onSurfaceVariant,
                   ),
                 ),
@@ -592,7 +597,7 @@ class _TransferListPageState extends State<TransferListPage> {
                       Text(
                         row.actionRequired,
                         style: const TextStyle(
-                          fontSize: 12,
+                          fontSize: 11,
                           fontWeight: FontWeight.w600,
                           color: AppColors.dangerText,
                         ),

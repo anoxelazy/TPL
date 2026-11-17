@@ -96,7 +96,7 @@ class TransferStatusChip extends StatelessWidget {
         item.statusText,
         style: TextStyle(
           fontSize: 11,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w600,
           height: 1.25,
           color: tint,
         ),
@@ -131,7 +131,7 @@ class TransferOverdueTag extends StatelessWidget {
             'เลยกำหนด $days วัน',
             style: const TextStyle(
               fontSize: 11,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
               color: AppColors.dangerText,
             ),
           ),
@@ -162,7 +162,7 @@ class TransferMeta extends StatelessWidget {
             text,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+            style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
           ),
         ),
       ],
@@ -205,8 +205,8 @@ class TransferSection extends StatelessWidget {
                 child: Text(
                   title,
                   style: const TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w800,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
                     color: AppColors.brandText,
                   ),
                 ),
@@ -215,7 +215,7 @@ class TransferSection extends StatelessWidget {
                 Text(
                   tail,
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 11,
                     fontWeight: FontWeight.w600,
                     color: scheme.onSurfaceVariant,
                   ),
@@ -228,7 +228,7 @@ class TransferSection extends StatelessWidget {
               child: Text(
                 note!,
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 11,
                   height: 1.4,
                   color: scheme.onSurfaceVariant,
                 ),
@@ -267,14 +267,14 @@ class TransferInfoLine extends StatelessWidget {
             width: 108,
             child: Text(
               label,
-              style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant),
+              style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
             ),
           ),
           Expanded(
             child: Text(
               text,
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 13,
                 height: 1.4,
                 fontWeight: FontWeight.w500,
                 color: scheme.onSurface,
@@ -338,9 +338,9 @@ class TransferStepper extends StatelessWidget {
                   kTransferSteps[i],
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 10.5,
+                    fontSize: 11,
                     fontWeight: i == done + 1 || (i == done && i == last)
-                        ? FontWeight.w700
+                        ? FontWeight.w600
                         : FontWeight.w500,
                     color: i <= done || i == done + 1
                         ? scheme.onSurface
@@ -465,8 +465,8 @@ class TransferTimeline extends StatelessWidget {
         Text(
           event.title,
           style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
             color: event.color ?? scheme.onSurface,
           ),
         ),
@@ -475,7 +475,7 @@ class TransferTimeline extends StatelessWidget {
             padding: const EdgeInsets.only(top: 2),
             child: Text(
               event.detail,
-              style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+              style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
             ),
           ),
         for (final extra in event.extras)
@@ -484,7 +484,7 @@ class TransferTimeline extends StatelessWidget {
             child: Text(
               extra,
               style: TextStyle(
-                fontSize: 13,
+                fontSize: 12,
                 height: 1.4,
                 color: scheme.onSurface,
               ),

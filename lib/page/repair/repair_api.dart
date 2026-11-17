@@ -1,6 +1,7 @@
 import 'package:cross_file/cross_file.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:claim/utils/image_encode.dart';
 import 'package:claim/utils/role_service.dart';
 import 'package:claim/utils/supabase_config.dart';
@@ -8,6 +9,7 @@ import 'package:claim/utils/supabase_config.dart';
 const String _function = '/functions/v1/get-asset';
 const String _bucket = 'asset-photos';
 const String _roleIt = 'IT';
+const String _roleUser = 'USER';
 
 enum RepairStatus {
   pending('PENDING', 'IT รับงาน'),
@@ -227,6 +229,7 @@ Future<List<RepairTicket>> fetchRepairs({String? sn}) async {
   final data = await _get({
     'action': 'get_repairs',
     if (sn != null && sn.isNotEmpty) 'sn': sn,
+    ...await _listIdentity(nameField: 'requester_name'),
   });
 
   if (data is! List) return const [];
@@ -308,7 +311,7 @@ Future<void> updateRepair({
 // ------------------------------------------------------------ ทะเบียนเครื่อง
 
 Future<List<RepairAsset>> fetchAssets() async {
-  final data = await _get(const {});
+  final data = await _get(await _listIdentity(nameField: 'employee_name'));
   if (data is! List) return const [];
   return data
       .whereType<Map>()
@@ -501,6 +504,30 @@ dynamic _unwrap(Response<dynamic> response) {
 
   if (ok) return body;
   throw Exception('ทำรายการไม่สำเร็จ (HTTP ${response.statusCode})');
+}
+
+/// บอกเซิร์ฟเวอร์ว่าใครถาม ใช้กับเส้นที่ดึงทั้งรายการ (เครื่องทั้งหมด ใบทั้งหมด)
+///
+/// ตั้งแต่ 22 ต.ค. 2569 backend กรองรายการตามสิทธิ์: IT ได้ทุกแถว role อื่น
+/// ได้เฉพาะของตัวเอง ไม่ส่งตัวตนมาได้ `data: []` พร้อม HTTP 200 ไม่มี error
+/// ซึ่งเคยทำให้หน้าแจ้งซ่อมกับทะเบียนเครื่องว่างทั้งหน้าโดยไม่รู้สาเหตุ
+///
+/// [nameField] ชื่อพารามิเตอร์ของชื่อคนไม่เหมือนกันในแต่ละเส้น ตามชื่อคอลัมน์จริง
+/// รายการเครื่องใช้ `employee_name` ใบแจ้งซ่อมใช้ `requester_name`
+///
+/// ชื่อจัดช่องว่างแบบเดียวกับที่ฟอร์มแจ้งซ่อมใส่ลงใบ ไม่งั้นชื่อที่มีช่องว่างซ้อน
+/// จะหาใบของตัวเองไม่เจอ ส่วนการ URL-encode ชื่อไทย dio ทำให้เองแล้ว
+Future<Map<String, dynamic>> _listIdentity({required String nameField}) async {
+  final prefs = await SharedPreferences.getInstance();
+  final name =
+      prefs.getString('fullname')?.replaceAll(RegExp(r'\s+'), ' ').trim() ?? '';
+
+  return {
+    'requester_role': RoleService.I.isIt ? _roleIt : _roleUser,
+    if (RoleService.I.empNumber != null)
+      'employee_number': RoleService.I.empNumber,
+    if (name.isNotEmpty) nameField: name,
+  };
 }
 
 /// รอคีย์มาก่อนค่อยยิง เปิดหน้าแจ้งซ่อมทันทีที่เปิดแอปจะได้ไม่ชนกับตอนโหลดคีย์

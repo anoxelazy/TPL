@@ -141,7 +141,7 @@ class _AssetMultiPickerState extends State<_AssetMultiPicker> {
                     child: Text(
                       'เลือกทรัพย์สิน',
                       style: const TextStyle(
-                        fontSize: 16,
+                        fontSize: 15,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -231,7 +231,7 @@ class _AssetMultiPickerState extends State<_AssetMultiPicker> {
             child: Text(
               'เลือกไว้แล้วจากการค้นครั้งก่อน',
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 11,
                 fontWeight: FontWeight.w600,
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
@@ -256,7 +256,7 @@ class _AssetMultiPickerState extends State<_AssetMultiPicker> {
         asset.name.isEmpty ? asset.id : asset.name,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
       ),
       subtitle: Text(
         [
@@ -266,7 +266,7 @@ class _AssetMultiPickerState extends State<_AssetMultiPicker> {
         ].join(' · '),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+        style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
       ),
     );
   }

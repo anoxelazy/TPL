@@ -4,6 +4,7 @@ import 'package:claim/page/repair/repair_appbar.dart';
 
 import 'package:claim/page/repair/asset_tile.dart';
 import 'package:claim/page/repair/repair_api.dart';
+import 'package:claim/utils/app_colors.dart';
 import 'package:claim/utils/app_icons.dart';
 import 'package:claim/widgets/barcode_scanner.dart';
 import 'package:claim/widgets/state_views.dart';
@@ -156,31 +157,57 @@ class _AssetPickerPageState extends State<AssetPickerPage> {
     );
   }
 
+  /// ช่องค้นหาแบบเตี้ย ท่าเดียวกับช่องค้นหาหน้าใบโอนย้ายและหน้าสถานะคลัง
+  /// ช่องกรอกตามธีมสูงเกินไปสำหรับแถบเหนือรายการ
   Widget _searchField() {
+    final scheme = Theme.of(context).colorScheme;
+    final border = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(AppSizes.innerRadius),
+      borderSide: BorderSide(color: scheme.outlineVariant),
+    );
+
     return TextField(
       controller: _searchController,
       autofocus: true,
       onChanged: (value) => setState(() => _query = value),
+      style: const TextStyle(fontSize: 13),
       decoration: InputDecoration(
         hintText: 'ค้นหา S/N รหัสทรัพย์สิน ยี่ห้อ แผนก',
-        prefixIcon: const Icon(Icons.search),
+        hintStyle: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant),
+        prefixIcon: Icon(
+          Icons.search,
+          size: 18,
+          color: scheme.onSurfaceVariant,
+        ),
+        prefixIconConstraints: const BoxConstraints(minWidth: 38),
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(vertical: 9),
+        filled: true,
+        fillColor: scheme.surface,
+        border: border,
+        enabledBorder: border,
+        focusedBorder: border.copyWith(
+          borderSide: BorderSide(color: scheme.primary),
+        ),
         suffixIcon: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             if (_query.isNotEmpty)
               IconButton(
                 tooltip: 'ล้าง',
+                visualDensity: VisualDensity.compact,
                 onPressed: () {
                   _searchController.clear();
                   setState(() => _query = '');
                 },
-                icon: const Icon(Icons.close),
+                icon: const Icon(Icons.close, size: 16),
               ),
             if (canScanBarcode)
               IconButton(
                 tooltip: 'สแกน',
+                visualDensity: VisualDensity.compact,
                 onPressed: _scanToSearch,
-                icon: const Icon(AppIcons.scan),
+                icon: const Icon(AppIcons.scan, size: 18),
               ),
           ],
         ),

@@ -186,7 +186,7 @@ class _ReceiveSheetState extends State<_ReceiveSheet> {
                           const Text(
                             'รับของเข้า',
                             style: TextStyle(
-                              fontSize: 16,
+                              fontSize: 15,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -194,7 +194,7 @@ class _ReceiveSheetState extends State<_ReceiveSheet> {
                           Text(
                             '${widget.doc.transferNo} · เหลือ $remaining ชิ้น',
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: 11,
                               color: scheme.onSurfaceVariant,
                             ),
                           ),
@@ -287,7 +287,7 @@ class _ReceiveSheetState extends State<_ReceiveSheet> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 14,
+                    fontSize: 13,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -302,14 +302,14 @@ class _ReceiveSheetState extends State<_ReceiveSheet> {
             ].join(' · '),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+            style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
           ),
           if (failure != null) ...[
             const SizedBox(height: 6),
             Text(
               failure,
               style: const TextStyle(
-                fontSize: 12,
+                fontSize: 11,
                 fontWeight: FontWeight.w600,
                 color: AppColors.danger,
               ),
@@ -324,7 +324,7 @@ class _ReceiveSheetState extends State<_ReceiveSheet> {
                 for (final entry in kReceiveOutcomes.entries)
                   ChoiceChip(
                     label: Text(entry.value),
-                    labelStyle: const TextStyle(fontSize: 12),
+                    labelStyle: const TextStyle(fontSize: 11),
                     visualDensity: VisualDensity.compact,
                     selected: _outcomes[line.assetId] == entry.key,
                     onSelected: _saving

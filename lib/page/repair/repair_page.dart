@@ -189,9 +189,13 @@ class _RepairPageState extends State<RepairPage> {
       return RefreshIndicator(
         onRefresh: _load,
         child: ListView(
-          children: const [
-            SizedBox(height: 80),
-            EmptyStateView(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          children: [
+            // ทะเบียนเครื่องไม่ได้ขึ้นกับว่ามีใบแจ้งซ่อมหรือยัง เคยวางไว้แค่ในลิสต์
+            // ที่มีใบ พอยังไม่มีใบเลยปุ่มหายไปด้วย เข้าทะเบียนไม่ได้เลย
+            RepairShortcuts(onAssets: _openAssets),
+            const SizedBox(height: 64),
+            const EmptyStateView(
               icon: Icons.build_outlined,
               message: 'ยังไม่มีใบแจ้งซ่อม',
             ),

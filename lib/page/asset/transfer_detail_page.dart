@@ -333,8 +333,8 @@ class _TransferDetailPageState extends State<TransferDetailPage> {
           Text(
             item.transferNo,
             style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
               color: AppColors.brandText,
             ),
           ),
@@ -356,8 +356,8 @@ class _TransferDetailPageState extends State<TransferDetailPage> {
                   child: Text(
                     item.statusText,
                     style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
                       height: 1.3,
                       color: tint,
                     ),
@@ -409,7 +409,7 @@ class _TransferDetailPageState extends State<TransferDetailPage> {
                 child: Text(
                   reason,
                   style: TextStyle(
-                    fontSize: 14.5,
+                    fontSize: 13,
                     height: 1.45,
                     fontWeight: FontWeight.w600,
                     color: scheme.onSurface,
@@ -500,8 +500,8 @@ class _TransferDetailPageState extends State<TransferDetailPage> {
           Text(
             label,
             style: TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w700,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
               color: highlight ? AppColors.brandText : scheme.onSurfaceVariant,
             ),
           ),
@@ -509,9 +509,9 @@ class _TransferDetailPageState extends State<TransferDetailPage> {
           Text(
             site ?? '-',
             style: const TextStyle(
-              fontSize: 13.5,
+              fontSize: 12,
               height: 1.3,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
             ),
           ),
           if (dept.isNotEmpty) ...[
@@ -519,7 +519,7 @@ class _TransferDetailPageState extends State<TransferDetailPage> {
             Text(
               dept,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 11,
                 height: 1.3,
                 color: scheme.onSurfaceVariant,
               ),
@@ -582,7 +582,7 @@ class _TransferDetailPageState extends State<TransferDetailPage> {
                 Text(
                   line.label,
                   style: const TextStyle(
-                    fontSize: 14,
+                    fontSize: 13,
                     fontWeight: FontWeight.w600,
                     height: 1.3,
                   ),
@@ -596,7 +596,7 @@ class _TransferDetailPageState extends State<TransferDetailPage> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 11,
                     color: scheme.onSurfaceVariant,
                   ),
                 ),
@@ -610,7 +610,7 @@ class _TransferDetailPageState extends State<TransferDetailPage> {
                       if (line.receivedOnBehalf) 'รับแทน',
                     ].join(' · '),
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: 11,
                       fontWeight: FontWeight.w600,
                       color: tint,
                     ),
@@ -619,7 +619,7 @@ class _TransferDetailPageState extends State<TransferDetailPage> {
                     Text(
                       line.note,
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: 11,
                         color: scheme.onSurfaceVariant,
                       ),
                     ),
@@ -809,13 +809,13 @@ class _DispatchSheetState extends State<_DispatchSheet> {
             children: [
               const Text(
                 'บันทึกการส่งออก',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 4),
               Text(
                 'กรอกเท่าที่มี ไม่กรอกเลยก็บันทึกได้',
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 11,
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),

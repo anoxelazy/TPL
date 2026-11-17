@@ -63,7 +63,7 @@ class RepairTicketCard extends StatelessWidget {
               Text(
                 _ticketNo,
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: 15,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 0.2,
                   color: scheme.onSurface,
@@ -75,7 +75,7 @@ class RepairTicketCard extends StatelessWidget {
                   child: Text(
                     'แจ้งเมื่อ ${repairDateLabel(created)}',
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: 11,
                       color: scheme.onSurfaceVariant,
                     ),
                   ),
@@ -94,7 +94,7 @@ class RepairTicketCard extends StatelessWidget {
                 child: Text(
                   'เสร็จ ${repairDateLabel(completed)}',
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 11,
                     color: scheme.onSurfaceVariant,
                   ),
                 ),
@@ -117,7 +117,7 @@ class RepairTicketCard extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
-            fontSize: 15,
+            fontSize: 14,
             fontWeight: FontWeight.w700,
             color: scheme.onSurface,
           ),
@@ -130,7 +130,7 @@ class RepairTicketCard extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                fontSize: 13,
+                fontSize: 12,
                 fontWeight: FontWeight.w700,
                 // เขียวเข้มพอจะอ่านออกบนพื้นขาว ไม่ใช่เขียวแบรนด์สด
                 color: AppColors.brandText,
@@ -145,7 +145,7 @@ class RepairTicketCard extends StatelessWidget {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 13,
+                fontSize: 12,
                 height: 1.35,
                 color: scheme.onSurface,
               ),

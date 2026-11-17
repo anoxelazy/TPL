@@ -58,7 +58,7 @@ class AssetTile extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 15,
+                    fontSize: 14,
                     fontWeight: FontWeight.w700,
                     color: scheme.onSurface,
                   ),
@@ -72,7 +72,7 @@ class AssetTile extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 11,
                     color: scheme.onSurfaceVariant,
                   ),
                 ),
@@ -87,7 +87,7 @@ class AssetTile extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: 11,
                       color: scheme.onSurfaceVariant,
                     ),
                   ),

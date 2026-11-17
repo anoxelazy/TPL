@@ -278,7 +278,7 @@ class _TransferCreatePageState extends State<TransferCreatePage> {
                 Text(
                   'ยังไม่ได้เลือกทรัพย์สิน',
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: 12,
                     color: scheme.onSurfaceVariant,
                   ),
                 ),
@@ -330,7 +330,7 @@ class _TransferCreatePageState extends State<TransferCreatePage> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 14,
+                    fontSize: 13,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -342,7 +342,7 @@ class _TransferCreatePageState extends State<TransferCreatePage> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 11,
                     color: scheme.onSurfaceVariant,
                   ),
                 ),
@@ -441,7 +441,7 @@ class _TransferCreatePageState extends State<TransferCreatePage> {
       padding: const EdgeInsets.only(top: 6),
       child: Text(
         'หัวหน้าแผนกปลายทางจะเป็นคนรับของ',
-        style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+        style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
       ),
     ),
   ];
@@ -504,7 +504,7 @@ class _TransferCreatePageState extends State<TransferCreatePage> {
         child: Text(
           date == null ? 'แตะเพื่อเลือกวันที่' : assetDateLabel(date),
           style: TextStyle(
-            fontSize: 14,
+            fontSize: 13,
             color: date == null ? scheme.onSurfaceVariant : scheme.onSurface,
           ),
         ),
@@ -565,7 +565,7 @@ class _TransferCreatePageState extends State<TransferCreatePage> {
                     blocker,
                     textAlign: TextAlign.center,
                     style: const TextStyle(
-                      fontSize: 12,
+                      fontSize: 11,
                       height: 1.35,
                       color: AppColors.danger,
                     ),

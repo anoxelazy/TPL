@@ -112,7 +112,6 @@ class _TrackingPageState extends State<TrackingPage> {
     if (mounted) setState(() => _history = entries);
   }
 
-  /// กดเลขในประวัติแล้วเช็คให้เลย ไม่ต้องกดปุ่มค้นหาซ้ำ
   Future<void> _searchFromHistory(String code) async {
     _codeController.value = TextEditingValue(
       text: code,
@@ -137,9 +136,6 @@ class _TrackingPageState extends State<TrackingPage> {
     await _run();
   }
 
-  /// สแกนบาร์โค้ดบนใบพัสดุแล้วค้นหาต่อให้เลย
-  ///
-  /// ไม่ต้องกดปุ่มค้นหาซ้ำ เพราะคนที่ยกกล้องขึ้นสแกนย่อมอยากเห็นสถานะทันที
   Future<void> _scan() async {
     final code = await openBarcodeScannerPage(
       context,
@@ -148,9 +144,6 @@ class _TrackingPageState extends State<TrackingPage> {
     );
     if (code == null || !mounted) return;
 
-    // การเซ็ต controller.text ตรง ๆ ไม่ผ่าน inputFormatters ของ TextField
-    // จึงยัดผ่าน formatter เองเพื่อให้ค่าที่สแกนมาถูกจัดรูปแบบเดียวกับที่พิมพ์
-    // (บาร์โค้ดบางใบอ่านมาได้ตัวพิมพ์เล็กหรือมีช่องว่างคั่น)
     _codeController.value = trackingCodeFormatter.formatEditUpdate(
       TextEditingValue.empty,
       TextEditingValue(
@@ -162,7 +155,6 @@ class _TrackingPageState extends State<TrackingPage> {
     await _search();
   }
 
-  /// เปิดรายการเลขที่เช็ควันนี้ เลือกเลขไหนก็เช็คเลขนั้นต่อเลย
   Future<void> _openHistory() async {
     _dismissKeyboard();
     final code = await showModalBottomSheet<String>(
@@ -197,8 +189,6 @@ class _TrackingPageState extends State<TrackingPage> {
       _remember(_lastCode);
     } on TrackingException catch (e) {
       if (!mounted) return;
-      // ค้นใหม่แล้วไม่เจอ ของเก่าที่ค้างไว้ใช้ไม่ได้อีก ต้องล้างทิ้ง
-      // ไม่งั้นกลับเข้าหน้ามาใหม่จะเห็นผลของเลขที่เลิกค้นไปแล้ว
       TrackingCache.I.clear();
       setState(() {
         _error = e.message;
@@ -216,11 +206,6 @@ class _TrackingPageState extends State<TrackingPage> {
     }
   }
 
-  /// ดึงข้อมูลใหม่เบื้องหลังโดยไม่รบกวนสิ่งที่ผู้ใช้กำลังอ่าน
-  ///
-  /// ไม่ขึ้นวงหมุนและไม่ล้างของเดิม ถ้าดึงไม่สำเร็จก็เงียบไว้ ปล่อยให้ดูของเก่า
-  /// ต่อได้ เพราะผู้ใช้ไม่ได้สั่งให้ดึง การเด้ง error ใส่หน้าที่มีข้อมูลอยู่แล้ว
-  /// จะเป็นการทำให้แย่ลงกว่าไม่ทำอะไร
   Future<void> _refreshQuietly() async {
     if (_lastCode.isEmpty) return;
 
@@ -234,15 +219,9 @@ class _TrackingPageState extends State<TrackingPage> {
         _state = _ViewState.loaded;
       });
     } catch (_) {
-      // เงียบไว้ตามที่อธิบายข้างบน
     }
   }
 
-  /// ดึงลงเพื่อรีเฟรช
-  ///
-  /// ต่างจาก [_refreshQuietly] ตรงที่ผู้ใช้สั่งเอง ถ้าล้มต้องบอก ไม่งั้นวงหมุน
-  /// หายไปเฉย ๆ แล้วผู้ใช้จะเข้าใจว่าได้ข้อมูลล่าสุดแล้ว แต่ยังคงของเดิมไว้บนจอ
-  /// ไม่สลับไปหน้า error เพราะของเดิมยังอ่านได้อยู่
   Future<void> _pullRefresh() async {
     if (_lastCode.isEmpty) return;
 
@@ -271,7 +250,6 @@ class _TrackingPageState extends State<TrackingPage> {
       appBar: AppBar(
         title: const Text('เช็คสถานะพัสดุ'),
         actions: [
-          // ยังไม่ได้เช็คเลขไหนวันนี้ก็ไม่มีอะไรให้ดู ซ่อนไว้ให้หัวโล่ง
           if (_history.isNotEmpty)
             IconButton(
               tooltip: 'เช็ควันนี้',
@@ -342,13 +320,10 @@ class _TrackingPageState extends State<TrackingPage> {
 
   Widget _buildResult(TrackingResult result) {
     return ListView(
-      // ผลสั้นกว่าจอก็ยังต้องดึงลงได้ ไม่งั้น RefreshIndicator ไม่ทำงาน
       physics: const AlwaysScrollableScrollPhysics(),
       padding: AppSizes.pagePadding,
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       children: [
-        // ผลที่ค้างจากรอบก่อนหน้าตาเหมือนของใหม่เอี่ยม ต้องบอกเวลาที่ดึงมา
-        // ไม่งั้นผู้ใช้ไม่มีทางรู้ว่ากำลังอ่านข้อมูลของเมื่อไร
         if (_fetchedAt != null)
           Padding(
             padding: const EdgeInsets.only(left: 4, bottom: 8),
@@ -482,13 +457,9 @@ class _SearchBar extends StatelessWidget {
   }
 }
 
-/// รายการเลขที่เช็ควันนี้ กดเลขเพื่อเช็คซ้ำ ปัดซ้ายเพื่อลบ
-///
-/// ถือสำเนารายการไว้เอง เพราะ sheet ไม่ได้ rebuild ตามหน้าหลักตอนลบ
 class _HistorySheet extends StatefulWidget {
   final List<TrackingHistoryEntry> entries;
 
-  /// เลขที่แสดงผลอยู่บนหน้าตอนนี้ ใช้ติดป้าย "กำลังดู"
   final String currentCode;
   final ValueChanged<String> onDelete;
 
@@ -508,7 +479,6 @@ class _HistorySheetState extends State<_HistorySheet> {
   void _delete(String code) {
     widget.onDelete(code);
     setState(() => _entries.removeWhere((e) => e.code == code));
-    // ลบจนหมดแล้วไม่มีอะไรให้ดู ปิดไปเลยดีกว่าค้างหน้าว่าง
     if (_entries.isEmpty) Navigator.pop(context);
   }
 
@@ -602,7 +572,6 @@ class _HistorySheetState extends State<_HistorySheet> {
               itemBuilder: (context, i) {
                 final entry = _entries[i];
                 return _AppearIn(
-                  // ไล่กันเข้ามาทีละใบ ไม่โผล่พร้อมกันทั้งก้อน
                   delay: Duration(milliseconds: 40 * i.clamp(0, 8)),
                   child: _HistoryTile(
                     entry: entry,
@@ -621,7 +590,6 @@ class _HistorySheetState extends State<_HistorySheet> {
   }
 }
 
-/// เลข 1 ใบในรายการ "เช็ควันนี้"
 class _HistoryTile extends StatelessWidget {
   final TrackingHistoryEntry entry;
   final bool isLatest;

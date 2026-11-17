@@ -138,103 +138,111 @@ class _CloseDialogState extends State<_CloseDialog> {
 
       // เลือกแล้วป๊อปอัปจะสูงขึ้นเพราะมีดาวกับช่องพิมพ์โผล่มา ให้ค่อย ๆ ยืด
       // ไม่ใช่กระตุกเปลี่ยนขนาดทันทีจนคนอ่านหลุดว่ากำลังดูอะไรอยู่
-      content: AnimatedSize(
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOut,
-        alignment: Alignment.topCenter,
-        child: SizedBox(
-          width: 300,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _choice(
-                scheme,
-                status: kItCaseClosedStatusId,
-                icon: Icons.task_alt,
-                color: AppColors.success,
-                title: 'ตรวจสอบเรียบร้อยแล้ว',
-                subtitle: 'ปิดเคสนี้ เรื่องจบ',
-              ),
-              const SizedBox(height: 8),
-              _choice(
-                scheme,
-                status: kItCaseRedoStatusId,
-                icon: Icons.replay,
-                color: AppColors.pending,
-                title: 'แจ้งดำเนินการอีกครั้ง',
-                subtitle: 'ยังไม่เรียบร้อย ส่งกลับให้ทีม IT',
-              ),
-
-              // ดาวเป็นของการปิดงาน งานที่ตีกลับยังไม่จบ ให้คะแนนตอนนี้ก็ยัง
-              // ไม่รู้ว่าสุดท้ายจะออกมาดีหรือไม่ดี
-              if (_isClosing) ...[
-                const SizedBox(height: 14),
-                Text(
-                  'ให้คะแนนการบริการ',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: scheme.onSurfaceVariant,
-                  ),
+      //
+      // เลื่อนได้ เพราะพอคีย์บอร์ดขึ้น พื้นที่เหลือไม่พอวางเนื้อหาทั้งหมด
+      // AnimatedSize ต้องอยู่ข้างในตัวเลื่อน ถ้าอยู่นอกมันจะไล่ตามขนาดที่
+      // เปลี่ยนตามคีย์บอร์ดทุกเฟรม ทำให้ป๊อปอัปขยับช้ากว่าคีย์บอร์ดจนกระตุก
+      content: SingleChildScrollView(
+        child: AnimatedSize(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          alignment: Alignment.topCenter,
+          child: SizedBox(
+            width: 300,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _choice(
+                  scheme,
+                  status: kItCaseClosedStatusId,
+                  icon: Icons.task_alt,
+                  color: AppColors.success,
+                  title: 'ตรวจสอบเรียบร้อยแล้ว',
+                  subtitle: 'ปิดเคสนี้ เรื่องจบ',
                 ),
-                const SizedBox(height: 2),
-                _stars(scheme),
-              ],
-
-              if (_status != null) ...[
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _note,
-                  maxLength: 200,
-                  maxLines: 2,
-                  onChanged: (_) => setState(() {}),
-                  style: const TextStyle(fontSize: 13.5),
-                  decoration: InputDecoration(
-                    isDense: true,
-                    counterText: '',
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(AppSizes.innerRadius),
-                    ),
-                    hintText: _isRedo
-                        ? 'ยังติดตรงไหน บอกทีม IT ด้วย'
-                        : 'ความเห็นเพิ่มเติม (ไม่บังคับ)',
-                    hintStyle: const TextStyle(fontSize: 13),
-                  ),
+                const SizedBox(height: 8),
+                _choice(
+                  scheme,
+                  status: kItCaseRedoStatusId,
+                  icon: Icons.replay,
+                  color: AppColors.pending,
+                  title: 'แจ้งดำเนินการอีกครั้ง',
+                  subtitle: 'ยังไม่เรียบร้อย ส่งกลับให้ทีม IT',
                 ),
-              ],
 
-              // บอกสิ่งที่ยังขาดตรงนี้แทนที่จะไปเปลี่ยนข้อความบนปุ่ม
-              // ปุ่มที่เปลี่ยนคำไปมาจะกว้างไม่เท่ากันในแต่ละจังหวะ ดูเหมือน
-              // ป๊อปอัปขยับเองตลอดเวลา
-              if (_hint != null) ...[
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Icon(
-                      Icons.info_outline,
-                      size: 14,
+                // ดาวเป็นของการปิดงาน งานที่ตีกลับยังไม่จบ ให้คะแนนตอนนี้ก็ยัง
+                // ไม่รู้ว่าสุดท้ายจะออกมาดีหรือไม่ดี
+                if (_isClosing) ...[
+                  const SizedBox(height: 14),
+                  Text(
+                    'ให้คะแนนการบริการ',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 12,
                       color: scheme.onSurfaceVariant,
                     ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        _hint!,
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          height: 1.3,
-                          color: scheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(height: 2),
+                  _stars(scheme),
+                ],
+
+                if (_status != null) ...[
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _note,
+                    maxLength: 200,
+                    maxLines: 2,
+                    onChanged: (_) => setState(() {}),
+                    style: const TextStyle(fontSize: 13.5),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      counterText: '',
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(
+                          AppSizes.innerRadius,
                         ),
                       ),
+                      hintText: _isRedo
+                          ? 'ยังติดตรงไหน บอกทีม IT ด้วย'
+                          : 'ความเห็นเพิ่มเติม (ไม่บังคับ)',
+                      hintStyle: const TextStyle(fontSize: 13),
                     ),
-                  ],
-                ),
+                  ),
+                ],
+
+                // บอกสิ่งที่ยังขาดตรงนี้แทนที่จะไปเปลี่ยนข้อความบนปุ่ม
+                // ปุ่มที่เปลี่ยนคำไปมาจะกว้างไม่เท่ากันในแต่ละจังหวะ ดูเหมือน
+                // ป๊อปอัปขยับเองตลอดเวลา
+                if (_hint != null) ...[
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline,
+                        size: 14,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          _hint!,
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            height: 1.3,
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
@@ -297,7 +305,10 @@ class _CloseDialogState extends State<_CloseDialog> {
               child: Icon(
                 i <= _rating ? Icons.star_rounded : Icons.star_outline_rounded,
                 size: 30,
-                color: i <= _rating ? AppColors.pending : scheme.outlineVariant,
+                // ดาวที่ยังไม่เลือกใช้สีส้มจางแทนสีเส้นขอบ ซึ่งกลืนไปกับพื้นป๊อปอัป
+                color: i <= _rating
+                    ? AppColors.pending
+                    : AppColors.pending.withValues(alpha: 0.55),
               ),
             ),
           ),
